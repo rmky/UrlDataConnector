@@ -85,7 +85,7 @@ class HTML extends AbstractDataConnectorWithoutTransactions {
 		if (strpos($uri, $this->get_config_array()['URL']) === 0){
 			$uri = substr($uri, strlen($this->get_config_array()['URL']));
 		}
-		var_dump($this->cli);
+		
 		if (!$this->last_request = $this->client->get($uri)) {
 			throw new DataSourceError("Execution of a query to the database failed - " . $this->get_last_error(), $uri);
 		}
