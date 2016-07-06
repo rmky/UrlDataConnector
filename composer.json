@@ -1,6 +1,6 @@
 {
 	"name" : "ExFace/HttpDataConnector",
-	"description" : "Automated testing app for ExFace - the business web application plattform",
+	"description" : "Connector for web-based data sources like web services and web pages for the ExFace plattform",
 	"type" : "library",
 	"license" : "GPL-3.0+",
 	"authors" : [{
