@@ -1,0 +1,19 @@
+{
+	"name" : "ExFace/HttpDataConnector",
+	"description" : "Automated testing app for ExFace - the business web application plattform",
+	"type" : "library",
+	"license" : "GPL-3.0+",
+	"authors" : [{
+			"name" : "Andrej Kabachnik",
+			"email" : "kabachnik@gmail.com",
+			"role" : "Creator"
+		}
+	],
+	"support" : {
+		"issues" : "https://github.com/exface/HttpDataConnector/issues"
+	},
+	"require" : {
+		"exface/core" : ">=1.0",
+		"guzzle/guzzle" : ">6.2"
+	}
+}
