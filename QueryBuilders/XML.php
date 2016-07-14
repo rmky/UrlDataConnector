@@ -5,7 +5,7 @@ use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\AbstractDataConnector;
 /**
  * TODO: This is a very early beta. Just a demo!
- * @author aka
+ * @author Andrej Kabachnik
  *
  */
 class XML extends AbstractRest {

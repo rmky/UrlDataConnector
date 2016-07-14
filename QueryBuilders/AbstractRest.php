@@ -21,7 +21,7 @@ use exface\Core\CommonLogic\AbstractDataConnector;
  * - request_limit_parameter - name of the URL parameter holding the maximum number of returned items
  * 
  * @see REST_XML for XML-based APIs
- * @author aka
+ * @author Andrej Kabachnik
  *
  */
 abstract class AbstractRest extends AbstractQueryBuilder {
@@ -71,7 +71,7 @@ abstract class AbstractRest extends AbstractQueryBuilder {
 		}
 		
 		// Check if the data source contains placeholders to be filled from filter
-		foreach ($this->exface()->utils()->find_placeholders_in_string($endpoint) as $ph){
+		foreach ($this->get_workbench()->utils()->find_placeholders_in_string($endpoint) as $ph){
 			if ($ph_filter = $this->get_filter($ph)){
 				if (!is_null($ph_filter->get_compare_value())){
 					if ($this->get_request_uid_filter() == $ph_filter && $ph_filter->get_comparator() == EXF_COMPARATOR_IN){

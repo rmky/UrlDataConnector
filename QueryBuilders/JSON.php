@@ -27,7 +27,7 @@ use exface\HttpDataConnector\DataConnectors\REST;
  * - update_request_data_path - this is where the data is put in the body of update requests (if not specified the attributes are just put in the root object)
  * 
  * @see REST_XML for XML-based APIs
- * @author aka
+ * @author Andrej Kabachnik
  *
  */
 class JSON extends AbstractRest {

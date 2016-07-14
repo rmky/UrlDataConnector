@@ -40,7 +40,7 @@ class HTML extends AbstractDataConnectorWithoutTransactions {
 		// Cookies
 		if ($use_cookies){
 			$cookieFile = str_replace(array(':', '/', '.') , '', $url) . '.cookie';
-			$cookieDir = $this->exface()->context()->get_scope_user()->get_user_data_folder_absolute_path() . DIRECTORY_SEPARATOR . 'cookies';
+			$cookieDir = $this->get_workbench()->context()->get_scope_user()->get_user_data_folder_absolute_path() . DIRECTORY_SEPARATOR . 'cookies';
 			if (!file_exists($cookieDir)){
 				mkdir($cookieDir);
 			}

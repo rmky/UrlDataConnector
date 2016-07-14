@@ -17,7 +17,7 @@ use exface\Core\CommonLogic\AbstractDataConnector;
  * - request_limit_parameter - name of the URL parameter holding the maximum number of returned items
  * 
  * @see REST_XML for XML-based APIs
- * @author aka
+ * @author Andrej Kabachnik
  *
  */
 class HTML extends AbstractRest {
