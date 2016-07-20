@@ -1,9 +1,9 @@
-<?php namespace exface\HttpDataConnector\DataConnectors;
+<?php namespace exface\UrlDataConnector\DataConnectors;
 
 use exface\Core\CommonLogic\AbstractDataConnectorWithoutTransactions;
 use exface\Core\Exceptions\DataConnectionError;
 
-class FileConnector extends AbstractDataConnectorWithoutTransactions {
+class FileUriConnector extends AbstractDataConnectorWithoutTransactions {
 	
 	protected $last_error = null;
 	

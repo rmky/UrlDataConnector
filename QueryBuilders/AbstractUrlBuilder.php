@@ -1,4 +1,4 @@
-<?php namespace exface\HttpDataConnector\QueryBuilders;
+<?php namespace exface\UrlDataConnector\QueryBuilders;
 
 use exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
@@ -24,7 +24,7 @@ use exface\Core\CommonLogic\AbstractDataConnector;
  * @author Andrej Kabachnik
  *
  */
-abstract class AbstractRest extends AbstractQueryBuilder {
+abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	private $result_rows=array();
 	private $result_totals=array();
 	private $result_total_rows=0;

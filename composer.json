@@ -1,5 +1,5 @@
 {
-	"name" : "ExFace/UriDataConnector",
+	"name" : "ExFace/UrlDataConnector",
 	"description" : "Connector for web-based data sources like web services and web pages for the ExFace plattform",
 	"type" : "library",
 	"license" : "GPL-3.0+",
@@ -10,7 +10,7 @@
 		}
 	],
 	"support" : {
-		"issues" : "https://github.com/exface/HttpDataConnector/issues"
+		"issues" : "https://github.com/exface/UrlDataConnector/issues"
 	},
 	"require" : {
 		"exface/core" : "~0.1",

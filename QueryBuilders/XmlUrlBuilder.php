@@ -1,4 +1,4 @@
-<?php namespace exface\HttpDataConnector\QueryBuilders;
+<?php namespace exface\UrlDataConnector\QueryBuilders;
 
 use exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder;
 use exface\Core\Exceptions\QueryBuilderException;
@@ -8,7 +8,7 @@ use exface\Core\CommonLogic\AbstractDataConnector;
  * @author Andrej Kabachnik
  *
  */
-class XML extends AbstractRest {
+class XmlUrlBuilder extends AbstractUrlBuilder {
 	
 	function create(AbstractDataConnector $data_connection = null){
 	

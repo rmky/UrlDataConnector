@@ -1,8 +1,8 @@
-<?php namespace exface\HttpDataConnector\QueryBuilders;
+<?php namespace exface\UrlDataConnector\QueryBuilders;
 
 use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\AbstractDataConnector;
-use exface\HttpDataConnector\DataConnectors\REST;
+use exface\UrlDataConnector\DataConnectors\REST;
 /**
  * This is a query builder for JSON-based REST APIs. It creates a sequence of URL parameters for a query and parses the JSON result.
  * 
@@ -30,7 +30,7 @@ use exface\HttpDataConnector\DataConnectors\REST;
  * @author Andrej Kabachnik
  *
  */
-class JSON extends AbstractRest {
+class JsonUrlBuilder extends AbstractUrlBuilder {
 	
 	/**
 	 * {@inheritDoc}
@@ -77,7 +77,7 @@ class JSON extends AbstractRest {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see \exface\HttpDataConnector\QueryBuilders\AbstractRest::find_row_counter_in_response()
+	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::find_row_counter_in_response()
 	 */
 	protected function find_row_counter_in_response($data){
 		return $data[$this->get_main_object()->get_data_address_property('response_total_count_path')];
@@ -85,7 +85,7 @@ class JSON extends AbstractRest {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see \exface\HttpDataConnector\QueryBuilders\AbstractRest::parse_response_data()
+	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::parse_response_data()
 	 */
 	protected function parse_response_data($rows){
 		$result_rows = array();
@@ -129,7 +129,7 @@ class JSON extends AbstractRest {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see \exface\HttpDataConnector\QueryBuilders\AbstractRest::find_data_in_response()
+	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::find_data_in_response()
 	 */
 	protected function find_data_in_response($response_array){
 		// Get the response data path from the meta model
@@ -173,7 +173,7 @@ class JSON extends AbstractRest {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see \exface\HttpDataConnector\QueryBuilders\AbstractRest::find_field_in_data()
+	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::find_field_in_data()
 	 */
 	protected function find_field_in_data($data_address, $data){
 		// TODO extract code for this function from parse_response_data()

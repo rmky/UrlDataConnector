@@ -1,4 +1,4 @@
-<?php namespace exface\HttpDataConnector\DataConnectors;
+<?php namespace exface\UrlDataConnector\DataConnectors;
 
 use exface\Core\CommonLogic\AbstractDataConnector;
 use exface\Core\Exceptions\DataSourceError;
@@ -8,7 +8,7 @@ use exface\Core\CommonLogic\AbstractDataConnectorWithoutTransactions;
  *
  */
 
-class HTML extends AbstractDataConnectorWithoutTransactions {
+class WebsiteConnector extends AbstractDataConnectorWithoutTransactions {
 	
 	protected $client;
 	protected $last_request = null;

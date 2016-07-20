@@ -1,7 +1,6 @@
-<?php namespace exface\HttpDataConnector\QueryBuilders;
+<?php namespace exface\UrlDataConnector\QueryBuilders;
 
 use Symfony\Component\DomCrawler\Crawler;
-use exface\Core\CommonLogic\AbstractDataConnector;
 /**
  * This is a query builder for JSON-based REST APIs. It creates a sequence of URL parameters for a query and parses the JSON result.
  * 
@@ -20,11 +19,11 @@ use exface\Core\CommonLogic\AbstractDataConnector;
  * @author Andrej Kabachnik
  *
  */
-class HTML extends AbstractRest {
+class HtmlUrlBuilder extends AbstractUrlBuilder {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see \exface\HttpDataConnector\QueryBuilders\AbstractRest::parse_response_data()
+	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::parse_response_data()
 	 */
 	protected function parse_response_data($data){
 		$crawler = new Crawler($data[0]['body']);
@@ -88,7 +87,7 @@ class HTML extends AbstractRest {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see \exface\HttpDataConnector\QueryBuilders\AbstractRest::find_field_in_data()
+	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::find_field_in_data()
 	 */
 	protected function find_field_in_data($data_address, $data){
 		// TODO extract code for this function from parse_response_data()
