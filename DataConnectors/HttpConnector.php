@@ -67,7 +67,7 @@ class HttpConnector extends AbstractDataConnectorWithoutTransactions {
 	 * {@inheritDoc}
 	 * @see \exface\Core\CommonLogic\AbstractDataConnector::perform_query()
 	 */
-	protected function perform_query($uri, $request_type = 'GET', $body = null, $body_format = null) {
+	protected function perform_query($uri, $options = null) {
 		if (!$uri){
 			return array();
 		}
@@ -75,6 +75,10 @@ class HttpConnector extends AbstractDataConnectorWithoutTransactions {
 		if (!$this->client) {
 			$this->connect();
 		}
+		
+		$request_type = $options['request_type']; 
+		$body = $options['body']; 
+		$body_format = $options['body_format'];
 		
 		switch ($request_type){
 			case $this::POST:

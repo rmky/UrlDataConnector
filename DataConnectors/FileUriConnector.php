@@ -31,7 +31,7 @@ class FileUriConnector extends AbstractDataConnectorWithoutTransactions {
 	 * {@inheritDoc}
 	 * @see \exface\Core\CommonLogic\AbstractDataConnector::perform_query()
 	 */
-	protected function perform_query($file_path) {
+	protected function perform_query($file_path, $options = null) {
 		if (!$file_path){
 			return array();
 		}

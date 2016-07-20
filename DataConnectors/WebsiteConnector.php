@@ -70,7 +70,7 @@ class WebsiteConnector extends AbstractDataConnectorWithoutTransactions {
 	 * {@inheritDoc}
 	 * @see \exface\Core\CommonLogic\AbstractDataConnector::perform_query()
 	 */
-	protected function perform_query($uri) {
+	protected function perform_query($uri, $options = null) {
 		
 		if (!$uri){
 			return array();

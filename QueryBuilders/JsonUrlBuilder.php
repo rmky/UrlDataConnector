@@ -3,6 +3,7 @@
 use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\AbstractDataConnector;
 use exface\UrlDataConnector\DataConnectors\REST;
+use exface\UrlDataConnector\DataConnectors\HttpConnector;
 /**
  * This is a query builder for JSON-based REST APIs. It creates a sequence of URL parameters for a query and parses the JSON result.
  * 
@@ -57,7 +58,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 			}
 		}
 		
-		$success_counter = 0;
+		$insert_ids = array();
 		foreach ($json_objects as $obj){
 			$json = new \stdClass();
 			if ($data_path = $this->get_main_object()->get_data_address_property('create_request_data_path')){
@@ -70,9 +71,15 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 			} else {
 				$json = $obj;
 			}
-			$success_counter += $data_connection->query($uri, REST::POST, $json, REST::JSON);
+			
+			$result = $data_connection->query($uri, array('request_type' => HttpConnector::POST, 'body' => $json, 'body_format' => HttpConnector::JSON));
+			if (is_array($result) || is_object($result)){
+				$result_data = (array) $this->find_data_in_response($result);
+			}
+			$insert_ids[] = $result_data[$this->get_main_object()->get_uid_attribute()->get_data_address()];
 		}
-		return $success_counter;
+		
+		return $insert_ids;
 	}
 	
 	/**
