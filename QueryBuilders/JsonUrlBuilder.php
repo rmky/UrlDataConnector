@@ -2,7 +2,6 @@
 
 use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\AbstractDataConnector;
-use exface\UrlDataConnector\DataConnectors\REST;
 use exface\UrlDataConnector\DataConnectors\HttpConnector;
 /**
  * This is a query builder for JSON-based REST APIs. It creates a sequence of URL parameters for a query and parses the JSON result.
