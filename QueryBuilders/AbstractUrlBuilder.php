@@ -4,6 +4,7 @@ use exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartSorter;
 use exface\Core\CommonLogic\AbstractDataConnector;
+use exface\Core\Exceptions\QueryBuilderException;
 /**
  * This is an abstract query builder for REST APIs. It creates a sequence of URL parameters for a query. Parsing the results is done by
  * specific implementation (e.g. JSON vs. XML)
@@ -208,6 +209,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	}
 	
 	protected function apply_filters_to_result_rows($result_rows){
+		if (!is_array($result_rows)){
+			return $result_rows;
+		}
 		// Apply filters
 		foreach ($this->get_filters()->get_filters() as $qpart){
 			if (!$qpart->get_data_address_property('filter_localy')) continue;
@@ -215,8 +219,63 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			foreach ($result_rows as $rownr => $row){
 				// TODO make filtering depend on data types and comparators. A central filtering method for
 				// tabular data sets is probably a good idea.
-				if (stripos($row[$qpart->get_alias()], $qpart->get_compare_value()) === false) {
-					unset($result_rows[$rownr]);
+				switch ($qpart->get_comparator()){
+					case EXF_COMPARATOR_IN:
+						$match = false;
+						$row_val = $row[$qpart->get_alias()];
+						foreach (explode(',', $qpart->get_compare_value()) as $val){
+							$val = trim($val);
+							if (strcasecmp($row_val, $val) === 0) {
+								$match = true;
+								break;
+							}
+						}
+						if (!$match){
+							unset($result_rows[$rownr]);
+						}
+						break;
+					case EXF_COMPARATOR_EQUALS:
+						if (strcasecmp($row[$qpart->get_alias()], $qpart->get_compare_value()) !== 0) {
+							unset($result_rows[$rownr]);
+						}
+						break;
+					case EXF_COMPARATOR_EQUALS_NOT:
+						if (strcasecmp($row[$qpart->get_alias()], $qpart->get_compare_value()) === 0) {
+							unset($result_rows[$rownr]);
+						}
+						break;
+					case EXF_COMPARATOR_IS:
+						if (stripos($row[$qpart->get_alias()], $qpart->get_compare_value()) === false) {
+							unset($result_rows[$rownr]);
+						}
+						break;
+					case EXF_COMPARATOR_IS_NOT:
+						if (stripos($row[$qpart->get_alias()], $qpart->get_compare_value()) !== false) {
+							unset($result_rows[$rownr]);
+						}
+						break;
+					case EXF_COMPARATOR_GREATER_THAN:
+						if ($row[$qpart->get_alias()] < $qpart->get_compare_value()) {
+							unset($result_rows[$rownr]);
+						}
+						break;
+					case EXF_COMPARATOR_GREATER_THAN_OR_EQUALS:
+							if ($row[$qpart->get_alias()] <= $qpart->get_compare_value()) {
+								unset($result_rows[$rownr]);
+							}
+						break;
+					case EXF_COMPARATOR_LESS_THAN:
+						if ($row[$qpart->get_alias()] > $qpart->get_compare_value()) {
+							unset($result_rows[$rownr]);
+						}
+						break;
+					case EXF_COMPARATOR_LESS_THAN_OR_EQUALS:
+						if ($row[$qpart->get_alias()] >= $qpart->get_compare_value()) {
+							unset($result_rows[$rownr]);
+						}
+						break;
+					default: 
+						throw new QueryBuilderException('The filter comparator "' . $qpart->get_comparator() . '" is not supported by the QueryBuilder "' . get_class($this) . '"!');
 				}
 			}
 		}
