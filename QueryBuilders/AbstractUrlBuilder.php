@@ -158,8 +158,10 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 		$filter = '';
 		// Determine filter name (URL parameter name)
 		if ($param = $qpart->get_data_address_property('filter_query_parameter')){
+			// Use the filter_query_parameter if explicitly defined
 			$filter = $param;
-		} else {
+		} elseif (stripos($qpart->get_data_address(), '->') === 0) {
+			// Use the data_address if it is not a property itself (starts with ->)
 			$filter = $qpart->get_data_address();
 		}
 		

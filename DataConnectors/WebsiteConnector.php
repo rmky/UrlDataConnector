@@ -83,7 +83,9 @@ class WebsiteConnector extends AbstractDataConnectorWithoutTransactions {
 		// Strip off the base url from the given uri if it is there. This way, it is possible to use a placeholder with a
 		// complete URL as the objects data address and it will still get processed as a relative path to the base URL
 		if (strpos($uri, $this->get_config_array()['URL']) === 0){
-			$uri = substr($uri, strlen($this->get_config_array()['URL']));
+			// It seems, that this is not neccesarry anymore with recent versions of guzzle.
+			// TODO remove if never needed
+			// $uri = substr($uri, strlen($this->get_config_array()['URL']));
 		}
 		
 		if (!$this->last_request = $this->client->get($uri)) {
