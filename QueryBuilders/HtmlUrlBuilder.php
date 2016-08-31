@@ -1,6 +1,7 @@
 <?php namespace exface\UrlDataConnector\QueryBuilders;
 
 use Symfony\Component\DomCrawler\Crawler;
+use exface\Core\Exceptions\DataTypeValidationError;
 /**
  * This is a query builder for JSON-based REST APIs. It creates a sequence of URL parameters for a query and parses the JSON result.
  * 
@@ -41,6 +42,9 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 			} else {
 				$get_html = false;
 			}
+			
+			// Determine the data type for sanitizing values
+			$data_type = $qpart->get_attribute()->get_data_type();
 		
 			// See if the data is the text in the node, or a specific attribute
 			$split_pos = strpos($qpart->get_data_address(), '->');
@@ -70,6 +74,14 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 						} else {
 							$value = $node->textContent;
 						}
+						
+						// Sanitize value in compilance with the expected data type in the meta model
+						try {
+							$value = $data_type->parse($value);
+						} catch (DataTypeValidationError $e){
+							// ignore errors for now
+						}
+						
 						$result_rows[$rownr][$qpart->get_alias()] = $value;
 					}
 				}
