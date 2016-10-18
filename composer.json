@@ -1,22 +1,31 @@
 {
-	"name" : "ExFace/UrlDataConnector",
-	"description" : "Connector for web-based data sources like web services and web pages for the ExFace plattform",
-	"type" : "library",
-	"license" : "GPL-3.0+",
-	"authors" : [{
-			"name" : "Andrej Kabachnik",
-			"email" : "kabachnik@gmail.com",
-			"role" : "Creator"
-		}
-	],
-	"support" : {
-		"issues" : "https://github.com/exface/UrlDataConnector/issues"
-	},
-	"require" : {
-		"exface/core" : "~0.1",
-		"guzzlehttp/guzzle" : "5.*",
-		"symfony/Finder" : "~3.1.2",
-		"symfony/Css-Selector" : "~3.1.2",
-		"symfony/Dom-Crawler" : "~3.1.2"
-	}
+    "name": "ExFace/UrlDataConnector",
+    "description": "Connector for web-based data sources like web services and web pages for the ExFace plattform",
+    "type": "library",
+    "license": "GPL-3.0+",
+    "authors": [
+        {
+            "name": "Andrej Kabachnik",
+            "email": "kabachnik@gmail.com",
+            "role": "Creator"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/exface/UrlDataConnector/issues"
+    },
+    "require": {
+        "exface/core": "~0.1",
+        "guzzlehttp/guzzle": "5.*",
+        "symfony/Finder": "~3.1.2",
+        "symfony/Css-Selector": "~3.1.2",
+        "symfony/Dom-Crawler": "~3.1.2"
+    },
+    "extra": {
+        "app": {
+            "app_uid": "0x11e6951dda3ba520b48b847beb4a5184",
+            "app_alias": "exface.UrlDataConnector",
+            "model_md5": "c1ee603364c82936d029a7a6be259f5d",
+            "model_timestamp": "2016-10-18 10:33:33"
+        }
+    }
 }
