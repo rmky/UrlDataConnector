@@ -81,14 +81,7 @@
     "totals_rows": [],
     "filters": {
         "operator": "AND",
-        "conditions": [
-            {
-                "expression": "UID",
-                "comparator": "=",
-                "value": "0x11e6951dda3ba520b48b847beb4a5184",
-                "object_alias": "exface.Core.APP"
-            }
-        ],
+        "conditions": [],
         "nested_groups": []
     },
     "rows_on_page": null,
