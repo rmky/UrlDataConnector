@@ -82,7 +82,6 @@ class HttpConnector extends AbstractDataConnectorWithoutTransactions {
 			case $this::POST:
 				try {
 					$this->last_request = $this->client->post($uri, array(($body_format ? strtolower($body_format) : 'body') => $body));
-					var_dump($this->last_request);
 				} catch (\GuzzleHttp\Exception\ServerException $e){
 					$this->last_error = $e->getMessage();
 					if (!$this->get_config_array()['ignore_errors_on_post']){
