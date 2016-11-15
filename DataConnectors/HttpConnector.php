@@ -44,7 +44,6 @@ class HttpConnector extends AbstractDataConnectorWithoutTransactions {
 		if ($user){
 			$defaults['auth'] = array($user, $pwd);
 		}
-		
 		$this->client = new \GuzzleHttp\Client(['base_url' => $url, 'defaults' => $defaults]);
 		
 		if (!$this->client) {
@@ -79,11 +78,11 @@ class HttpConnector extends AbstractDataConnectorWithoutTransactions {
 		$request_type = $options['request_type']; 
 		$body = $options['body']; 
 		$body_format = $options['body_format'];
-		
 		switch ($request_type){
 			case $this::POST:
 				try {
 					$this->last_request = $this->client->post($uri, array(($body_format ? strtolower($body_format) : 'body') => $body));
+					var_dump($this->last_request);
 				} catch (\GuzzleHttp\Exception\ServerException $e){
 					$this->last_error = $e->getMessage();
 					if (!$this->get_config_array()['ignore_errors_on_post']){
@@ -164,15 +163,15 @@ class HttpConnector extends AbstractDataConnectorWithoutTransactions {
 			$rs_string = trim($rs->getBody());
 			if (strpos($rs_string, '<') === 0){
 				$this->set_response_type($this::XML);
-			} else {
+			} elseif ((strpos($rs_string, '{') === 0) || (strpos($rs_string, '{') === 0)) {
 				$this->set_response_type($this::JSON);
-			}
+			} 
 		}
 		
-		if ($this->get_response_type() == $this::XML){
-			return $rs->xml();
-		} else {
-			return $rs->json();
+		switch ($this->get_response_type()){
+			case $this::XML: return $rs->xml(); break;
+			case $this::JSON: return $rs->json(); break;
+			default: return array('body' => (string) $rs->getBody());				
 		}
 	}  
 	
