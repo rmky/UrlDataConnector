@@ -54,7 +54,7 @@
             "expression": "CONNECTOR",
             "name": "CONNECTOR",
             "hidden": false,
-            "data_type": "String",
+            "data_type": "Relation",
             "attribute_alias": "CONNECTOR"
         },
         {
@@ -95,7 +95,7 @@
             "UID": "0x11e64d20396ae3349409c0f8dae36b4f",
             "APP": "0x11e6951dda3ba520b48b847beb4a5184",
             "LABEL": "Local filesystem",
-            "CONNECTOR": "exface\\UrlDataConnector\\DataConnectors\\FileUriConnector.php",
+            "CONNECTOR": "exface\/UrlDataConnector\/DataConnectors\/FileUriConnector.php",
             "CONFIG": "{}",
             "READONLY": "0",
             "ALIAS": "LOCAL_FS",
