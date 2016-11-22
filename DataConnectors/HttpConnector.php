@@ -162,7 +162,7 @@ class HttpConnector extends AbstractDataConnectorWithoutTransactions {
 			$rs_string = trim($rs->getBody());
 			if (strpos($rs_string, '<') === 0){
 				$this->set_response_type($this::XML);
-			} elseif ((strpos($rs_string, '{') === 0) || (strpos($rs_string, '{') === 0)) {
+			} elseif ((strpos($rs_string, '[') === 0) || (strpos($rs_string, '{') === 0)) {
 				$this->set_response_type($this::JSON);
 			} 
 		}
