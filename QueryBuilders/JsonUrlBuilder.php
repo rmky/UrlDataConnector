@@ -122,7 +122,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 								
 							// Check if the value is still an array and an aggregator must be applied
 							if (is_array($val)){
-								$val = $this->apply_aggretator($val, $qpart->get_aggregate_function());
+								$val = $this->aggregate_values($val, $qpart->get_aggregate_function());
 							}
 							$result_rows[$nr][$qpart->get_alias()] = $val;
 						}
