@@ -3,6 +3,7 @@
 use exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder;
 use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\AbstractDataConnector;
+use exface\Core\CommonLogic\DataSheets\DataColumn;
 /**
  * TODO: This is a very early beta. Just a demo!
  * @author Andrej Kabachnik
@@ -64,7 +65,7 @@ class XmlUrlBuilder extends AbstractUrlBuilder {
 							
 							// Check if the value is still an array and an aggregator must be applied
 							if (is_array($val)){
-								$val = $this->aggregate_values($val, $qpart->get_aggregate_function());
+								$val = DataColumn::aggregate_values($val, $qpart->get_aggregate_function());
 							}
 							$result_rows[$nr][$qpart->get_alias()] = $val;
 						}

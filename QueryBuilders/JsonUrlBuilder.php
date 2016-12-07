@@ -3,6 +3,7 @@
 use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\AbstractDataConnector;
 use exface\UrlDataConnector\DataConnectors\HttpConnector;
+use exface\Core\CommonLogic\DataSheets\DataColumn;
 /**
  * This is a query builder for JSON-based REST APIs. It creates a sequence of URL parameters for a query and parses the JSON result.
  * 
@@ -122,7 +123,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 								
 							// Check if the value is still an array and an aggregator must be applied
 							if (is_array($val)){
-								$val = $this->aggregate_values($val, $qpart->get_aggregate_function());
+								$val = DataColumn::aggregate_values($val, $qpart->get_aggregate_function());
 							}
 							$result_rows[$nr][$qpart->get_alias()] = $val;
 						}
