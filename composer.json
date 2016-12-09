@@ -15,7 +15,7 @@
     },
     "require": {
         "exface/core": "~0.1",
-        "guzzlehttp/guzzle": "5.*",
+        "guzzlehttp/guzzle": "~6.2.2*",
         "symfony/Finder": "~3.1.2",
         "symfony/Css-Selector": "~3.1.2",
         "symfony/Dom-Crawler": "~3.1.2"
