@@ -3,11 +3,15 @@
 use exface\Core\CommonLogic\AbstractDataConnector;
 use exface\Core\Exceptions\DataSourceError;
 use exface\Core\CommonLogic\AbstractDataConnectorWithoutTransactions;
-/* Datbase API object of Microsoft SQL Server
- * Written by Andrej Kabachnik, 2015
+use GuzzleHttp\Client;
+use exface\Core\Exceptions\DataConnectionError;
+use GuzzleHttp\Exception\GuzzleException;
+
+/**
+ * 
+ * @author aka
  *
  */
-
 class HttpConnector extends AbstractDataConnectorWithoutTransactions {
 	const XML = 'XML';
 	const JSON = 'JSON';
@@ -16,35 +20,48 @@ class HttpConnector extends AbstractDataConnectorWithoutTransactions {
 	const GET = 'GET';
 	const DELETE = 'DELETE';
 	
+	/** @var Client */
 	protected $client;
 	protected $last_request = null;
-	
-	private $response_type = null;
-	private $last_error = null;
 	
 	/**
 	 * 
 	 * {@inheritDoc}
 	 * @see \exface\Core\CommonLogic\AbstractDataConnector::perform_connect()
 	 */
-	protected function perform_connect($url = '', $user = '', $pwd = '', $proxy = null, $charset = null) {
+	protected function perform_connect($url = '', $user = '', $pwd = '', $proxy = null, $charset = null, $use_cookies = false) {
 		$url = $url ? $url : $this->get_config_array()['URL'];
 		$user = $user ? $user : $this->get_config_array()['user'];
 		$pwd = $pwd ? $pwd : $this->get_config_array()['password'];
 		$proxy = $proxy ? $proxy : $this->get_config_array()['proxy'];
 		$charset = $charset ? $charset : $this->get_config_array()['encoding'];
+		$use_cookies = ($use_cookies || $this->get_config_array()['use_cookies']) ? true : false;
 		
 		$defaults = array();
 		$defaults['verify'] = false;
+		$defaults['base_uri'] = $url;
 		// Proxy settings
 		if ($proxy){
 			$defaults['proxy'] = $proxy;
 		}
+		
 		// Basic authentication
 		if ($user){
 			$defaults['auth'] = array($user, $pwd);
 		}
-		$this->client = new \GuzzleHttp\Client(['base_url' => $url, 'defaults' => $defaults]);
+		
+		// Cookies
+		if ($use_cookies){
+			$cookieFile = str_replace(array(':', '/', '.') , '', $url) . '.cookie';
+			$cookieDir = $this->get_workbench()->context()->get_scope_user()->get_user_data_folder_absolute_path() . DIRECTORY_SEPARATOR . 'cookies';
+			if (!file_exists($cookieDir)){
+				mkdir($cookieDir);
+			}
+			$cookieJar = new \GuzzleHttp\Cookie\FileCookieJar($cookieDir . DIRECTORY_SEPARATOR . $cookieFile);
+			$defaults['cookies'] = $cookieJar;
+		}
+		
+		$this->client = new Client($defaults);
 		
 		if (!$this->client) {
 			throw new DataSourceError("Failed to create the database connection! " . $this->get_last_error());
@@ -66,59 +83,16 @@ class HttpConnector extends AbstractDataConnectorWithoutTransactions {
 	 * {@inheritDoc}
 	 * @see \exface\Core\CommonLogic\AbstractDataConnector::perform_query()
 	 */
-	protected function perform_query($uri, $options = null) {
-		if (!$uri){
+	protected function perform_query($query, $options = null) {
+		/* @var $query \exface\UrlDataConnector\Psr7DataQuery */
+		if (!$query->get_request()->getUri()){
 			return array();
 		}
-		
+				
 		if (!$this->client) {
 			$this->connect();
 		}
-		
-		$request_type = $options['request_type']; 
-		$body = $options['body']; 
-		$body_format = $options['body_format'];
-		switch ($request_type){
-			case $this::POST:
-				try {
-					$this->last_request = $this->client->post($uri, array(($body_format ? strtolower($body_format) : 'body') => $body));
-				} catch (\GuzzleHttp\Exception\ServerException $e){
-					$this->last_error = $e->getMessage();
-					if (!$this->get_config_array()['ignore_errors_on_post']){
-						throw new DataSourceError($e->getMessage());
-					}
-				}
-				break;
-			case $this::PUT:
-				try {
-					$this->last_request = $this->client->put($uri);
-				} catch (\GuzzleHttp\Exception\ServerException $e){
-					$this->last_error = $e->getMessage();
-					if (!$this->get_config_array()['ignore_errors_on_put']){
-						throw new DataSourceError($e->getMessage());
-					}
-				}
-				break;
-			case $this::DELETE:
-				try {
-					$this->last_request = $this->client->delete($uri);
-				} catch (\GuzzleHttp\Exception\ServerException $e){
-					$this->last_error = $e->getMessage();
-					if (!$this->get_config_array()['ignore_errors_on_delete']){
-						throw new DataSourceError($e->getMessage());
-					}
-				}
-				break;
-			default:
-				try {
-					$this->last_request = $this->client->get($uri);
-				} catch (\GuzzleHttp\Exception\ServerException $e){
-					$this->last_error = $e->getMessage();
-					throw new DataSourceError($e->getMessage());
-				}
-		}
-		
-		return $this->make_array($this->last_request);
+		return $this->client->send($query->get_request());
 	}
 
 	function get_insert_id() {

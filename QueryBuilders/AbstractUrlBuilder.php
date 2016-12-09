@@ -4,6 +4,11 @@ use exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartSorter;
 use exface\Core\CommonLogic\AbstractDataConnector;
+use exface\UrlDataConnector\Psr7DataQuery;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Response;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\RequestInterface;
 
 /**
  * This is an abstract query builder for REST APIs. It creates a sequence of URL parameters for a query. Parsing the results is done by
@@ -84,17 +89,19 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 				} else {
 					// If at least one filter does not have a value, return an empty query string, thus
 					// preventing query execution
-					return '';
+					$query_string = '';
 				}
 			} else {
 				// If at least one placeholder does not have a corresponding filter, return an empty query string, thus
 				// preventing query execution
-				return '';
+				$query_string = '';
 			}
 		}
+		if (is_null($query_string)){
+			$query_string = $endpoint . (strpos($endpoint, '?') !== false ? '&' : '?') . $params_string;
+		}
 		
-		$query = $endpoint . (strpos($endpoint, '?') !== false ? '&' : '?') . $params_string;
-		return $query;
+		return new Psr7DataQuery($this, new Request('GET', $query_string));
 	}
 	
 	protected function add_parameter_to_url($url, $parameter, $value = null){
@@ -226,7 +233,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	 * @param mixed $data
 	 * @return array
 	 */
-	protected abstract function parse_response_data($data);
+	protected abstract function parse_response_data($data, RequestInterface $request);
 	
 	/**
 	 * {@inheritDoc}
@@ -238,12 +245,13 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 		if ($this->get_main_object()->get_data_address_property('force_filtering') && count($this->get_filters()->get_filters_and_nested_groups()) < 1){
 			return false;
 		}
-		
-		if ($data = $data_connection->query($this->build_query())){
+		$query = $this->build_query();
+		$response = $data_connection->query($query);
+		if ($data = $this->get_data_from_response($response)){
 			// Find the total row counter within the response
 			$this->set_result_total_rows($this->find_row_counter_in_response($data));
 			// Find data rows within the response
-			$result_rows = $this->parse_response_data($data);
+			$result_rows = $this->parse_response_data($data, $query->get_request());
 				
 			// If this is a UID-request with multiple UIDs and there is a special data address for these requests, than the result will always
 			// be a single object, not a list. In this case, we have to read the data multiple times (for every UID in the list) and accumulate
@@ -262,9 +270,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 						continue;
 					}
 					$this->get_request_uid_filter()->set_compare_value($val);
-					if ($data = $data_connection->query($this->build_query())){
+					if ($data = $this->get_data_from_response($data_connection->query($this->build_query()))){
 						$this->set_result_total_rows($this->get_result_total_rows() + $this->find_row_counter_in_response($data));
-						$result_rows = array_merge($result_rows, $this->parse_response_data($data));
+						$result_rows = array_merge($result_rows, $this->parse_response_data($data, $query->get_request()));
 					}
 				}
 			}
@@ -280,6 +288,10 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 		}
 		$this->set_result_rows($result_rows);
 		return $this->get_result_total_rows();
+	}
+	
+	protected function get_data_from_response(ResponseInterface $response){
+		return array('body' => (string) $response->getBody());
 	}
 }
 ?>

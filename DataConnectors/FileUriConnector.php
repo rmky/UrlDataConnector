@@ -2,6 +2,7 @@
 
 use exface\Core\CommonLogic\AbstractDataConnectorWithoutTransactions;
 use exface\Core\Exceptions\DataConnectionError;
+use GuzzleHttp\Psr7\Response;
 
 class FileUriConnector extends AbstractDataConnectorWithoutTransactions {
 	
@@ -31,8 +32,9 @@ class FileUriConnector extends AbstractDataConnectorWithoutTransactions {
 	 * {@inheritDoc}
 	 * @see \exface\Core\CommonLogic\AbstractDataConnector::perform_query()
 	 */
-	protected function perform_query($file_path, $options = null) {
-		if (!$file_path){
+	protected function perform_query($query, $options = null) {		
+		/* @var $query \exface\UrlDataConnector\Psr7DataQuery */
+		if (!$file_path = $query->get_request()->getUri()->__toString()){
 			return array();
 		}
 		
@@ -52,7 +54,9 @@ class FileUriConnector extends AbstractDataConnectorWithoutTransactions {
 		
 		$file_contents = file_get_contents($file_path);
 		
-		return json_decode($file_contents, true);
+		$response = new Response();
+		$response->withBody($file_contents);
+		return $response;
 	}
 
 	function get_insert_id() {

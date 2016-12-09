@@ -4,6 +4,8 @@ use exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder;
 use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\AbstractDataConnector;
 use exface\Core\CommonLogic\DataSheets\DataColumn;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\RequestInterface;
 /**
  * TODO: This is a very early beta. Just a demo!
  * @author Andrej Kabachnik
@@ -22,7 +24,7 @@ class XmlUrlBuilder extends AbstractUrlBuilder {
 	 */
 	function read(AbstractDataConnector $data_connection = null){
 		$result_rows = array();
-		if ($data = $data_connection->query($this->build_query())){
+		if ($data = $this->get_data_from_response($data_connection->query($this->build_query()))){
 			$data_array = (array) $data;
 			
 			$total_count = $data_array;
@@ -77,11 +79,15 @@ class XmlUrlBuilder extends AbstractUrlBuilder {
 		return $this->get_result_total_rows();
 	}
 	
-	protected function parse_response_data($data){
+	protected function parse_response_data($data, RequestInterface $request){
 		return $data;
 	}
 	
 	function update(AbstractDataConnector $data_connection = null){}
 	function delete(AbstractDataConnector $data_connection = null){}
+	
+	protected function get_data_from_response(ResponseInterface $response){
+		return new \SimpleXMLElement($response->getBody()->getContents());
+	}
 }
 ?>

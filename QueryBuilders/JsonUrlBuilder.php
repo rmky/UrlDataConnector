@@ -4,6 +4,11 @@ use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\AbstractDataConnector;
 use exface\UrlDataConnector\DataConnectors\HttpConnector;
 use exface\Core\CommonLogic\DataSheets\DataColumn;
+use Psr\Http\Message\ResponseInterface;
+use exface\UrlDataConnector\Psr7DataQuery;
+use GuzzleHttp\Psr7\Request;
+use function GuzzleHttp\json_encode;
+use Psr\Http\Message\RequestInterface;
 /**
  * This is a query builder for JSON-based REST APIs. It creates a sequence of URL parameters for a query and parses the JSON result.
  * 
@@ -72,7 +77,10 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 				$json = $obj;
 			}
 			
-			$result = $data_connection->query($uri, array('request_type' => HttpConnector::POST, 'body' => $json, 'body_format' => HttpConnector::JSON));
+			$query = new Psr7DataQuery($this, new Request('POST', $uri));
+			$query->get_request()->withBody(json_encode($json));
+			
+			$result = $this->get_data_from_response($data_connection->query($query));
 			if (is_array($result) || is_object($result)){
 				$result_data = (array) $this->find_data_in_response($result);
 			}
@@ -94,7 +102,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 	 * {@inheritDoc}
 	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::parse_response_data()
 	 */
-	protected function parse_response_data($rows){
+	protected function parse_response_data($rows, RequestInterface $request){
 		$result_rows = array();
 		$rows = $this->find_data_in_response($rows);
 		if (count($rows) > 0){
@@ -188,5 +196,9 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 	
 	function update(AbstractDataConnector $data_connection = null){}
 	function delete(AbstractDataConnector $data_connection = null){}
+	
+	protected function get_data_from_response(ResponseInterface $response){
+		return json_decode($response->getBody(), true);
+	}
 }
 ?>

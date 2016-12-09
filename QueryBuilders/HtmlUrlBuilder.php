@@ -2,6 +2,9 @@
 
 use Symfony\Component\DomCrawler\Crawler;
 use exface\Core\Exceptions\DataTypeValidationError;
+use Psr\Http\Message\ResponseInterface;
+use GuzzleHttp\Psr7\Request;
+use Psr\Http\Message\RequestInterface;
 /**
  * This is a query builder for JSON-based REST APIs. It creates a sequence of URL parameters for a query and parses the JSON result.
  * 
@@ -26,8 +29,8 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 	 * {@inheritDoc}
 	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::parse_response_data()
 	 */
-	protected function parse_response_data($data){
-		$crawler = new Crawler($data[0]['body']);
+	protected function parse_response_data($data, RequestInterface $request){
+		$crawler = new Crawler($data['body']);
 		$column_attributes = array();
 		$result_rows = array();
 		
@@ -55,7 +58,7 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 				// This means, the value is the same for all rows!
 				if (!$css_selector && $get_attribute){
 					switch (strtolower($get_attribute)){
-						case 'url': $column_attributes[$qpart->get_alias()] = $data[0]['url'];
+						case 'url': $column_attributes[$qpart->get_alias()] = $request->getUri()->__toString();
 					}
 				}
 			} else {
