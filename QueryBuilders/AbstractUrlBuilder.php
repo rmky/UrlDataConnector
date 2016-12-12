@@ -213,17 +213,17 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	}
 	
 	/**
-	 * Extracts the actual data from the response. If not the entire response is usefull data, the useless parts can be ignored by
+	 * Extracts the actual data from the parsed response. If not the entire response is usefull data, the useless parts can be ignored by
 	 * setting the data source property 'response_data_path'. If this property is not set, the entire response is treated as data.
 	 * @param mixed $response
 	 * @return mixed
 	 */
-	protected function find_data_in_response($response){
-		return $response;
+	protected function find_row_data($parsed_response){
+		return $parsed_response;
 	}
 	
-	protected function find_row_counter_in_response($data){
-		return $this->find_field_in_data($this->get_main_object()->get_data_address_property('response_total_count_path'), $data);
+	protected function find_row_counter($parsed_data){
+		return $this->find_field_in_data($this->get_main_object()->get_data_address_property('response_total_count_path'), $parsed_data);
 	}
 	
 	protected abstract function find_field_in_data($data_address, $data);
@@ -233,7 +233,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	 * @param mixed $data
 	 * @return array
 	 */
-	protected abstract function parse_response_data($data, RequestInterface $request);
+	protected abstract function build_result_rows($parsed_data, Psr7DataQuery $query);
 	
 	/**
 	 * {@inheritDoc}
@@ -245,13 +245,13 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 		if ($this->get_main_object()->get_data_address_property('force_filtering') && count($this->get_filters()->get_filters_and_nested_groups()) < 1){
 			return false;
 		}
-		$query = $this->build_query();
-		$response = $data_connection->query($query);
-		if ($data = $this->get_data_from_response($response)){
+		
+		$query = $data_connection->query($this->build_query());
+		if ($data = $this->parse_response($query)){
 			// Find the total row counter within the response
-			$this->set_result_total_rows($this->find_row_counter_in_response($data));
+			$this->set_result_total_rows($this->find_row_counter($data));
 			// Find data rows within the response
-			$result_rows = $this->parse_response_data($data, $query->get_request());
+			$result_rows = $this->build_result_rows($data, $query);
 				
 			// If this is a UID-request with multiple UIDs and there is a special data address for these requests, than the result will always
 			// be a single object, not a list. In this case, we have to read the data multiple times (for every UID in the list) and accumulate
@@ -270,9 +270,10 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 						continue;
 					}
 					$this->get_request_uid_filter()->set_compare_value($val);
-					if ($data = $this->get_data_from_response($data_connection->query($this->build_query()))){
-						$this->set_result_total_rows($this->get_result_total_rows() + $this->find_row_counter_in_response($data));
-						$result_rows = array_merge($result_rows, $this->parse_response_data($data, $query->get_request()));
+					$subquery = $data_connection->query($this->build_query());
+					if ($data = $this->parse_response($subquery)){
+						$this->set_result_total_rows($this->get_result_total_rows() + $this->find_row_counter($data));
+						$result_rows = array_merge($result_rows, $this->build_result_rows($data, $subquery));
 					}
 				}
 			}
@@ -290,8 +291,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 		return $this->get_result_total_rows();
 	}
 	
-	protected function get_data_from_response(ResponseInterface $response){
-		return array('body' => (string) $response->getBody());
+	protected function parse_response(Psr7DataQuery $query){
+		return $query->get_response()->getBody()->getContents();
 	}
 }
 ?>

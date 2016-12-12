@@ -1,13 +1,11 @@
 <?php namespace exface\UrlDataConnector\DataConnectors;
 
-use exface\Core\CommonLogic\AbstractDataConnectorWithoutTransactions;
 use exface\Core\Exceptions\DataConnectionError;
 use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\Psr7;
+use exface\UrlDataConnector\Psr7DataQuery;
 
-class FileUriConnector extends AbstractDataConnectorWithoutTransactions {
-	
-	protected $last_error = null;
+class FileUriConnector extends AbstractUrlConnector {
 	
 	/**
 	 * 
@@ -21,19 +19,14 @@ class FileUriConnector extends AbstractDataConnectorWithoutTransactions {
 	/**
 	 * 
 	 * {@inheritDoc}
-	 * @see \exface\Core\CommonLogic\AbstractDataConnector::perform_disconnect()
-	 */
-	protected function perform_disconnect() {
-		return;
-	}
-	
-
-	/**
-	 * 
-	 * {@inheritDoc}
 	 * @see \exface\Core\CommonLogic\AbstractDataConnector::perform_query()
+	 * 
+	 * @param $query Psr7DataQuery
+	 * @return Psr7DataQuery
 	 */
 	protected function perform_query($query, $options = null) {		
+		if (!($query instanceof Psr7DataQuery)) throw new DataConnectionError('Connector "' . $this->get_alias_with_namespace() . '" expects a Psr7DataQuery as input, "' . get_class($query) . '" given instead!');
+		
 		/* @var $query \exface\UrlDataConnector\Psr7DataQuery */
 		if (!$file_path = $query->get_request()->getUri()->__toString()){
 			return array();
@@ -53,34 +46,8 @@ class FileUriConnector extends AbstractDataConnectorWithoutTransactions {
 			throw new DataConnectionError($error);
 		}
 		
-		$response = new Response(200, array(), Psr7\stream_for(fopen($file_path, 'r')));
-		return $response;
-	}
-
-	function get_insert_id() {
-		// TODO
-		return 0;
-	}
-
-	/**
-	 * @name:  get_affected_rows_count
-	 *
-	 */
-	function get_affected_rows_count() {
-		// TODO
-		return 0;
-	}
-
-	/**
-	 * @name:  get_last_error
-	 *
-	 */
-	function get_last_error() {
-		if ($this->last_request){
-			$error = "Status code " . $this->last_request->getStatusCode() . "\n" . $this->last_request->getBody();
-		}
-		return $error;
-	}
-	  
+		$query->set_response(new Response(200, array(), Psr7\stream_for(fopen($file_path, 'r'))));
+		return $query;
+	}  
 }
 ?>

@@ -77,12 +77,11 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 				$json = $obj;
 			}
 			
-			$query = new Psr7DataQuery($this, new Request('POST', $uri));
-			$query->get_request()->withBody(json_encode($json));
+			$query = new Psr7DataQuery($this, new Request('POST', $uri, array(), json_encode($json)));
 			
-			$result = $this->get_data_from_response($data_connection->query($query));
-			if (is_array($result) || is_object($result)){
-				$result_data = (array) $this->find_data_in_response($result);
+			$result = $this->parse_response($data_connection->query($query));
+			if (is_array($result)){
+				$result_data = $this->find_row_data($result);
 			}
 			$insert_ids[] = $result_data[$this->get_main_object()->get_uid_attribute()->get_data_address()];
 		}
@@ -92,19 +91,19 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::find_row_counter_in_response()
+	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::find_row_counter()
 	 */
-	protected function find_row_counter_in_response($data){
+	protected function find_row_counter($data){
 		return $data[$this->get_main_object()->get_data_address_property('response_total_count_path')];
 	}
 	
 	/**
 	 * {@inheritDoc}
-	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::parse_response_data()
+	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::build_result_rows()
 	 */
-	protected function parse_response_data($rows, RequestInterface $request){
+	protected function build_result_rows($parsed_data, Psr7DataQuery $query){
 		$result_rows = array();
-		$rows = $this->find_data_in_response($rows);
+		$rows = $this->find_row_data($parsed_data);
 		if (count($rows) > 0){
 			if (is_array($rows)){
 				foreach ($rows as $nr => $row){
@@ -144,9 +143,9 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::find_data_in_response()
+	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::find_row_data()
 	 */
-	protected function find_data_in_response($response_array){
+	protected function find_row_data($parsed_data){
 		// Get the response data path from the meta model
 		if ($this->get_request_uid_filter() && !is_null($this->get_main_object()->get_data_address_property('uid_response_data_path'))){
 			$path = $this->get_main_object()->get_data_address_property('uid_response_data_path');
@@ -157,21 +156,21 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 		// Get the actual data
 		if ($path){
 			// If a path could be determined, follow it
-			$rows = $response_array[$path];
+			$rows = $parsed_data[$path];
 			
 			// If it is a UID-request and the data is an assotiative array, it probably represents one single row, so wrap it in an
 			// array to make it compatible to the logic of fetching multiple rows
-			if ($this->get_request_uid_filter() && count(array_filter(array_keys($response_array), 'is_string'))){
+			if ($this->get_request_uid_filter() && count(array_filter(array_keys($parsed_data), 'is_string'))){
 				$rows = array($rows);
 			}
 		} else {
 			// If no path specified, try to find the data automatically
-			if (count(array_filter(array_keys($response_array), 'is_string'))){
+			if (count(array_filter(array_keys($parsed_data), 'is_string'))){
 				// If data is an assotiative array, it is most likely to represent one single row
-				$rows = array($response_array);
+				$rows = array($parsed_data);
 			} else {
 				// If the data is a sequential array with numeric keys, it is most likely to represent multiple rows
-				$rows = $response_array;
+				$rows = $parsed_data;
 			}
 		}
 		
@@ -191,14 +190,14 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::find_field_in_data()
 	 */
 	protected function find_field_in_data($data_address, $data){
-		// TODO extract code for this function from parse_response_data()
+		// TODO extract code for this function from build_result_rows()
 	}
 	
 	function update(AbstractDataConnector $data_connection = null){}
 	function delete(AbstractDataConnector $data_connection = null){}
 	
-	protected function get_data_from_response(ResponseInterface $response){
-		return json_decode($response->getBody(), true);
+	protected function parse_response(Psr7DataQuery $query){
+		return json_decode($query->get_response()->getBody(), true);
 	}
 }
 ?>

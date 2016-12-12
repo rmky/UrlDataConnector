@@ -5,21 +5,22 @@ use exface\Core\Exceptions\DataSourceError;
 use exface\Core\CommonLogic\AbstractDataConnectorWithoutTransactions;
 use GuzzleHttp\Client;
 use exface\Core\Exceptions\DataConnectionError;
-use GuzzleHttp\Exception\GuzzleException;
+use exface\UrlDataConnector\Psr7DataQuery;
 
 /**
+ * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
  * 
- * @author aka
+ * @author Andrej Kabachnik
  *
  */
-class HttpConnector extends AbstractDataConnectorWithoutTransactions {
-	const XML = 'XML';
-	const JSON = 'JSON';
-	const PUT = 'PUT';
-	const POST = 'POST';
-	const GET = 'GET';
-	const DELETE = 'DELETE';
+class HttpConnector extends AbstractUrlConnector {
 	
+	private $user = null;
+	private $password = null;
+	private $proxy = null;
+	private $charset = null;
+	private $use_cookies = false;
+
 	/** @var Client */
 	protected $client;
 	protected $last_request = null;
@@ -29,30 +30,23 @@ class HttpConnector extends AbstractDataConnectorWithoutTransactions {
 	 * {@inheritDoc}
 	 * @see \exface\Core\CommonLogic\AbstractDataConnector::perform_connect()
 	 */
-	protected function perform_connect($url = '', $user = '', $pwd = '', $proxy = null, $charset = null, $use_cookies = false) {
-		$url = $url ? $url : $this->get_config_array()['URL'];
-		$user = $user ? $user : $this->get_config_array()['user'];
-		$pwd = $pwd ? $pwd : $this->get_config_array()['password'];
-		$proxy = $proxy ? $proxy : $this->get_config_array()['proxy'];
-		$charset = $charset ? $charset : $this->get_config_array()['encoding'];
-		$use_cookies = ($use_cookies || $this->get_config_array()['use_cookies']) ? true : false;
-		
+	protected function perform_connect() {		
 		$defaults = array();
 		$defaults['verify'] = false;
-		$defaults['base_uri'] = $url;
+		$defaults['base_uri'] = $this->get_url();
 		// Proxy settings
-		if ($proxy){
-			$defaults['proxy'] = $proxy;
+		if ($this->get_proxy()){
+			$defaults['proxy'] = $this->get_proxy();
 		}
 		
 		// Basic authentication
-		if ($user){
-			$defaults['auth'] = array($user, $pwd);
+		if ($this->get_user()){
+			$defaults['auth'] = array($this->get_user(), $this->get_password());
 		}
 		
 		// Cookies
-		if ($use_cookies){
-			$cookieFile = str_replace(array(':', '/', '.') , '', $url) . '.cookie';
+		if ($this->get_use_cookies()){
+			$cookieFile = str_replace(array(':', '/', '.') , '', $this->get_url()) . '.cookie';
 			$cookieDir = $this->get_workbench()->context()->get_scope_user()->get_user_data_folder_absolute_path() . DIRECTORY_SEPARATOR . 'cookies';
 			if (!file_exists($cookieDir)){
 				mkdir($cookieDir);
@@ -68,97 +62,128 @@ class HttpConnector extends AbstractDataConnectorWithoutTransactions {
 		} 
 	}
 	
-	/**
-	 * 
-	 * {@inheritDoc}
-	 * @see \exface\Core\CommonLogic\AbstractDataConnector::perform_disconnect()
-	 */
-	protected function perform_disconnect() {
-		// TODO	
-	}
-	
 
 	/**
 	 * 
 	 * {@inheritDoc}
 	 * @see \exface\Core\CommonLogic\AbstractDataConnector::perform_query()
+	 * 
+	 * @param Psr7DataQuery $query
+	 * @return Psr7DataQuery
 	 */
 	protected function perform_query($query, $options = null) {
+		if (!($query instanceof Psr7DataQuery)) throw new DataConnectionError('Connector "' . $this->get_alias_with_namespace() . '" expects a Psr7DataQuery as input, "' . get_class($query) . '" given instead!');
 		/* @var $query \exface\UrlDataConnector\Psr7DataQuery */
-		if (!$query->get_request()->getUri()){
+		if (!$query->get_request()->getUri()->__toString()){
 			return array();
 		}
 				
 		if (!$this->client) {
 			$this->connect();
 		}
-		return $this->client->send($query->get_request());
+		
+		$query->set_response($this->client->send($query->get_request()));
+		return $query;
 	}
 
 	function get_insert_id() {
 		// TODO
 		return 0;
 	}
-
-	/**
-	 * @name:  get_affected_rows_count
-	 *
-	 */
-	function get_affected_rows_count() {
-		// TODO
-		return 0;
-	}
-
-	/**
-	 * @name:  get_last_error
-	 *
-	 */
-	function get_last_error($conn=NULL) {
-		if ($this->last_request){
-			$error = "Status code " . $this->last_request->getStatusCode() . "\n" . $this->last_request->getBody();
-		} else {
-			$error = $this->last_error;
-		}
-		return $error;
-	}
-
-	/**
-	* @name:  make_array
-	* @desc:  turns a recordset into a multidimensional array
-	* @return: an array of row arrays from recordset, or empty array
-	*			 if the recordset was empty, returns false if no recordset
-	*			 was passed
-	* @param: $rs Recordset to be packaged into an array
-	*/
-	function make_array($rs=''){
-		if(!$rs) return false;
-		if (!$this->get_response_type()){
-			$rs_string = trim($rs->getBody());
-			if (strpos($rs_string, '<') === 0){
-				$this->set_response_type($this::XML);
-			} elseif ((strpos($rs_string, '[') === 0) || (strpos($rs_string, '{') === 0)) {
-				$this->set_response_type($this::JSON);
-			} 
-		}
-		
-		switch ($this->get_response_type()){
-			case $this::XML: return $rs->xml(); break;
-			case $this::JSON: return $rs->json(); break;
-			default: return array('body' => (string) $rs->getBody());				
-		}
-	}  
 	
-	public function get_response_type() {
-		return $this->response_type;
+	public function get_user() {
+		if (is_null($this->user)){
+			$this->set_user($this->get_config_array()['user']);
+		}
+		return $this->user;
 	}
 	
-	public function set_response_type($value) {
-		$this->response_type = $value;
+	/**
+	 * Sets the user name for basic authentification.
+	 * 
+	 * @uxon-property user
+	 * @uxon-type string
+	 * 
+	 * @param string $value
+	 * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
+	 */
+	public function set_user($value) {
+		$this->user = $value;
 		return $this;
-	}  
-	
-	public function get_current_connection(){
-		return $this->client;
 	}
+	
+	public function get_password() {
+		if (is_null($this->password)){
+			$this->get_config_array()['password'];
+		}
+		return $this->password;
+	}
+	
+	/**
+	 * Sets the password for basic authentification.
+	 *
+	 * @uxon-property password
+	 * @uxon-type string
+	 *
+	 * @param string $value
+	 * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
+	 */
+	public function set_password($value) {
+		$this->password = $value;
+		return $this;
+	}
+	
+	/**
+	 * Returns the proxy address to be used in the name:port notation: e.g. 192.169.1.10:8080 or myproxy:8080.
+	 * @return string
+	 */
+	public function get_proxy() {
+		if (is_null($this->proxy)){
+			$this->set_proxy($this->get_config_array()['proxy']);
+		}
+		return $this->proxy;
+	}
+	
+	/**
+	 * Sets the proxy server address to be used. Use name:port notation like 192.169.1.10:8080 or myproxy:8080.
+	 *
+	 * @uxon-property proxy
+	 * @uxon-type string
+	 *
+	 * @param string $value
+	 * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
+	 */
+	public function set_proxy($value) {
+		$this->proxy = $value;
+		return $this;
+	}
+	
+	/**
+	 * 
+	 * @return boolean
+	 */
+	public function get_use_cookies() {
+		if (is_null($this->use_cookies)){
+			$this->set_use_cookies(($this->get_config_array()['use_cookies'] ? true : false));
+		}
+		return $this->use_cookies;
+	}
+	
+	/**
+	 * Set to TRUE to use cookies for this connection. Defaults to FALSE.
+	 * 
+	 * Cookies will be stored in the data folder of the current user!
+	 *
+	 * @uxon-property use_cookies
+	 * @uxon-type boolean
+	 *
+	 * @param boolean $value
+	 * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
+	 */
+	public function set_use_cookies($value) {
+		$this->use_cookies = $value;
+		return $this;
+	}
+          
 }
 ?>

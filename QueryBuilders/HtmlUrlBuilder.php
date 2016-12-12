@@ -2,9 +2,9 @@
 
 use Symfony\Component\DomCrawler\Crawler;
 use exface\Core\Exceptions\DataTypeValidationError;
-use Psr\Http\Message\ResponseInterface;
 use GuzzleHttp\Psr7\Request;
-use Psr\Http\Message\RequestInterface;
+use exface\UrlDataConnector\Psr7DataQuery;
+
 /**
  * This is a query builder for JSON-based REST APIs. It creates a sequence of URL parameters for a query and parses the JSON result.
  * 
@@ -27,10 +27,10 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::parse_response_data()
+	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::build_result_rows()
 	 */
-	protected function parse_response_data($data, RequestInterface $request){
-		$crawler = new Crawler($data['body']);
+	protected function build_result_rows($parsed_data, Psr7DataQuery $query){
+		$crawler = new Crawler($parsed_data);
 		$column_attributes = array();
 		$result_rows = array();
 		
@@ -58,7 +58,7 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 				// This means, the value is the same for all rows!
 				if (!$css_selector && $get_attribute){
 					switch (strtolower($get_attribute)){
-						case 'url': $column_attributes[$qpart->get_alias()] = $request->getUri()->__toString();
+						case 'url': $column_attributes[$qpart->get_alias()] = $query->get_request()->getUri()->__toString();
 					}
 				}
 			} else {
@@ -92,7 +92,7 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 		}
 			
 		foreach ($column_attributes as $alias => $value){
-			foreach ($result_rows as $rownr => $row){
+			foreach (array_keys($result_rows) as $rownr){
 				$result_rows[$rownr][$alias] = $value;
 			}
 		}
@@ -105,7 +105,7 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::find_field_in_data()
 	 */
 	protected function find_field_in_data($data_address, $data){
-		// TODO extract code for this function from parse_response_data()
+		// TODO extract code for this function from build_result_rows()
 	}
 }
 ?>
