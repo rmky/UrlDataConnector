@@ -4,6 +4,7 @@ use exface\Core\Exceptions\DataConnectionError;
 use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\Psr7;
 use exface\UrlDataConnector\Psr7DataQuery;
+use exface\Core\Interfaces\DataSources\DataQueryInterface;
 
 class FileUriConnector extends AbstractUrlConnector {
 	
@@ -24,7 +25,7 @@ class FileUriConnector extends AbstractUrlConnector {
 	 * @param $query Psr7DataQuery
 	 * @return Psr7DataQuery
 	 */
-	protected function perform_query($query, $options = null) {		
+	protected function perform_query(DataQueryInterface $query) {		
 		if (!($query instanceof Psr7DataQuery)) throw new DataConnectionError('Connector "' . $this->get_alias_with_namespace() . '" expects a Psr7DataQuery as input, "' . get_class($query) . '" given instead!');
 		
 		/* @var $query \exface\UrlDataConnector\Psr7DataQuery */
