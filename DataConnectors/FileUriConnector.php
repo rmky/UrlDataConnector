@@ -3,6 +3,7 @@
 use exface\Core\CommonLogic\AbstractDataConnectorWithoutTransactions;
 use exface\Core\Exceptions\DataConnectionError;
 use GuzzleHttp\Psr7\Response;
+use GuzzleHttp\Psr7;
 
 class FileUriConnector extends AbstractDataConnectorWithoutTransactions {
 	
@@ -52,10 +53,7 @@ class FileUriConnector extends AbstractDataConnectorWithoutTransactions {
 			throw new DataConnectionError($error);
 		}
 		
-		$file_contents = file_get_contents($file_path);
-		
-		$response = new Response();
-		$response->withBody($file_contents);
+		$response = new Response(200, array(), Psr7\stream_for(fopen($file_path, 'r')));
 		return $response;
 	}
 
