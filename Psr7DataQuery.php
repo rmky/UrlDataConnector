@@ -10,8 +10,7 @@ class Psr7DataQuery extends AbstractDataQuery  {
 	private $request;
 	private $response;
 	
-	public function __construct(AbstractQueryBuilder $query_builder, RequestInterface $request){
-		$this->set_query_builder($query_builder);
+	public function __construct(RequestInterface $request){
 		$this->set_request($request);
 	}
 	

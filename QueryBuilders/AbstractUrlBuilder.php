@@ -7,8 +7,6 @@ use exface\Core\CommonLogic\AbstractDataConnector;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\RequestInterface;
 
 /**
  * This is an abstract query builder for REST APIs. It creates a sequence of URL parameters for a query. Parsing the results is done by
@@ -101,7 +99,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			$query_string = $endpoint . (strpos($endpoint, '?') !== false ? '&' : '?') . $params_string;
 		}
 		
-		return new Psr7DataQuery($this, new Request('GET', $query_string));
+		return new Psr7DataQuery(new Request('GET', $query_string));
 	}
 	
 	protected function add_parameter_to_url($url, $parameter, $value = null){

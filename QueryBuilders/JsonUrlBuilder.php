@@ -77,7 +77,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 				$json = $obj;
 			}
 			
-			$query = new Psr7DataQuery($this, new Request('POST', $uri, array(), json_encode($json)));
+			$query = new Psr7DataQuery(new Request('POST', $uri, array(), json_encode($json)));
 			
 			$result = $this->parse_response($data_connection->query($query));
 			if (is_array($result)){
