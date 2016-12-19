@@ -93,9 +93,6 @@ class HttpConnector extends AbstractUrlConnector {
 	}
 	
 	public function get_user() {
-		if (is_null($this->user)){
-			$this->set_user($this->get_config_array()['user']);
-		}
 		return $this->user;
 	}
 	
@@ -114,9 +111,6 @@ class HttpConnector extends AbstractUrlConnector {
 	}
 	
 	public function get_password() {
-		if (is_null($this->password)){
-			$this->get_config_array()['password'];
-		}
 		return $this->password;
 	}
 	
@@ -139,9 +133,6 @@ class HttpConnector extends AbstractUrlConnector {
 	 * @return string
 	 */
 	public function get_proxy() {
-		if (is_null($this->proxy)){
-			$this->set_proxy($this->get_config_array()['proxy']);
-		}
 		return $this->proxy;
 	}
 	
@@ -164,9 +155,6 @@ class HttpConnector extends AbstractUrlConnector {
 	 * @return boolean
 	 */
 	public function get_use_cookies() {
-		if (is_null($this->use_cookies)){
-			$this->set_use_cookies(($this->get_config_array()['use_cookies'] ? true : false));
-		}
 		return $this->use_cookies;
 	}
 	
@@ -182,7 +170,7 @@ class HttpConnector extends AbstractUrlConnector {
 	 * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
 	 */
 	public function set_use_cookies($value) {
-		$this->use_cookies = $value;
+		$this->use_cookies = $value ? true : false;
 		return $this;
 	}
           

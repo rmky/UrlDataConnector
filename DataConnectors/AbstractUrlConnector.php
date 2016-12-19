@@ -55,9 +55,6 @@ abstract class AbstractUrlConnector extends AbstractDataConnectorWithoutTransact
 	}
 	
 	public function get_url() {
-		if (is_null($this->url)){
-			$this->set_url($this->get_config_array()['URL']);
-		}
 		return $this->url;
 	}
 	

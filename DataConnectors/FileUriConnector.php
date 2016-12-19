@@ -22,7 +22,7 @@ class FileUriConnector extends AbstractUrlConnector {
 	 * {@inheritDoc}
 	 * @see \exface\Core\CommonLogic\AbstractDataConnector::perform_query()
 	 * 
-	 * @param $query Psr7DataQuery
+	 * @param Psr7DataQuery $query
 	 * @return Psr7DataQuery
 	 */
 	protected function perform_query(DataQueryInterface $query) {		
