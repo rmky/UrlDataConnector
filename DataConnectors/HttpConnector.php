@@ -1,8 +1,6 @@
 <?php namespace exface\UrlDataConnector\DataConnectors;
 
 use exface\Core\CommonLogic\AbstractDataConnector;
-use exface\Core\Exceptions\DataSourceError;
-use exface\Core\CommonLogic\AbstractDataConnectorWithoutTransactions;
 use GuzzleHttp\Client;
 use exface\Core\Exceptions\DataConnectionError;
 use exface\UrlDataConnector\Psr7DataQuery;
@@ -56,11 +54,12 @@ class HttpConnector extends AbstractUrlConnector {
 			$defaults['cookies'] = $cookieJar;
 		}
 		
-		$this->client = new Client($defaults);
-		
-		if (!$this->client) {
-			throw new DataSourceError("Failed to create the database connection! " . $this->get_last_error());
-		} 
+		try {
+			$this->client = new Client($defaults);
+		} catch (\Throwable $e){
+			throw new DataConnectionError($this, "Failed to instantiate HTTP client: " . $e->getMessage(), '6T4RAVX', $e);
+		}
+ 
 	}
 	
 
