@@ -1,0 +1,114 @@
+{
+    "object_alias": "exface.Core.ERROR",
+    "columns": [
+        {
+            "expression": "CREATED_ON",
+            "name": "CREATED_ON",
+            "hidden": false,
+            "data_type": "Timestamp",
+            "attribute_alias": "CREATED_ON"
+        },
+        {
+            "expression": "MODIFIED_ON",
+            "name": "MODIFIED_ON",
+            "hidden": false,
+            "data_type": "Timestamp",
+            "attribute_alias": "MODIFIED_ON"
+        },
+        {
+            "expression": "CREATED_BY_USER",
+            "name": "CREATED_BY_USER",
+            "hidden": false,
+            "data_type": "Relation",
+            "attribute_alias": "CREATED_BY_USER"
+        },
+        {
+            "expression": "MODIFIED_BY_USER",
+            "name": "MODIFIED_BY_USER",
+            "hidden": false,
+            "data_type": "Relation",
+            "attribute_alias": "MODIFIED_BY_USER"
+        },
+        {
+            "expression": "UID",
+            "name": "UID",
+            "hidden": false,
+            "data_type": "Number",
+            "attribute_alias": "UID"
+        },
+        {
+            "expression": "APP",
+            "name": "APP",
+            "hidden": false,
+            "data_type": "Relation",
+            "attribute_alias": "APP"
+        },
+        {
+            "expression": "ERROR_CODE",
+            "name": "ERROR_CODE",
+            "hidden": false,
+            "data_type": "String",
+            "attribute_alias": "ERROR_CODE"
+        },
+        {
+            "expression": "ERROR_TEXT",
+            "name": "ERROR_TEXT",
+            "hidden": false,
+            "data_type": "String",
+            "attribute_alias": "ERROR_TEXT"
+        },
+        {
+            "expression": "FULL_ERROR_CODE",
+            "name": "FULL_ERROR_CODE",
+            "hidden": false,
+            "data_type": "String",
+            "attribute_alias": "FULL_ERROR_CODE"
+        },
+        {
+            "expression": "LABEL",
+            "name": "LABEL",
+            "hidden": false,
+            "data_type": "String",
+            "attribute_alias": "LABEL"
+        }
+    ],
+    "rows": [
+        {
+            "CREATED_ON": "2016-12-20 07:55:40",
+            "MODIFIED_ON": "2016-12-20 07:55:40",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11e6c689a72e43e9a3e40205857feb80",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "ERROR_CODE": "6T4RAVX",
+            "ERROR_TEXT": "Failed to create HTTP client",
+            "FULL_ERROR_CODE": "ExFace.UrlDataConnector.6T4RAVX",
+            "LABEL": "ExFace.UrlDataConnector.6T4RAVX"
+        }
+    ],
+    "totals_rows": [],
+    "filters": {
+        "operator": "AND",
+        "conditions": [
+            {
+                "expression": "APP",
+                "comparator": "=",
+                "value": "0x11e6951dda3ba520b48b847beb4a5184",
+                "object_alias": "exface.Core.ERROR"
+            }
+        ],
+        "nested_groups": []
+    },
+    "rows_on_page": null,
+    "row_offset": 0,
+    "sorters": [
+        {
+            "attribute_alias": "CREATED_ON",
+            "direction": "ASC"
+        },
+        {
+            "attribute_alias": "UID",
+            "direction": "ASC"
+        }
+    ]
+}
