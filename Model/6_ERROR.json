@@ -37,6 +37,13 @@
             "attribute_alias": "UID"
         },
         {
+            "expression": "FULL_ERROR_CODE",
+            "name": "FULL_ERROR_CODE",
+            "hidden": false,
+            "data_type": "String",
+            "attribute_alias": "FULL_ERROR_CODE"
+        },
+        {
             "expression": "APP",
             "name": "APP",
             "hidden": false,
@@ -58,13 +65,6 @@
             "attribute_alias": "ERROR_TEXT"
         },
         {
-            "expression": "FULL_ERROR_CODE",
-            "name": "FULL_ERROR_CODE",
-            "hidden": false,
-            "data_type": "String",
-            "attribute_alias": "FULL_ERROR_CODE"
-        },
-        {
             "expression": "LABEL",
             "name": "LABEL",
             "hidden": false,
@@ -79,10 +79,10 @@
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
             "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
             "UID": "0x11e6c689a72e43e9a3e40205857feb80",
+            "FULL_ERROR_CODE": "ExFace.UrlDataConnector.6T4RAVX",
             "APP": "0x11e6951dda3ba520b48b847beb4a5184",
             "ERROR_CODE": "6T4RAVX",
             "ERROR_TEXT": "Failed to create HTTP client",
-            "FULL_ERROR_CODE": "ExFace.UrlDataConnector.6T4RAVX",
             "LABEL": "ExFace.UrlDataConnector.6T4RAVX"
         }
     ],
