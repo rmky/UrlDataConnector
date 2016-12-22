@@ -1,10 +1,11 @@
 <?php namespace exface\UrlDataConnector\DataConnectors;
 
-use exface\Core\Exceptions\DataConnectionError;
 use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\Psr7;
 use exface\UrlDataConnector\Psr7DataQuery;
 use exface\Core\Interfaces\DataSources\DataQueryInterface;
+use exface\Core\Exceptions\DataSources\DataConnectionQueryTypeError;
+use exface\Core\Exceptions\DataSources\DataQueryFailedError;
 
 class FileUriConnector extends AbstractUrlConnector {
 	
@@ -26,7 +27,7 @@ class FileUriConnector extends AbstractUrlConnector {
 	 * @return Psr7DataQuery
 	 */
 	protected function perform_query(DataQueryInterface $query) {		
-		if (!($query instanceof Psr7DataQuery)) throw new DataConnectionError('Connector "' . $this->get_alias_with_namespace() . '" expects a Psr7DataQuery as input, "' . get_class($query) . '" given instead!');
+		if (!($query instanceof Psr7DataQuery)) throw new DataConnectionQueryTypeError($this, 'Connector "' . $this->get_alias_with_namespace() . '" expects a Psr7DataQuery as input, "' . get_class($query) . '" given instead!');
 		
 		/* @var $query \exface\UrlDataConnector\Psr7DataQuery */
 		if (!$file_path = $query->get_request()->getUri()->__toString()){
@@ -42,9 +43,7 @@ class FileUriConnector extends AbstractUrlConnector {
 		}
 		
 		if (!file_exists($file_path)){
-			$error = 'File not found: ' . $file_path;
-			$this->last_error = $error;
-			throw new DataConnectionError($error);
+			throw new DataQueryFailedError($query, 'File not found: "' . $file_path . '"!');
 		}
 		
 		$query->set_response(new Response(200, array(), Psr7\stream_for(fopen($file_path, 'r'))));
