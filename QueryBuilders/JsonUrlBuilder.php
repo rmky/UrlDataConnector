@@ -9,6 +9,7 @@ use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
 use function GuzzleHttp\json_encode;
 use Psr\Http\Message\RequestInterface;
+use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
 /**
  * This is a query builder for JSON-based REST APIs. It creates a sequence of URL parameters for a query and parses the JSON result.
  * 
@@ -49,8 +50,14 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 		// Create JSON objects from value query parts
 		$json_objects = array(); 
 		foreach ($this->get_values() as $qpart){
-			$attr = $qpart->get_attribute();
-			if ($attr && ($attr->get_data_address() || $attr->get_data_address_property('create_query_parameter'))){
+			try {
+				$attr = $qpart->get_attribute();
+			} catch (MetaAttributeNotFoundError $e){
+				// Ignore values, that do not belong to attributes
+				continue;
+			}
+			
+			if ($attr->get_data_address() || $attr->get_data_address_property('create_query_parameter')){
 				$json_attr = ($attr->get_data_address_property('create_query_parameter') ? $attr->get_data_address_property('create_query_parameter') : $attr->get_data_address());
 				foreach ($qpart->get_values() as $row => $val){
 					if (!$json_objects[$row]){
