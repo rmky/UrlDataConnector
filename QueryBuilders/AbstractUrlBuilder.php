@@ -79,7 +79,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			if ($ph_filter = $this->get_filter($ph)){
 				if (!is_null($ph_filter->get_compare_value())){
 					if ($this->get_request_uid_filter() == $ph_filter && $ph_filter->get_comparator() == EXF_COMPARATOR_IN){
-						$ph_value = explode(',', $ph_filter->get_compare_value())[0];
+						$ph_value = explode(EXF_LIST_SEPARATOR, $ph_filter->get_compare_value())[0];
 					} else {
 						$ph_value = $ph_filter->get_compare_value();
 					}
@@ -259,7 +259,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			if ($this->get_request_uid_filter()
 			&& $this->get_request_uid_filter()->get_comparator() == EXF_COMPARATOR_IN
 			&& $this->get_main_object()->get_data_address_property('uid_request_data_address')){
-				$uid_values = explode(',', $this->get_request_uid_filter()->get_compare_value());
+				$uid_values = explode(EXF_LIST_SEPARATOR, $this->get_request_uid_filter()->get_compare_value());
 				// skip the first UID as it has been fetched already
 				$uid_skip = true;
 				foreach ($uid_values as $val){
