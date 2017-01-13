@@ -195,7 +195,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	 * @param QueryPartFilter $value
 	 * @return \exface\DataSources\QueryBuilders\REST_AbstractRest
 	 */
-	public function set_request_uid_filter(QueryPartFilter &$value) {
+	public function set_request_uid_filter(QueryPartFilter $value) {
 		$this->request_uid_filter = $value;
 		return $this;
 	}
