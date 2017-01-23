@@ -163,7 +163,8 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 		// Get the actual data
 		if ($path){
 			// If a path could be determined, follow it
-			$rows = $parsed_data[$path];
+			// $rows = $parsed_data[$path];
+			$rows = $this->find_field_in_data($path, $parsed_data);
 			
 			// If it is a UID-request and the data is an assotiative array, it probably represents one single row, so wrap it in an
 			// array to make it compatible to the logic of fetching multiple rows
@@ -197,7 +198,24 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::find_field_in_data()
 	 */
 	protected function find_field_in_data($data_address, $data){
-		// TODO extract code for this function from build_result_rows()
+		$val = (array) $data;
+		foreach ($this->data_path_split($data_address) as $step){
+			if ($cond_start = strpos($step, '[')){
+				if (substr($step, -1) != ']') throw new QueryBuilderException('Invalid conditional selector in attribute "' . $qpart->get_alias() . '": "' . $step . '"!');
+				$cond = explode('=', substr($step, $cond_start+1, -1));
+				if ($val = $val[substr($step, 0, $cond_start)]){
+					foreach ($val as $v){
+						if ($v[$cond[0]] == $cond[1]){
+							$val = $v;
+							break;
+						}
+					}
+				}
+			} else {
+				$val = $val[$step];
+			}
+		}
+		return $val;
 	}
 	
 	function update(AbstractDataConnector $data_connection = null){}
