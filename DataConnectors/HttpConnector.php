@@ -6,6 +6,7 @@ use exface\UrlDataConnector\Psr7DataQuery;
 use exface\Core\Interfaces\DataSources\DataQueryInterface;
 use exface\Core\Exceptions\DataSources\DataConnectionQueryTypeError;
 use exface\Core\Exceptions\DataSources\DataConnectionFailedError;
+use GuzzleHttp\Psr7\Response;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -76,14 +77,13 @@ class HttpConnector extends AbstractUrlConnector {
 		if (!($query instanceof Psr7DataQuery)) throw new DataConnectionQueryTypeError($this, 'Connector "' . $this->get_alias_with_namespace() . '" expects a Psr7DataQuery as input, "' . get_class($query) . '" given instead!');
 		/* @var $query \exface\UrlDataConnector\Psr7DataQuery */
 		if (!$query->get_request()->getUri()->__toString()){
-			return array();
+			$query->set_response(new Response());
+		} else {
+			if (!$this->client) {
+				$this->connect();
+			}
+			$query->set_response($this->client->send($query->get_request()));
 		}
-				
-		if (!$this->client) {
-			$this->connect();
-		}
-		
-		$query->set_response($this->client->send($query->get_request()));
 		return $query;
 	}
 
