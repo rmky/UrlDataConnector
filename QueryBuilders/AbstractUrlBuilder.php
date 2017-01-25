@@ -7,12 +7,14 @@ use exface\Core\CommonLogic\AbstractDataConnector;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
+use exface\Core\Exceptions\QueryBuilderException;
 
 /**
  * This is an abstract query builder for REST APIs. It creates a sequence of URL parameters for a query. Parsing the results is done by
  * specific implementation (e.g. JSON vs. XML)
  * 
  * The following custom data address properties are supported on attribute level:
+ * - filter_query_url - used to set a custom URL to be used if there is a filter over this attribute
  * - filter_query_parameter - used for filtering instead of the attributes data address: e.g. &[filter_query_parameter]=VALUE instead of &[data_address]=VALUE
  * - filter_query_prefix - prefix for the value in a filter query: e.g. &[data_address]=[filter_query_prefix]VALUE. Can be used to pass default operators etc.
  * - filter_localy - set to 1 to filter in ExFace after reading the data (if the data source does not support filtering over this attribute.
@@ -32,7 +34,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	private $result_rows=array();
 	private $result_totals=array();
 	private $result_total_rows=0;
-	private $request_uid_filter = null;
+	private $endpoint_filter = null;
+	private $request_split_filter = null;
 	
 	protected function build_query(){
 		$endpoint = $this->get_main_object()->get_data_address();
@@ -49,7 +52,18 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			if ($this->get_main_object()->get_uid_alias() == $qpart->get_alias() 
 			&& $this->get_main_object()->get_data_address_property('uid_request_data_address')){
 				$endpoint = $this->get_main_object()->get_data_address_property('uid_request_data_address');
-				$this->set_request_uid_filter($qpart);
+				$this->set_request_split_filter($qpart);
+			} elseif($filter_endpoint = $qpart->get_data_address_property('filter_query_url')){
+				if ($qpart->get_comparator() == EXF_COMPARATOR_IN){
+					if ($this->get_request_split_filter() && strcasecmp($this->get_request_split_filter()->get_data_address_property('filter_query_url'), $filter_endpoint)){
+						throw new QueryBuilderException('Cannot use multiple filters requiring different custom URLs in one query: "' . $this->get_request_split_filter()->get_condition()->to_string() . '" AND "' . $qpart->get_condition()->to_string() . '"!');
+					}
+					$this->set_request_split_filter($qpart);
+					$value = reset(explode(EXF_LIST_SEPARATOR, $qpart->get_compare_value()));
+				} else {
+					$value = $qpart->get_compare_value();
+				}
+				$endpoint = str_replace('[#value#]', $value, $filter_endpoint);
 			} else {
 				$params_string = $this->add_parameter_to_url($params_string, $this->build_url_filter($qpart));
 			}
@@ -74,11 +88,11 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			$params_string = $this->add_parameter_to_url($params_string, 'sort', implode(',', $sorters));
 		}
 		
-		// Check if the data source contains placeholders to be filled from filter
+		// Check if the endpoint contains placeholders to be filled from filter
 		foreach ($this->get_workbench()->utils()->find_placeholders_in_string($endpoint) as $ph){
 			if ($ph_filter = $this->get_filter($ph)){
 				if (!is_null($ph_filter->get_compare_value())){
-					if ($this->get_request_uid_filter() == $ph_filter && $ph_filter->get_comparator() == EXF_COMPARATOR_IN){
+					if ($this->get_request_split_filter() == $ph_filter && $ph_filter->get_comparator() == EXF_COMPARATOR_IN){
 						$ph_value = explode(EXF_LIST_SEPARATOR, $ph_filter->get_compare_value())[0];
 					} else {
 						$ph_value = $ph_filter->get_compare_value();
@@ -179,28 +193,6 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	}
 	
 	/**
-	 * Returns the requested UID if this request is based on a single UID and FALSE otherwise. UID-requests
-	 * are often treated differently: the have other data addresses and other response structures than regular
-	 * list-requests. The response of a UID-request will typically contain more information about the single
-	 * item, that is requested.
-	 * @return QueryPartFilter
-	 */
-	public function get_request_uid_filter() {
-		return $this->request_uid_filter;
-	}
-	
-	/**
-	 * Marks the query as a UID-based request. The UID-filter is passed by reference, so it can be fetched and modified directly while
-	 * processing the query. This is important for data sources, where UID-requests must be split or handled differently in any other way.
-	 * @param QueryPartFilter $value
-	 * @return \exface\DataSources\QueryBuilders\REST_AbstractRest
-	 */
-	public function set_request_uid_filter(QueryPartFilter $value) {
-		$this->request_uid_filter = $value;
-		return $this;
-	}
-	
-	/**
 	 * Returns TRUE if the given string is a valid data address and FALSE otherwise. 
 	 * @param string $data_address_string
 	 * @return boolean
@@ -256,10 +248,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			// the results. This is important for many web services, that have different endpoint-addresses for searching objects via their
 			// attributes and via the ID (= the property "uid_request_data_address" needs to be set for those data sources). This will no
 			// have any effekt on data sources, were "uid_request_data_address" is not set and thus the normal searching also supports UID filters.
-			if ($this->get_request_uid_filter()
-			&& $this->get_request_uid_filter()->get_comparator() == EXF_COMPARATOR_IN
-			&& $this->get_main_object()->get_data_address_property('uid_request_data_address')){
-				$uid_values = explode(EXF_LIST_SEPARATOR, $this->get_request_uid_filter()->get_compare_value());
+			if ($this->get_request_split_filter()
+			&& $this->get_request_split_filter()->get_comparator() == EXF_COMPARATOR_IN){
+				$uid_values = explode(EXF_LIST_SEPARATOR, $this->get_request_split_filter()->get_compare_value());
 				// skip the first UID as it has been fetched already
 				$uid_skip = true;
 				foreach ($uid_values as $val){
@@ -267,7 +258,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 						$uid_skip = false;
 						continue;
 					}
-					$this->get_request_uid_filter()->set_compare_value($val);
+					$this->get_request_split_filter()->set_compare_value($val);
 					$subquery = $data_connection->query($this->build_query());
 					if ($data = $this->parse_response($subquery)){
 						$this->set_result_total_rows($this->get_result_total_rows() + $this->find_row_counter($data));
@@ -292,5 +283,26 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	protected function parse_response(Psr7DataQuery $query){
 		return $query->get_response()->getBody()->getContents();
 	}
+	
+	/**
+	 * 
+	 * @return \exface\Core\CommonLogic\QueryBuilder\QueryPartFilter
+	 */
+	protected function get_request_split_filter() {
+		return $this->request_split_filter;
+	}
+	
+	/**
+	 * Marks the query as a UID-based request. The UID-filter is passed by reference, so it can be fetched and modified directly while
+	 * processing the query. This is important for data sources, where UID-requests must be split or handled differently in any other way.
+	 * 
+	 * @param QueryPartFilter $value
+	 * @return \exface\DataSources\QueryBuilders\REST_AbstractRest
+	 */
+	protected function set_request_split_filter(QueryPartFilter $value) {
+		$this->request_split_filter = $value;
+		return $this;
+	}
+	  
 }
 ?>

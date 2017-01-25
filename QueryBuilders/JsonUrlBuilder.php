@@ -2,13 +2,9 @@
 
 use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\AbstractDataConnector;
-use exface\UrlDataConnector\DataConnectors\HttpConnector;
 use exface\Core\CommonLogic\DataSheets\DataColumn;
-use Psr\Http\Message\ResponseInterface;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
-use function GuzzleHttp\json_encode;
-use Psr\Http\Message\RequestInterface;
 use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
 /**
  * This is a query builder for JSON-based REST APIs. It creates a sequence of URL parameters for a query and parses the JSON result.
@@ -154,7 +150,8 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 	 */
 	protected function find_row_data($parsed_data){
 		// Get the response data path from the meta model
-		if ($this->get_request_uid_filter() && !is_null($this->get_main_object()->get_data_address_property('uid_response_data_path'))){
+		// TODO make work with any request_split_filter, not just the UID
+		if ($this->get_request_split_filter() && $this->get_request_split_filter()->get_attribute()->is_uid_for_object() && !is_null($this->get_main_object()->get_data_address_property('uid_response_data_path'))){
 			$path = $this->get_main_object()->get_data_address_property('uid_response_data_path');
 		} else {
 			$path = $this->get_main_object()->get_data_address_property('response_data_path');
@@ -168,7 +165,8 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 			
 			// If it is a UID-request and the data is an assotiative array, it probably represents one single row, so wrap it in an
 			// array to make it compatible to the logic of fetching multiple rows
-			if ($this->get_request_uid_filter() && count(array_filter(array_keys($parsed_data), 'is_string'))){
+			// TODO make work with any request_split_filter, not just the UID
+			if ($this->get_request_split_filter() && $this->get_request_split_filter()->get_attribute()->is_uid_for_object() && count(array_filter(array_keys($parsed_data), 'is_string'))){
 				$rows = array($rows);
 			}
 		} else {
