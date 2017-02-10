@@ -23,6 +23,8 @@ use exface\Core\Exceptions\QueryBuilderException;
  * - force_filtering - disables request withot at least a single filter (1). Some APIs disallow this!
  * - response_data_path - path to the array containing the items
  * - response_total_count_path - path to the total number of items matching the filter (used for pagination)
+ * - response_group_by_attribute_alias - result rows will get resorted and grouped by values of the given attribute
+ * - response_group_use_only_first - set to TRUE to return only the first group ignoring all rows with other values of the group attribute than the first row.
  * - request_offset_parameter - name of the URL parameter containing the page offset for pagination
  * - request_limit_parameter - name of the URL parameter holding the maximum number of returned items
  * 
@@ -86,6 +88,11 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 		}
 		if (count($sorters) > 0){
 			$params_string = $this->add_parameter_to_url($params_string, 'sort', implode(',', $sorters));
+		}
+		
+		// Add attributes needed for address property logic
+		if ($group_alias = $this->get_main_object()->get_data_address_property('response_group_by_attribute_alias')){
+			$this->add_attribute($group_alias);
 		}
 		
 		// Check if the endpoint contains placeholders to be filled from filter
@@ -268,6 +275,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			}
 			
 			// Apply live filters, sorters and pagination
+			$result_rows = $this->apply_postprocessing($result_rows);
 			$result_rows = $this->apply_filters($result_rows);
 			$result_rows = $this->apply_sorting($result_rows);
 			$result_rows = $this->apply_pagination($result_rows);
@@ -302,6 +310,26 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	protected function set_request_split_filter(QueryPartFilter $value) {
 		$this->request_split_filter = $value;
 		return $this;
+	}
+	
+	protected function apply_postprocessing($result_rows){
+		if ($group_attribute_alias = $this->get_main_object()->get_data_address_property('response_group_by_attribute_alias')){
+			if ($this->get_main_object()->get_data_address_property('response_group_use_only_first')){
+				$qpart = $this->get_attribute($group_attribute_alias);
+				$group_value = null;
+				foreach ($result_rows as $row_nr => $row){
+					if (!$group_value){
+						$group_value = $row[$qpart->get_alias()];
+						continue;
+					}
+					
+					if ($row[$qpart->get_alias()] != $group_value){
+						unset($result_rows[$row_nr]);
+					}
+				}
+			}
+		}
+		return $result_rows;
 	}
 	  
 }
