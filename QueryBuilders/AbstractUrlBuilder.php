@@ -275,9 +275,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			}
 			
 			// Apply live filters, sorters and pagination
-			$result_rows = $this->apply_postprocessing($result_rows);
 			$result_rows = $this->apply_filters($result_rows);
 			$result_rows = $this->apply_sorting($result_rows);
+			$result_rows = $this->apply_postprocessing($result_rows);
 			$result_rows = $this->apply_pagination($result_rows);
 		}
 	
