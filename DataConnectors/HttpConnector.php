@@ -7,6 +7,11 @@ use exface\Core\Interfaces\DataSources\DataQueryInterface;
 use exface\Core\Exceptions\DataSources\DataConnectionQueryTypeError;
 use exface\Core\Exceptions\DataSources\DataConnectionFailedError;
 use GuzzleHttp\Psr7\Response;
+use exface\Core\CommonLogic\Filemanager;
+use GuzzleHttp\HandlerStack;
+use Kevinrob\GuzzleCache\CacheMiddleware;
+use Kevinrob\GuzzleCache\Storage\Psr6CacheStorage;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -21,6 +26,9 @@ class HttpConnector extends AbstractUrlConnector {
 	private $proxy = null;
 	private $charset = null;
 	private $use_cookies = false;
+	private $cache_enabled = false;
+	private $cache_ignore_headers = false;
+	private $cache_lifetime_in_seconds = 0;
 
 	/** @var Client */
 	protected $client;
@@ -54,6 +62,34 @@ class HttpConnector extends AbstractUrlConnector {
 			}
 			$cookieJar = new \GuzzleHttp\Cookie\FileCookieJar($cookieDir . DIRECTORY_SEPARATOR . $cookieFile);
 			$defaults['cookies'] = $cookieJar;
+		}
+		
+		// Cache
+		if ($this->get_cache_enabled()){
+			// Create default HandlerStack
+			$stack = HandlerStack::create();
+			
+			if ($this->get_cache_ignore_headers()){
+				$cache_strategy_class = '\\Kevinrob\\GuzzleCache\\Strategy\\GreedyCacheStrategy';
+			} else {
+				$cache_strategy_class = '\\Kevinrob\\GuzzleCache\\Strategy\\PrivateCacheStrategy';
+			}
+			
+			// Add cache middleware to the top with `push`
+			$stack->push(
+				new CacheMiddleware(
+					new $cache_strategy_class (
+						new Psr6CacheStorage(
+							new FilesystemAdapter('', 0, $this->get_cache_absolute_path())
+						),
+						$this->get_cache_lifetime_in_seconds()
+					)
+				),
+				'cache'
+			);
+			
+			// Initialize the client with the handler option
+			$defaults['handler'] = $stack;
 		}
 		
 		try {
@@ -173,6 +209,73 @@ class HttpConnector extends AbstractUrlConnector {
 		$this->use_cookies = $value ? true : false;
 		return $this;
 	}
-          
+	
+	public function get_cache_enabled() {
+		return $this->cache_enabled;
+	}
+	
+	/**
+	 * Enables or disables caching of HTTP requests. Default: FALSE.
+	 * 
+	 * @uxon-property cache_enabled
+	 * @uxon-type boolean
+	 * 
+	 * @param boolean $value
+	 * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
+	 */
+	public function set_cache_enabled($value) {
+		$this->cache_enabled = $value ? true : false;
+		return $this;
+	}
+	
+	public function get_cache_ignore_headers() {
+		return $this->cache_ignore_headers;
+	}
+	
+	/**
+	 * Makes all requests get cached regardless of their headers. Default: FALSE.
+	 * 
+	 * If set to TRUE, this automatically sets the default cache lifetime to 60 seconds. Use 
+	 * "cache_lifetime_in_seconds" to specify a custom value.
+	 * 
+	 * @uxon-property cache_ignore_headers
+	 * @uxon-type boolean
+	 * 
+	 * @param boolean $value
+	 * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
+	 */
+	public function set_cache_ignore_headers($value) {
+		$this->cache_ignore_headers = $value ? true : false;
+		if ($this->get_cache_ignore_headers()){
+			$this->set_cache_lifetime_in_seconds(60);
+		}
+		return $this;
+	}  
+	
+	public function get_cache_lifetime_in_seconds() {
+		return $this->cache_lifetime_in_seconds;
+	}
+	
+	/**
+	 * Sets the default lifetime for request cache items.
+	 * 
+	 * @uxon-property cache_lifetime_in_seconds
+	 * @uxon-type number
+	 * 
+	 * @param integer $value
+	 * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
+	 */
+	public function set_cache_lifetime_in_seconds($value) {
+		$this->cache_lifetime_in_seconds = intval($value);
+		return $this;
+	}  
+	
+	protected function get_cache_absolute_path(){
+		$path = Filemanager::path_join(array($this->get_workbench()->filemanager()->get_path_to_cache_folder(), $this->get_alias_with_namespace()));
+		if (!file_exists($path)){
+			mkdir($path);
+		}
+		return $path;
+	}
 }
 ?>

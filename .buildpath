@@ -7,4 +7,6 @@
 	<buildpathentry external="true" kind="lib" path="c:/wamp/www/exface/exface/vendor/guzzlehttp/psr7/src"/>
 	<buildpathentry external="true" kind="lib" path="c:/wamp/www/exface/exface/vendor/psr/http-message/src"/>
 	<buildpathentry external="true" kind="lib" path="C:/wamp/www/exface/exface/vendor/symfony/dom-crawler"/>
+	<buildpathentry external="true" kind="lib" path="C:/wamp/www/exface/exface/vendor/symfony/cache"/>
+	<buildpathentry external="true" kind="lib" path="c:/wamp/www/exface/exface/vendor/kevinrob/guzzle-cache-middleware/src/"/>
 </buildpath>
