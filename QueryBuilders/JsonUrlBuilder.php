@@ -107,9 +107,11 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 	protected function build_result_rows($parsed_data, Psr7DataQuery $query){
 		$result_rows = array();
 		$rows = $this->find_row_data($parsed_data);
+		$has_uid_column = $this->get_attribute($this->get_main_object()->get_uid_alias()) ? true : false;
 		if (count($rows) > 0){
 			if (is_array($rows)){
 				foreach ($rows as $nr => $row){
+					$result_row = array();
 					/* @var $qpart \exface\Core\CommonLogic\QueryBuilder\QueryPartSelect */
 					foreach ($this->get_attributes() as $qpart){
 						$val = $row;
@@ -135,8 +137,13 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 							if (is_array($val)){
 								$val = DataColumn::aggregate_values($val, $qpart->get_aggregate_function());
 							}
-							$result_rows[$nr][$qpart->get_alias()] = $val;
+							$result_row[$qpart->get_alias()] = $val;
 						}
+					}
+					if ($has_uid_column){
+						$result_rows[$result_row[$this->get_main_object()->get_uid_alias()]] = $result_row;
+					} else {
+						$result_rows[] = $result_row;
 					}
 				}
 			}

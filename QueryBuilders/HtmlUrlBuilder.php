@@ -97,7 +97,16 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 			}
 		}
 		
-		return $result_rows;
+		$result_rows_with_uid_keys = array();
+		if ($this->get_attribute($this->get_main_object()->get_uid_alias())){
+			foreach($result_rows as $row){
+				$result_rows_with_uid_keys[$row[$this->get_main_object()->get_uid_alias()]] = $row;
+			}
+		} else {
+			$result_rows_with_uid_keys = $result_rows;
+		}
+		
+		return $result_rows_with_uid_keys;
 	}
 	
 	/**

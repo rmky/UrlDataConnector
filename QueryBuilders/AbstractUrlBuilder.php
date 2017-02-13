@@ -284,7 +284,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 		if (!$this->get_result_total_rows()){
 			$this->set_result_total_rows(count($result_rows));
 		}
-		$this->set_result_rows($result_rows);
+		$this->set_result_rows(array_values($result_rows));
 		return $this->get_result_total_rows();
 	}
 	
