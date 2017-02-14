@@ -17,7 +17,9 @@ use exface\Core\Exceptions\QueryBuilderException;
  * - filter_query_url - used to set a custom URL to be used if there is a filter over this attribute
  * - filter_query_parameter - used for filtering instead of the attributes data address: e.g. &[filter_query_parameter]=VALUE instead of &[data_address]=VALUE
  * - filter_query_prefix - prefix for the value in a filter query: e.g. &[data_address]=[filter_query_prefix]VALUE. Can be used to pass default operators etc.
- * - filter_localy - set to 1 to filter in ExFace after reading the data (if the data source does not support filtering over this attribute.
+ * - filter_locally - set to 1 to filter in ExFace after reading the data (if the data source does not support filtering over this attribute).
+ * - sort_query_parameter - used for sorting instead of the attributes data address: e.g. &[sort_query_parameter]=VALUE instead of &[data_address]=VALUE
+ * - sort_locally - set to 1 to sort in ExFace after reading the data (if the data source does not support filtering over this attribute).
  * 
  * The following custom data address properties are supported on object level:
  * - force_filtering - disables request withot at least a single filter (1). Some APIs disallow this!
@@ -161,8 +163,11 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	 * @return string
 	 */
 	protected function build_url_filter(QueryPartFilter $qpart){
-		if ($qpart->get_data_address_property('filter_localy')) {
+		if ($qpart->get_data_address_property('filter_locally')) {
 			$qpart->set_apply_after_reading(true);
+			if ($qpart->get_attribute()){
+				$this->add_attribute($qpart->get_alias());
+			}
 			return '';
 		}
 		
@@ -196,6 +201,10 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	}
 	
 	protected function build_url_sorter(QueryPartSorter $qpart){
+		if ($qpart->get_data_address_property('sort_locally')){
+			$qpart->set_apply_after_reading(true);
+			$this->add_attribute($qpart->get_alias());
+		}
 		return ($qpart->get_data_address_property('sort_query_parameter') ? $qpart->get_data_address_property('sort_query_parameter') : $qpart->get_data_address());
 	}
 	
