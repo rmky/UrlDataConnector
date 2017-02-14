@@ -247,8 +247,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 		if ($data = $this->parse_response($query)){
 			// Find the total row counter within the response
 			$this->set_result_total_rows($this->find_row_counter($data));
-			// Find data rows within the response
+			// Find data rows within the response and do the postprocessing
 			$result_rows = $this->build_result_rows($data, $query);
+			$result_rows = $this->apply_postprocessing($result_rows);
 				
 			// If this is a UID-request with multiple UIDs and there is a special data address for these requests, than the result will always
 			// be a single object, not a list. In this case, we have to read the data multiple times (for every UID in the list) and accumulate
@@ -269,7 +270,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 					$subquery = $data_connection->query($this->build_query());
 					if ($data = $this->parse_response($subquery)){
 						$this->set_result_total_rows($this->get_result_total_rows() + $this->find_row_counter($data));
-						$result_rows = array_merge($result_rows, $this->build_result_rows($data, $subquery));
+						$result_rows = array_merge($result_rows, $this->apply_postprocessing($this->build_result_rows($data, $subquery)));
 					}
 				}
 			}
@@ -277,7 +278,6 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			// Apply live filters, sorters and pagination
 			$result_rows = $this->apply_filters($result_rows);
 			$result_rows = $this->apply_sorting($result_rows);
-			$result_rows = $this->apply_postprocessing($result_rows);
 			$result_rows = $this->apply_pagination($result_rows);
 		}
 	
