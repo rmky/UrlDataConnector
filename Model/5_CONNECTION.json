@@ -103,16 +103,30 @@
         },
         {
             "CREATED_ON": "2017-01-23 16:51:38",
-            "MODIFIED_ON": "2017-01-23 16:54:14",
+            "MODIFIED_ON": "2017-02-13 17:20:05",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
             "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
             "UID": "0x11e6e18c3332185ba3d9e4b318306b9a",
             "APP": "0x11e6951dda3ba520b48b847beb4a5184",
-            "LABEL": "Website-URL (readonly)",
+            "LABEL": "Web-URL (readonly)",
             "CONNECTOR": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
             "CONFIG": "{}",
             "READONLY": "1",
             "ALIAS": "URL_READONLY",
+            "FILTER_CONTEXT": ""
+        },
+        {
+            "CREATED_ON": "2017-02-13 17:19:57",
+            "MODIFIED_ON": "2017-02-13 17:21:06",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11e6f210a41e34f69aa50205857feb80",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "LABEL": "Web-URL (readonly, cached)",
+            "CONNECTOR": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
+            "CONFIG": "{\"cache_lifetime_in_seconds\":\"60\",\"cache_enabled\":\"true\"}",
+            "READONLY": "1",
+            "ALIAS": "URL_READONLY_CACHED",
             "FILTER_CONTEXT": ""
         }
     ],
