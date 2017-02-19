@@ -173,7 +173,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 			// If it is a UID-request and the data is an assotiative array, it probably represents one single row, so wrap it in an
 			// array to make it compatible to the logic of fetching multiple rows
 			// TODO make work with any request_split_filter, not just the UID
-			if ($this->get_request_split_filter() && $this->get_request_split_filter()->get_attribute()->is_uid_for_object() && count(array_filter(array_keys($parsed_data), 'is_string'))){
+			if ($this->get_request_split_filter() && $this->get_request_split_filter()->get_attribute()->is_uid_for_object() && count(array_filter(array_keys($rows), 'is_string'))){
 				$rows = array($rows);
 			}
 		} else {

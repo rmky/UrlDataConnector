@@ -57,6 +57,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			&& $this->get_main_object()->get_data_address_property('uid_request_data_address')){
 				$endpoint = $this->get_main_object()->get_data_address_property('uid_request_data_address');
 				$this->set_request_split_filter($qpart);
+				if ($qpart->get_data_address_property('filter_locally')) {
+					$qpart->set_apply_after_reading(true);
+				}
 			} elseif($filter_endpoint = $qpart->get_data_address_property('filter_query_url')){
 				if ($qpart->get_comparator() == EXF_COMPARATOR_IN){
 					if ($this->get_request_split_filter() && strcasecmp($this->get_request_split_filter()->get_data_address_property('filter_query_url'), $filter_endpoint)){
