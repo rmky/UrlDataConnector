@@ -57,22 +57,39 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			&& $this->get_main_object()->get_data_address_property('uid_request_data_address')){
 				$endpoint = $this->get_main_object()->get_data_address_property('uid_request_data_address');
 				$this->set_request_split_filter($qpart);
-				if ($qpart->get_data_address_property('filter_locally')) {
-					$qpart->set_apply_after_reading(true);
-				}
-			} elseif($filter_endpoint = $qpart->get_data_address_property('filter_query_url')){
+			} 
+			// Another way to set custom URLs is to give an attribute an explicit URL via filter_query_url address property.
+			// This ultimately does the same thing, as uid_request_data_address on object level, but it's more general
+			// because it can be set for every attribute.
+			elseif($filter_endpoint = $qpart->get_data_address_property('filter_query_url')){
 				if ($qpart->get_comparator() == EXF_COMPARATOR_IN){
+					// FIXME this check prevents split filter collisions, but it can be greatly improved in two ways
+					// - we should generally look for other custom URLs
+					// - the final URL with all placeholders replaced should be compared
 					if ($this->get_request_split_filter() && strcasecmp($this->get_request_split_filter()->get_data_address_property('filter_query_url'), $filter_endpoint)){
 						throw new QueryBuilderException('Cannot use multiple filters requiring different custom URLs in one query: "' . $this->get_request_split_filter()->get_condition()->to_string() . '" AND "' . $qpart->get_condition()->to_string() . '"!');
 					}
+					
 					$this->set_request_split_filter($qpart);
 					$value = reset(explode(EXF_LIST_SEPARATOR, $qpart->get_compare_value()));
 				} else {
 					$value = $qpart->get_compare_value();
 				}
+				// The filter_query_url accepts the value placeholder along with attribute alias based placeholders. Since the value-placeholder
+				// is not supported in the regular data_address or the uid_request_data_address (there simply is nothing to take the value from),
+				// it must be replaced here already
 				$endpoint = str_replace('[#value#]', $value, $filter_endpoint);
 			} else {
 				$params_string = $this->add_parameter_to_url($params_string, $this->build_url_filter($qpart));
+			}
+			
+			// If the filter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always in the result
+			// - otherwise there will be nothing to filter over ;) 
+			if ($qpart->get_data_address_property('filter_locally')) {
+				$qpart->set_apply_after_reading(true);
+				if ($qpart->get_attribute()){
+					$this->add_attribute($qpart->get_alias());
+				}
 			}
 		}
 		
@@ -100,8 +117,27 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			$this->add_attribute($group_alias);
 		}
 		
-		// Check if the endpoint contains placeholders to be filled from filter
-		foreach ($this->get_workbench()->utils()->find_placeholders_in_string($endpoint) as $ph){
+		$endpoint = $this->replace_placeholders_in_url($endpoint);
+		
+		if ($endpoint !== false){
+			$query_string = $endpoint . (strpos($endpoint, '?') !== false ? '&' : '?') . $params_string;
+		}
+		
+		return new Psr7DataQuery(new Request('GET', $query_string));
+	}
+	
+	/**
+	 * Looks for placeholders in the give URL and replaces them with values from the corresponding filters.
+	 * Returns the given string with all placeholders replaced or FALSE if some placeholders could not be replaced.
+	 * 
+	 * IDEA maybe throw an exception instead of returning false. If that exception is not caught, it might give
+	 * valuable information about what exactly went wrong.
+	 * 
+	 * @param string $url_string
+	 * @return string|boolean
+	 */
+	protected function replace_placeholders_in_url($url_string){
+		foreach ($this->get_workbench()->utils()->find_placeholders_in_string($url_string) as $ph){
 			if ($ph_filter = $this->get_filter($ph)){
 				if (!is_null($ph_filter->get_compare_value())){
 					if ($this->get_request_split_filter() == $ph_filter && $ph_filter->get_comparator() == EXF_COMPARATOR_IN){
@@ -109,23 +145,17 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 					} else {
 						$ph_value = $ph_filter->get_compare_value();
 					}
-					$endpoint = str_replace('[#'.$ph.'#]', $ph_value, $endpoint);
+					$url_string = str_replace('[#'.$ph.'#]', $ph_value, $url_string);
 				} else {
-					// If at least one filter does not have a value, return an empty query string, thus
-					// preventing query execution
-					$query_string = '';
+					// If at least one filter does not have a value, return false
+					return false;
 				}
 			} else {
-				// If at least one placeholder does not have a corresponding filter, return an empty query string, thus
-				// preventing query execution
-				$query_string = '';
+				// If at least one placeholder does not have a corresponding filter, return false
+				return false;
 			}
 		}
-		if (is_null($query_string)){
-			$query_string = $endpoint . (strpos($endpoint, '?') !== false ? '&' : '?') . $params_string;
-		}
-		
-		return new Psr7DataQuery(new Request('GET', $query_string));
+		return $url_string;
 	}
 	
 	protected function add_parameter_to_url($url, $parameter, $value = null){
@@ -167,10 +197,6 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	 */
 	protected function build_url_filter(QueryPartFilter $qpart){
 		if ($qpart->get_data_address_property('filter_locally')) {
-			$qpart->set_apply_after_reading(true);
-			if ($qpart->get_attribute()){
-				$this->add_attribute($qpart->get_alias());
-			}
 			return '';
 		}
 		
@@ -263,19 +289,17 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			$result_rows = $this->build_result_rows($data, $query);
 			$result_rows = $this->apply_postprocessing($result_rows);
 				
-			// If this is a UID-request with multiple UIDs and there is a special data address for these requests, than the result will always
-			// be a single object, not a list. In this case, we have to read the data multiple times (for every UID in the list) and accumulate
-			// the results. This is important for many web services, that have different endpoint-addresses for searching objects via their
-			// attributes and via the ID (= the property "uid_request_data_address" needs to be set for those data sources). This will no
-			// have any effekt on data sources, were "uid_request_data_address" is not set and thus the normal searching also supports UID filters.
+			// See if the query has an IN-filter, that is set to split requests. This is quite common for URLs like mydomain.com/get_something/id=XXX.
+			// If we filter over ids and have multiple values, we will need to make as many identical requests as there are values and merge
+			// the results together here. So the easiest thing to do is perform this query multiple times, changing the split filter value each time.
 			if ($this->get_request_split_filter()
 			&& $this->get_request_split_filter()->get_comparator() == EXF_COMPARATOR_IN){
-				$uid_values = explode(EXF_LIST_SEPARATOR, $this->get_request_split_filter()->get_compare_value());
+				$split_values = explode(EXF_LIST_SEPARATOR, $this->get_request_split_filter()->get_compare_value());
 				// skip the first UID as it has been fetched already
-				$uid_skip = true;
-				foreach ($uid_values as $val){
-					if ($uid_skip) {
-						$uid_skip = false;
+				$skip_val = true;
+				foreach ($split_values as $val){
+					if ($skip_val) {
+						$skip_val = false;
 						continue;
 					}
 					$this->get_request_split_filter()->set_compare_value($val);
@@ -285,6 +309,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 						$result_rows = array_merge($result_rows, $this->apply_postprocessing($this->build_result_rows($data, $subquery)));
 					}
 				}
+				// Make sure, we give back the split filter it's initial value, in case any further code will be interested in filters.
+				// This is particulary important if we need to apply additional filterin in-memory!
+				$this->get_request_split_filter()->set_compare_value(implode(EXF_LIST_SEPARATOR,$split_values));
 			}
 			
 			// Apply live filters, sorters and pagination
