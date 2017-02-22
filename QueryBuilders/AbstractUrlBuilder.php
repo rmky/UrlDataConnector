@@ -317,7 +317,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			// Apply live filters, sorters and pagination
 			$result_rows = $this->apply_filters($result_rows);
 			$result_rows = $this->apply_sorting($result_rows);
-			$result_rows = $this->apply_pagination($result_rows);
+			if (!$this->is_remote_pagination_configured()){
+				$result_rows = $this->apply_pagination($result_rows);
+			}
 		}
 	
 		if (!$this->get_result_total_rows()){
@@ -369,6 +371,13 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			}
 		}
 		return $result_rows;
+	}
+	
+	protected function is_remote_pagination_configured(){
+		if ($this->get_main_object()->get_data_address_property('request_offset_parameter')){
+			return true;
+		}
+		return false;
 	}
 	  
 }

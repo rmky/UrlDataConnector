@@ -24,13 +24,17 @@ use exface\UrlDataConnector\Psr7DataQuery;
  *
  */
 class HtmlUrlBuilder extends AbstractUrlBuilder {
+	private $crawler;
 	
 	/**
 	 * {@inheritDoc}
 	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::build_result_rows()
 	 */
 	protected function build_result_rows($parsed_data, Psr7DataQuery $query){
-		$crawler = new Crawler($parsed_data);
+		if (!$this->get_crawler()){
+			$this->set_crawler(new Crawler($parsed_data));
+		}
+		$crawler = $this->get_crawler();
 		$column_attributes = array();
 		$result_rows = array();
 		
@@ -115,6 +119,32 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 	 */
 	protected function find_field_in_data($data_address, $data){
 		// TODO extract code for this function from build_result_rows()
+		if (!$this->get_crawler()){
+			$this->set_crawler(new Crawler($data));
+		}
+		$crawler = $this->get_crawler();;
+		$css_selector = $data_address;
+		
+		if ($css_selector){
+			$elements = $crawler->filter($css_selector);
+			if (iterator_count($elements) > 0){
+				foreach ($elements as $nr => $node){
+					$value = $node->textContent;
+				}
+			}
+		}
+		return $value;
 	}
+	
+	protected function get_crawler() {
+		return $this->crawler;
+	}
+	
+	protected function set_crawler($value) {
+		$this->crawler = $value;
+		return $this;
+	}
+	
+	  
 }
 ?>
