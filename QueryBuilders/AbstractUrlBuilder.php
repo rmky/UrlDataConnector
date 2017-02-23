@@ -306,7 +306,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 					$subquery = $data_connection->query($this->build_query());
 					if ($data = $this->parse_response($subquery)){
 						$this->set_result_total_rows($this->get_result_total_rows() + $this->find_row_counter($data));
-						$result_rows = array_merge($result_rows, $this->apply_postprocessing($this->build_result_rows($data, $subquery)));
+						$subquery_rows = $this->build_result_rows($data, $subquery); 
+						$result_rows = array_merge($result_rows, $this->apply_postprocessing($subquery_rows));
 					}
 				}
 				// Make sure, we give back the split filter it's initial value, in case any further code will be interested in filters.

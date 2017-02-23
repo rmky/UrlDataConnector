@@ -24,17 +24,15 @@ use exface\UrlDataConnector\Psr7DataQuery;
  *
  */
 class HtmlUrlBuilder extends AbstractUrlBuilder {
-	private $crawler;
+	private $cache = array();
 	
 	/**
 	 * {@inheritDoc}
 	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::build_result_rows()
 	 */
 	protected function build_result_rows($parsed_data, Psr7DataQuery $query){
-		if (!$this->get_crawler()){
-			$this->set_crawler(new Crawler($parsed_data));
-		}
-		$crawler = $this->get_crawler();
+		$crawler = $this->get_crawler($parsed_data);
+		
 		$column_attributes = array();
 		$result_rows = array();
 		
@@ -118,11 +116,7 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::find_field_in_data()
 	 */
 	protected function find_field_in_data($data_address, $data){
-		// TODO extract code for this function from build_result_rows()
-		if (!$this->get_crawler()){
-			$this->set_crawler(new Crawler($data));
-		}
-		$crawler = $this->get_crawler();;
+		$crawler = $this->get_crawler($data);
 		$css_selector = $data_address;
 		
 		if ($css_selector){
@@ -136,15 +130,20 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 		return $value;
 	}
 	
-	protected function get_crawler() {
-		return $this->crawler;
-	}
-	
-	protected function set_crawler($value) {
-		$this->crawler = $value;
-		return $this;
-	}
-	
+	/**
+	 * Creates a Symfony crawler instace for the given HTML. Crawlers are cached in memory (within one request)
+	 * 
+	 * @param string $parsed_data
+	 * @return \Symfony\Component\DomCrawler\Crawler
+	 */
+	protected function get_crawler($parsed_data) {
+		$cache_key = md5($parsed_data);
+		if (!$crawler = $this->cache[$cache_key]){
+			$crawler = new Crawler($parsed_data);
+			$this->cache[$cache_key] = $crawler;
+		}
+		return $crawler;
+	}	
 	  
 }
 ?>
