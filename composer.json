@@ -1,5 +1,5 @@
 {
-    "name": "ExFace/UrlDataConnector",
+    "name": "exface/UrlDataConnector",
     "description": "Connector for web-based data sources like web services and web pages for the ExFace plattform",
     "type": "library",
     "license": "GPL-3.0+",
