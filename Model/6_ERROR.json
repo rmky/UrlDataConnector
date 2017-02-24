@@ -65,6 +65,13 @@
             "attribute_alias": "ERROR_TEXT"
         },
         {
+            "expression": "DESCRIPTION",
+            "name": "DESCRIPTION",
+            "hidden": false,
+            "data_type": "Text",
+            "attribute_alias": "DESCRIPTION"
+        },
+        {
             "expression": "LABEL",
             "name": "LABEL",
             "hidden": false,
@@ -83,6 +90,7 @@
             "APP": "0x11e6951dda3ba520b48b847beb4a5184",
             "ERROR_CODE": "6T4RAVX",
             "ERROR_TEXT": "Failed to create HTTP client",
+            "DESCRIPTION": null,
             "LABEL": "ExFace.UrlDataConnector.6T4RAVX"
         }
     ],
