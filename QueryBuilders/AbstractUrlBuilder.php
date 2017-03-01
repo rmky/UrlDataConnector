@@ -120,7 +120,10 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 		$endpoint = $this->replace_placeholders_in_url($endpoint);
 		
 		if ($endpoint !== false){
-			$query_string = $endpoint . (strpos($endpoint, '?') !== false ? '&' : '?') . $params_string;
+			$query_string = $endpoint;
+			if ($params_string){
+				$query_string .= (strpos($query_string, '?') !== false ? '&' : '?') . $params_string;
+			}
 		}
 		
 		return new Psr7DataQuery(new Request('GET', $query_string));

@@ -53,9 +53,16 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 		
 			// See if the data is the text in the node, or a specific attribute
 			$split_pos = strpos($qpart->get_data_address(), '->');
+			$get_attribute = false;
+			$get_calculation = false;
 			if ($split_pos !== false){
 				$css_selector = trim(substr($qpart->get_data_address(), 0, $split_pos));
-				$get_attribute = trim(substr($qpart->get_data_address(), $split_pos+2));
+				$extension = trim(substr($qpart->get_data_address(), $split_pos+2));
+				if (strpos($extension, '(') !== false && strpos($extension, ')') !== false){
+					$get_calculation = $extension;
+				} else {
+					$get_attribute = $extension;
+				}
 				// If the selector is empty, the attribute will be taken from the entire document
 				// This means, the value is the same for all rows!
 				if (!$css_selector && $get_attribute){
@@ -65,7 +72,6 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 				}
 			} else {
 				$css_selector = $qpart->get_data_address();
-				$get_attribute = false;
 			}
 		
 			if ($css_selector){
@@ -76,6 +82,8 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 							$value = $node->ownerDocument->saveHTML($node);
 						} elseif ($get_attribute) {
 							$value = $node->getAttribute($get_attribute);
+						} elseif ($get_calculation) { 
+							$value = $this->perform_calculation_on_node($get_calculation, $node);
 						} else {
 							$value = $node->textContent;
 						}
@@ -109,6 +117,22 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 		}
 		
 		return $result_rows_with_uid_keys;
+	}
+	
+	protected function perform_calculation_on_node($expression, \DOMNode $node){
+		$result = '';
+		$pos = strpos($expression, '(');
+		$func = substr($expression, 0, $pos);
+		$args = explode(',', substr($expression, $pos+1, (strrpos($expression, ')')-$pos-1)));
+		
+		switch ($func){
+			case 'is': 
+			case 'not':
+				$crawler = new Crawler('<div>' . $node->ownerDocument->saveHTML($node) . '</div>');
+				$result = $crawler->filter($args[0])->count() > 0 ? ($func=='is') : ($func=='not');
+				break;
+		}
+		return $result;
 	}
 	
 	/**
