@@ -206,7 +206,7 @@ class HttpConnector extends AbstractUrlConnector {
 	 * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
 	 */
 	public function set_use_cookies($value) {
-		$this->use_cookies = $value ? true : false;
+		$this->use_cookies = filter_var($value, FILTER_VALIDATE_BOOLEAN);
 		return $this;
 	}
 	
@@ -224,7 +224,7 @@ class HttpConnector extends AbstractUrlConnector {
 	 * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
 	 */
 	public function set_cache_enabled($value) {
-		$this->cache_enabled = $value ? true : false;
+		$this->cache_enabled = filter_var($value, FILTER_VALIDATE_BOOLEAN);
 		return $this;
 	}
 	
@@ -245,7 +245,7 @@ class HttpConnector extends AbstractUrlConnector {
 	 * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
 	 */
 	public function set_cache_ignore_headers($value) {
-		$this->cache_ignore_headers = $value ? true : false;
+		$this->cache_ignore_headers = filter_var($value, FILTER_VALIDATE_BOOLEAN);
 		if ($this->get_cache_ignore_headers()){
 			$this->set_cache_lifetime_in_seconds(60);
 		}
