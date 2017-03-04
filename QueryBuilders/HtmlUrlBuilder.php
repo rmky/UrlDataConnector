@@ -131,6 +131,9 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 				$crawler = new Crawler('<div>' . $node->ownerDocument->saveHTML($node) . '</div>');
 				$result = $crawler->filter($args[0])->count() > 0 ? ($func=='is') : ($func=='not');
 				break;
+			case 'find':
+				$result = $this->find_field_in_data($args[0], $node->ownerDocument->saveHTML($node));
+				break;
 		}
 		return $result;
 	}
