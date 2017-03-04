@@ -29,6 +29,8 @@ use exface\Core\Exceptions\QueryBuilderException;
  * - response_group_use_only_first - set to TRUE to return only the first group ignoring all rows with other values of the group attribute than the first row.
  * - request_offset_parameter - name of the URL parameter containing the page offset for pagination
  * - request_limit_parameter - name of the URL parameter holding the maximum number of returned items
+ * - request_url_replace_pattern - regular expression pattern for PHP preg_replace() function to be performed on the request URL
+ * - request_url_replace_with - replacement string for PHP preg_replace() function to be performed on the request URL
  * 
  * @see REST_XML for XML-based APIs
  * @author Andrej Kabachnik
@@ -117,9 +119,17 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			$this->add_attribute($group_alias);
 		}
 		
+		// Replace placeholders in endpoint
 		$endpoint = $this->replace_placeholders_in_url($endpoint);
 		
 		if ($endpoint !== false){
+			// Run custom regexp transformations
+			if ($replace_pattern = $this->get_main_object()->get_data_address_property('request_url_replace_pattern')){
+				$replace_with = $this->get_main_object()->get_data_address_property('request_url_replace_with');
+				$endpoint = preg_replace($replace_pattern, $replace_with, $endpoint);
+			}
+			
+			// Build the resulting query string
 			$query_string = $endpoint;
 			if ($params_string){
 				$query_string .= (strpos($query_string, '?') !== false ? '&' : '?') . $params_string;
