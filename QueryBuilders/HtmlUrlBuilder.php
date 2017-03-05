@@ -65,9 +65,13 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 				}
 				// If the selector is empty, the attribute will be taken from the entire document
 				// This means, the value is the same for all rows!
-				if (!$css_selector && $get_attribute){
-					switch (strtolower($get_attribute)){
-						case 'url': $column_attributes[$qpart->get_alias()] = $query->get_request()->getUri()->__toString();
+				if (!$css_selector){
+					if ($get_attribute){
+						switch (strtolower($get_attribute)){
+							case 'url': $column_attributes[$qpart->get_alias()] = $query->get_request()->getUri()->__toString();
+						}
+					} elseif ($get_calculation){
+						$column_attributes[$qpart->get_alias()] = $this->perform_calculation_on_node($get_calculation, $crawler->getNode(0));
 					}
 				}
 			} else {
