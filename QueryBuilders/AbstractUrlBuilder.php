@@ -14,11 +14,13 @@ use exface\Core\Exceptions\QueryBuilderException;
  * specific implementation (e.g. JSON vs. XML)
  * 
  * The following custom data address properties are supported on attribute level:
- * - filter_query_url - used to set a custom URL to be used if there is a filter over this attribute
- * - filter_query_parameter - used for filtering instead of the attributes data address: e.g. &[filter_query_parameter]=VALUE instead of &[data_address]=VALUE
- * - filter_query_prefix - prefix for the value in a filter query: e.g. &[data_address]=[filter_query_prefix]VALUE. Can be used to pass default operators etc.
+ * - filter_remote - set to 1 to enable remote filtering (0 by default)
+ * - filter_remote_url - used to set a custom URL to be used if there is a filter over this attribute
+ * - filter_remote_url_param - used for filtering instead of the attributes data address: e.g. &[filter_remote_url_param]=VALUE instead of &[data_address]=VALUE
+ * - filter_remote_prefix - prefix for the value in a filter query: e.g. &[data_address]=[filter_remote_prefix]VALUE. Can be used to pass default operators etc.
  * - filter_locally - set to 1 to filter in ExFace after reading the data (if the data source does not support filtering over this attribute).
- * - sort_query_parameter - used for sorting instead of the attributes data address: e.g. &[sort_query_parameter]=VALUE instead of &[data_address]=VALUE
+ * - sort_remote - set to 1 to enable remote sorting (0 by default)
+ * - sort_remote_url_param - used for sorting instead of the attributes data address: e.g. &[sort_remote_url_param]=VALUE instead of &[data_address]=VALUE
  * - sort_locally - set to 1 to sort in ExFace after reading the data (if the data source does not support filtering over this attribute).
  * 
  * The following custom data address properties are supported on object level:
@@ -48,7 +50,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 		$params_string = '';
 		
 		// Add filters
-		foreach ($this->get_filters()->get_filters() as $qpart){
+		foreach ($this->get_filters()->get_filters() as $qpart){	
+			$this->prepare_filter($qpart);
+			
 			// In REST APIs it is common to have a special URL to fetch data by UID of the object:
 			// e.g. /users/1.xml would be the URL to fetch data for the user with UID = 1. Since in ExFace
 			// the UID filter can also be used in regular searches, we can tell ExFace to use a special
@@ -60,15 +64,15 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 				$endpoint = $this->get_main_object()->get_data_address_property('uid_request_data_address');
 				$this->set_request_split_filter($qpart);
 			} 
-			// Another way to set custom URLs is to give an attribute an explicit URL via filter_query_url address property.
+			// Another way to set custom URLs is to give an attribute an explicit URL via filter_remote_url address property.
 			// This ultimately does the same thing, as uid_request_data_address on object level, but it's more general
 			// because it can be set for every attribute.
-			elseif($filter_endpoint = $qpart->get_data_address_property('filter_query_url')){
+			elseif($filter_endpoint = $qpart->get_data_address_property('filter_remote_url')){
 				if ($qpart->get_comparator() == EXF_COMPARATOR_IN){
 					// FIXME this check prevents split filter collisions, but it can be greatly improved in two ways
 					// - we should generally look for other custom URLs
 					// - the final URL with all placeholders replaced should be compared
-					if ($this->get_request_split_filter() && strcasecmp($this->get_request_split_filter()->get_data_address_property('filter_query_url'), $filter_endpoint)){
+					if ($this->get_request_split_filter() && strcasecmp($this->get_request_split_filter()->get_data_address_property('filter_remote_url'), $filter_endpoint)){
 						throw new QueryBuilderException('Cannot use multiple filters requiring different custom URLs in one query: "' . $this->get_request_split_filter()->get_condition()->to_string() . '" AND "' . $qpart->get_condition()->to_string() . '"!');
 					}
 					
@@ -77,21 +81,12 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 				} else {
 					$value = $qpart->get_compare_value();
 				}
-				// The filter_query_url accepts the value placeholder along with attribute alias based placeholders. Since the value-placeholder
+				// The filter_remote_url accepts the value placeholder along with attribute alias based placeholders. Since the value-placeholder
 				// is not supported in the regular data_address or the uid_request_data_address (there simply is nothing to take the value from),
 				// it must be replaced here already
 				$endpoint = str_replace('[#value#]', $value, $filter_endpoint);
 			} else {
 				$params_string = $this->add_parameter_to_url($params_string, $this->build_url_filter($qpart));
-			}
-			
-			// If the filter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always in the result
-			// - otherwise there will be nothing to filter over ;) 
-			if ($qpart->get_data_address_property('filter_locally')) {
-				$qpart->set_apply_after_reading(true);
-				if ($qpart->get_attribute()){
-					$this->add_attribute($qpart->get_alias());
-				}
 			}
 		}
 		
@@ -108,6 +103,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 		// Add sorting
 		$sorters = array();
 		foreach ($this->get_sorters() as $qpart){
+			$this->prepare_sorter($qpart);
 			$sorters[] = $this->build_url_sorter($qpart);
 		}
 		if (count($sorters) > 0){
@@ -137,6 +133,67 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 		}
 		
 		return new Psr7DataQuery(new Request('GET', $query_string));
+	}
+	
+	/**
+	 * Checks the custom filter configuration of a query part for consistency.
+	 * 
+	 * @param QueryPartFilter $qpart
+	 * @return \exface\Core\CommonLogic\QueryBuilder\QueryPartFilter
+	 */
+	protected function prepare_filter(QueryPartFilter $qpart){
+		// If there are options for remote filtering set and the filter_remote address property is not explicitly off, enable it
+		if ($qpart->get_data_address_property('filter_remote_url_param') || $qpart->get_data_address_property('filter_remote_prefix')){
+			if ($qpart->get_data_address_property('filter_remote') === '' || is_null($qpart->get_data_address_property('filter_remote'))){
+				$qpart->set_data_address_property('filter_remote', 1);
+			}
+		}
+		
+		// Enable local filtering if remote filters are not enabled and local filtering is not explicitly off
+		if (!$qpart->get_data_address_property('filter_remote') && (is_null($qpart->get_data_address_property('filter_locally')) || $qpart->get_data_address_property('filter_locally') === '')){
+			$qpart->set_data_address_property('filter_locally', 1);
+		}
+		
+		// If a local filter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always 
+		// in the result - otherwise there will be nothing to filter over ;)
+		if ($qpart->get_data_address_property('filter_locally')) {
+			$qpart->set_apply_after_reading(true);
+			if ($qpart->get_attribute()){
+				$this->add_attribute($qpart->get_alias());
+			}
+		}
+		return $qpart;
+	}
+	
+	/**
+	 * Checks the custom sorting configuration of a query part for consistency.
+	 * 
+	 * @param QueryPartSorter $qpart
+	 * @return \exface\Core\CommonLogic\QueryBuilder\QueryPartSorter
+	 */
+	protected function prepare_sorter(QueryPartSorter $qpart){
+		// If there are options for remote sorting set and the sort_remote address property is not explicitly off, enable it
+		if ($qpart->get_data_address_property('sort_remote_url_param')){
+			if ($qpart->get_data_address_property('sort_remote') === '' || is_null($qpart->get_data_address_property('sort_remote'))){
+				$qpart->set_data_address_property('sort_remote', 1);
+			}
+		}
+		
+		// Enable local sorting if remote sort is not enabled and local sorting is not explicitly off
+		if (!$qpart->get_data_address_property('sort_remote') && (is_null($qpart->get_data_address_property('sort_locally')) || $qpart->get_data_address_property('sort_locally') === '')){
+			$qpart->set_data_address_property('sort_locally', 1);
+		}
+		
+		// If a local sorter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always
+		// in the result - otherwise there will be nothing to sort over ;)
+		if ($qpart->get_data_address_property('sort_locally')) {
+			$qpart->set_apply_after_reading(true);
+			if ($qpart->get_attribute()){
+				$this->add_attribute($qpart->get_alias());
+			}
+		}
+		
+		return $qpart;
 	}
 	
 	/**
@@ -209,14 +266,14 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	 * @return string
 	 */
 	protected function build_url_filter(QueryPartFilter $qpart){
-		if ($qpart->get_data_address_property('filter_locally')) {
+		if (!$qpart->get_data_address_property('filter_remote')) {
 			return '';
 		}
 		
 		$filter = '';
 		// Determine filter name (URL parameter name)
-		if ($param = $qpart->get_data_address_property('filter_query_parameter')){
-			// Use the filter_query_parameter if explicitly defined
+		if ($param = $qpart->get_data_address_property('filter_remote_url_param')){
+			// Use the filter_remote_url_param if explicitly defined
 			$filter = $param;
 		} elseif (stripos($qpart->get_data_address(), '->') === 0) {
 			// Use the data_address if it is not a property itself (starts with ->)
@@ -227,7 +284,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 			$filter .= '=';
 			
 			// Add a prefix to the value if needed
-			if ($prefix = $qpart->get_data_address_property('filter_query_prefix')){
+			if ($prefix = $qpart->get_data_address_property('filter_remote_prefix')){
 				$filter .= $prefix;
 			}
 			
@@ -243,11 +300,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	}
 	
 	protected function build_url_sorter(QueryPartSorter $qpart){
-		if ($qpart->get_data_address_property('sort_locally')){
-			$qpart->set_apply_after_reading(true);
-			$this->add_attribute($qpart->get_alias());
-		}
-		return ($qpart->get_data_address_property('sort_query_parameter') ? $qpart->get_data_address_property('sort_query_parameter') : $qpart->get_data_address());
+		if (!$qpart->get_data_address_property('sort_remote')) return '';
+		return ($qpart->get_data_address_property('sort_remote_url_param') ? $qpart->get_data_address_property('sort_remote_url_param') : $qpart->get_data_address());
 	}
 	
 	/**
