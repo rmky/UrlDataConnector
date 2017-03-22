@@ -143,7 +143,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	 */
 	protected function prepare_filter(QueryPartFilter $qpart){
 		// If there are options for remote filtering set and the filter_remote address property is not explicitly off, enable it
-		if ($qpart->get_data_address_property('filter_remote_url_param') || $qpart->get_data_address_property('filter_remote_prefix')){
+		if ($qpart->get_data_address_property('filter_remote_url') || $qpart->get_data_address_property('filter_remote_url_param') || $qpart->get_data_address_property('filter_remote_prefix')){
 			if ($qpart->get_data_address_property('filter_remote') === '' || is_null($qpart->get_data_address_property('filter_remote'))){
 				$qpart->set_data_address_property('filter_remote', 1);
 			}
