@@ -34,7 +34,6 @@ use exface\Core\Exceptions\QueryBuilderException;
  * - request_url_replace_pattern - regular expression pattern for PHP preg_replace() function to be performed on the request URL
  * - request_url_replace_with - replacement string for PHP preg_replace() function to be performed on the request URL
  * 
- * @see REST_XML for XML-based APIs
  * @author Andrej Kabachnik
  *
  */

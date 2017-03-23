@@ -6,20 +6,39 @@ use GuzzleHttp\Psr7\Request;
 use exface\UrlDataConnector\Psr7DataQuery;
 
 /**
- * This is a query builder for JSON-based REST APIs. It creates a sequence of URL parameters for a query and parses the JSON result.
+ * This is a crawler for HTML pages. It extracts data via CSS queries similar to jQuery.
+ * 
+ * The data addresses of attributes can be defined via CSS queries with some additions:
+ * - "#some-id .class" - will act like $('#some-id .class').text() in jQuery
+ * - "#some-id img ->src" - will extract the value of the src attribute of the img tag (any tag attributes can be accessed this way)
+ * - "#some-id img ->srcset()" - will extract the first source in the srcset attribute
+ * - "#some-id img ->srcset(2x)" - will extract the 2x-source in the srcset attribute
+ * - "#some-id .class ->find(.another-class) - will act as $('#some-id .class').find('another-class') in jQuery
+ * - "#some-id .class ->is(.another-class) - will act as $('#some-id .class').is('another-class') in jQuery
+ * - "#some-id .class ->not(.another-class) - will act as $('#some-id .class').not('another-class') in jQuery
+ * - "->url" - will take the URL of the HTML page as value
  * 
  * The following custom data address properties are supported on attribute level:
- * - filter_query_parameter - used for filtering instead of the attributes data address: e.g. &[filter_query_parameter]=VALUE instead of &[data_address]=VALUE
- * - filter_query_prefix - prefix for the value in a filter query: e.g. &[data_address]=[filter_query_prefix]VALUE. Can be used to pass default operators etc.
+ * - filter_remote - set to 1 to enable remote filtering (0 by default)
+ * - filter_remote_url - used to set a custom URL to be used if there is a filter over this attribute
+ * - filter_remote_url_param - used for filtering instead of the attributes data address: e.g. &[filter_remote_url_param]=VALUE instead of &[data_address]=VALUE
+ * - filter_remote_prefix - prefix for the value in a filter query: e.g. &[data_address]=[filter_remote_prefix]VALUE. Can be used to pass default operators etc.
+ * - filter_locally - set to 1 to filter in ExFace after reading the data (if the data source does not support filtering over this attribute).
+ * - sort_remote - set to 1 to enable remote sorting (0 by default)
+ * - sort_remote_url_param - used for sorting instead of the attributes data address: e.g. &[sort_remote_url_param]=VALUE instead of &[data_address]=VALUE
+ * - sort_locally - set to 1 to sort in ExFace after reading the data (if the data source does not support filtering over this attribute).
  * 
  * The following custom data address properties are supported on object level:
  * - force_filtering - disables request withot at least a single filter (1). Some APIs disallow this!
  * - response_data_path - path to the array containing the items
  * - response_total_count_path - path to the total number of items matching the filter (used for pagination)
+ * - response_group_by_attribute_alias - result rows will get resorted and grouped by values of the given attribute
+ * - response_group_use_only_first - set to TRUE to return only the first group ignoring all rows with other values of the group attribute than the first row.
  * - request_offset_parameter - name of the URL parameter containing the page offset for pagination
  * - request_limit_parameter - name of the URL parameter holding the maximum number of returned items
+ * - request_url_replace_pattern - regular expression pattern for PHP preg_replace() function to be performed on the request URL
+ * - request_url_replace_with - replacement string for PHP preg_replace() function to be performed on the request URL
  * 
- * @see REST_XML for XML-based APIs
  * @author Andrej Kabachnik
  *
  */
@@ -137,6 +156,20 @@ class HtmlUrlBuilder extends AbstractUrlBuilder {
 				break;
 			case 'find':
 				$result = $this->find_field_in_data($args[0], $node->ownerDocument->saveHTML($node));
+				break;
+			case 'srcset':
+				$src_vals = explode(',', $node->getAttribute('srcset'));
+				if ($args[0]){
+					foreach($src_vals as $src){
+						$src_parts = explode(' ', $src);
+						if ($src_parts[1] == $args[0]){
+							$result = $src_parts[0];
+						}
+						break;
+					}
+				} else {
+					$result = $src_vals[0];
+				}
 				break;
 		}
 		return $result;
