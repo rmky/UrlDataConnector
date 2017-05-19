@@ -80,13 +80,13 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 				$json = $obj;
 			}
 			
-			$query = new Psr7DataQuery(new Request('POST', $uri, array(), json_encode($json)));
+			$query = new Psr7DataQuery(new Request('POST', $uri, array('Content-Type' => 'application/json'), json_encode($json)));
 			
 			$result = $this->parse_response($data_connection->query($query));
 			if (is_array($result)){
-				$result_data = $this->find_row_data($result);
+				$result_data = $this->find_row_data($result, $data_path);
 			}
-			$insert_ids[] = $result_data[$this->get_main_object()->get_uid_attribute()->get_data_address()];
+			$insert_ids[] = $this->find_field_in_data($this->get_main_object()->get_uid_attribute()->get_data_address(), $result_data);
 		}
 		
 		return $insert_ids;
@@ -155,13 +155,17 @@ class JsonUrlBuilder extends AbstractUrlBuilder {
 	 * {@inheritDoc}
 	 * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::find_row_data()
 	 */
-	protected function find_row_data($parsed_data){
+	protected function find_row_data($parsed_data, $data_path = null){
 		// Get the response data path from the meta model
-		// TODO make work with any request_split_filter, not just the UID
-		if ($this->get_request_split_filter() && $this->get_request_split_filter()->get_attribute()->is_uid_for_object() && !is_null($this->get_main_object()->get_data_address_property('uid_response_data_path'))){
-			$path = $this->get_main_object()->get_data_address_property('uid_response_data_path');
+		if (is_null($data_path)){
+			// TODO make work with any request_split_filter, not just the UID
+			if ($this->get_request_split_filter() && $this->get_request_split_filter()->get_attribute()->is_uid_for_object() && !is_null($this->get_main_object()->get_data_address_property('uid_response_data_path'))){
+				$path = $this->get_main_object()->get_data_address_property('uid_response_data_path');
+			} else {
+				$path = $this->get_main_object()->get_data_address_property('response_data_path');
+			}
 		} else {
-			$path = $this->get_main_object()->get_data_address_property('response_data_path');
+			$path = $data_path;
 		}
 		
 		// Get the actual data

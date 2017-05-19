@@ -33,6 +33,7 @@ use exface\Core\Exceptions\QueryBuilderException;
  * - request_limit_parameter - name of the URL parameter holding the maximum number of returned items
  * - request_url_replace_pattern - regular expression pattern for PHP preg_replace() function to be performed on the request URL
  * - request_url_replace_with - replacement string for PHP preg_replace() function to be performed on the request URL
+ * - create_request_data_path - path to the object/array holding the attributes of the instance to be created
  * 
  * @author Andrej Kabachnik
  *
@@ -319,7 +320,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder {
 	 * @param mixed $response
 	 * @return mixed
 	 */
-	protected function find_row_data($parsed_response){
+	protected function find_row_data($parsed_response, $data_path = null){
 		return $parsed_response;
 	}
 	
