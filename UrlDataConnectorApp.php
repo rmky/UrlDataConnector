@@ -1,5 +1,7 @@
-<?php namespace exface\UrlDataConnector;
-class UrlDataConnectorApp extends \exface\Core\CommonLogic\AbstractApp {
-	
+<?php
+namespace exface\UrlDataConnector;
+
+class UrlDataConnectorApp extends \exface\Core\CommonLogic\AbstractApp
+{
 }
 ?>
