@@ -14,28 +14,93 @@ use exface\Core\Exceptions\QueryBuilderException;
  * This is an abstract query builder for REST APIs.
  * It creates a sequence of URL parameters for a query. Parsing the results is done by
  * specific implementation (e.g. JSON vs. XML)
- *
- * The following custom data address properties are supported on attribute level:
- * - filter_remote - set to 1 to enable remote filtering (0 by default)
- * - filter_remote_url - used to set a custom URL to be used if there is a filter over this attribute
- * - filter_remote_url_param - used for filtering instead of the attributes data address: e.g. &[filter_remote_url_param]=VALUE instead of &[data_address]=VALUE
- * - filter_remote_prefix - prefix for the value in a filter query: e.g. &[data_address]=[filter_remote_prefix]VALUE. Can be used to pass default operators etc.
- * - filter_locally - set to 1 to filter in ExFace after reading the data (if the data source does not support filtering over this attribute).
- * - sort_remote - set to 1 to enable remote sorting (0 by default)
- * - sort_remote_url_param - used for sorting instead of the attributes data address: e.g. &[sort_remote_url_param]=VALUE instead of &[data_address]=VALUE
- * - sort_locally - set to 1 to sort in ExFace after reading the data (if the data source does not support filtering over this attribute).
- *
- * The following custom data address properties are supported on object level:
- * - force_filtering - disables request withot at least a single filter (1). Some APIs disallow this!
- * - response_data_path - path to the array containing the items
- * - response_total_count_path - path to the total number of items matching the filter (used for pagination)
- * - response_group_by_attribute_alias - result rows will get resorted and grouped by values of the given attribute
- * - response_group_use_only_first - set to TRUE to return only the first group ignoring all rows with other values of the group attribute than the first row.
- * - request_offset_parameter - name of the URL parameter containing the page offset for pagination
- * - request_limit_parameter - name of the URL parameter holding the maximum number of returned items
- * - request_url_replace_pattern - regular expression pattern for PHP preg_replace() function to be performed on the request URL
- * - request_url_replace_with - replacement string for PHP preg_replace() function to be performed on the request URL
- * - create_request_data_path - path to the object/array holding the attributes of the instance to be created
+ * 
+ * # Data source options
+ * ===================== 
+ * 
+ * ## On object level
+ * ------------------
+ * 
+ * - **force_filtering** - disables request withot at least a single filter (1). 
+ * Some APIs disallow this!
+ * 
+ * - **response_data_path** - path to the array containing the items
+ * 
+ * - **response_total_count_path** - path to the total number of items matching 
+ * the filter (used for pagination)
+ * 
+ * - **response_group_by_attribute_alias** - result rows will get resorted and 
+ * grouped by values of the given attribute
+ * 
+ * - **response_group_use_only_first** - set to TRUE to return only the first 
+ * group ignoring all rows with other values of the group attribute than the 
+ * first row.
+ * 
+ * - **request_offset_parameter** - name of the URL parameter containing the 
+ * page offset for pagination
+ * 
+ * - **request_limit_parameter** - name of the URL parameter holding the 
+ * maximum number of returned items
+ * 
+ * - **request_url_replace_pattern** - regular expression pattern for PHP 
+ * preg_replace() function to be performed on the request URL
+ * 
+ * - **request_url_replace_with** - replacement string for PHP preg_replace() 
+ * function to be performed on the request URL
+ * 
+ * - **uid_request_data_address** - makes requests with filters over the UID go 
+ * to this URL instead of the one in the data address. The URL allows
+ * attribute_alias as placeholders (incl. the UID itself - e.g. 
+ * "me.com/service/[#UID#]"). Note, that if the URL does not have placeholders
+ * it will be always the same - regardles of what the UID actually is. This is
+ * handy if the UID is the URL itself, so you can 
+ * set uid_request_data_address=[#UID#]. 
+ * 
+ * - **uid_response_data_path** - used to find the data in the response for a 
+ * request with a filter on UID (instead of response_data_path)
+ * 
+ * - **create_request_data_address** - used in create requests instead of the 
+ * data address
+ * 
+ * - **create_request_data_path** - path to the object/array holding the 
+ * attributes of the instance to be created
+ * 
+ * - **update_request_data_address** - used in update requests instead of the 
+ * data address
+ * 
+ * - **update_request_data_path** - this is where the data is put in the body 
+ * of update requests (if not specified the attributes are just put in the root 
+ * object)
+ * 
+ *  ## On attribute level
+ *  ---------------------
+ * 
+ * - **filter_remote** - set to 1 to enable remote filtering (0 by default)
+ * 
+ * - **filter_remote_url** - used to set a custom URL to be used if there is a 
+ * filter over this attribute. The URL accepts the placeholder [#value#] which
+ * will be replaced by the. Note, that if the URL does not have the placeholder,
+ * it will be always the same - regardles of what the filter is actually set to. 
+ * 
+ * - **filter_remote_url_param** - used for filtering instead of the attributes 
+ * data address: e.g. &[filter_remote_url_param]=VALUE instead of 
+ * &[data_address]=VALUE
+ * 
+ * - **filter_remote_prefix** - prefix for the value in a filter query: e.g. 
+ * &[data_address]=[filter_remote_prefix]VALUE. Can be used to pass default 
+ * operators etc.
+ * 
+ * - **filter_locally** - set to 1 to filter in ExFace after reading the data 
+ * (if the data source does not support filtering over this attribute).
+ * 
+ * - **sort_remote** - set to 1 to enable remote sorting (0 by default)
+ * 
+ * - **sort_remote_url_param** - used for sorting instead of the attributes 
+ * data address: e.g. &[sort_remote_url_param]=VALUE instead of 
+ * &[data_address]=VALUE
+ * 
+ * - **sort_locally** - set to 1 to sort in ExFace after reading the data (if 
+ * the data source does not support filtering over this attribute).
  *
  * @author Andrej Kabachnik
  *        

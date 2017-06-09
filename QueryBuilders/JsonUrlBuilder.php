@@ -10,29 +10,44 @@ use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
 
 /**
  * This is a query builder for JSON-based REST APIs.
- * It creates a sequence of URL parameters for a query and parses the JSON result.
+ * 
+ * In addition to the logic of the AbstractUrlBuilder, the JsonUrlBuilder will
+ * parse the responses and create request bodies as JSON.
+ * 
+ * # Syntax of data addresses
+ * ==========================
+ * 
+ * - **my_field** will get the value from {"my_field": "value"}
+ * - **address.street** will get the value from {"address": {"street": "value"}}
+ * - **authors[1].name** will get the value from {"authors": [{...}, {"name: "value", ...}, {...}]}
+ * - **barcodes[type=ean8].code** will get the value from {"barcodes": [{...}, {"type": "ean8", "code": "value"}]}
  *
- * The following custom data address properties are supported on attribute level:
- * - filter_query_parameter - used for filtering instead of the attributes data address: e.g. &[filter_query_parameter]=VALUE instead of &[data_address]=VALUE
- * - sort_query_parameter - used for sorting instead of the data address
- * - create_query_parameter - used in the body of create queries (typically POST-queries) instead of the data address
- * - update_query_parameter - used in the body of update queries (typically PUT-queries) instead of the data address
- * - filter_query_prefix - prefix for the value in a filter query: e.g. &[data_address]=[filter_query_prefix]VALUE. Can be used to pass default operators etc.
+ * # Data source options
+ * =====================
+ * 
+ * In addition to the data source options of the AbstractUrlBuilder, the
+ * JsonUrlBuilder supports the following options. 
+ * 
+ * ## On object level
+ * ------------------
  *
- * The following custom data address properties are supported on object level:
- * - force_filtering - disables request withot at least a single filter (1). Some APIs disallow this!
- * - response_data_path - path to the array containing the items
- * - response_total_count_path - path to the total number of items matching the filter (used for pagination)
- * - request_offset_parameter - name of the URL parameter containing the page offset for pagination
- * - request_limit_parameter - name of the URL parameter holding the maximum number of returned items
- * - uid_request_data_address - used in requests with a filter on UID instead of the data address
- * - uid_response_data_path - used to find the data in the response for a request with a filter on UID (instead of response_data_path)
- * - create_request_data_address - used in create requests instead of the data address
- * - create_request_data_path - this is where the data is put in the body of create requests (if not specified the attributes are just put in the root object)
- * - update_request_data_address - used in update requests instead of the data address
- * - update_request_data_path - this is where the data is put in the body of update requests (if not specified the attributes are just put in the root object)
+ * - **create_request_data_path** - this is where the data is put in the body of 
+ * create requests (if not specified the attributes are just put in the root 
+ * object)
+ * 
+ * ## On attribute level
+ * ---------------------
+ * 
+ * - **create_query_parameter** - used in the body of create queries (typically 
+ * POST-queries) instead of the data address
+ * 
+ * - **update_query_parameter** - used in the body of update queries (typically 
+ * PUT-queries) instead of the data address
  *
- * @see REST_XML for XML-based APIs
+ * @see AbstractUrlBuilder for basic configuration
+ * @see HtmlUrlBuilder for an HTML-parser
+ * @see XmlUrlBuilder for XML-based APIs
+ * 
  * @author Andrej Kabachnik
  *        
  */
