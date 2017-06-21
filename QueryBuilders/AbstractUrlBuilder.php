@@ -52,9 +52,7 @@ use exface\Core\Exceptions\QueryBuilderException;
  * to this URL instead of the one in the data address. The URL allows
  * attribute_alias as placeholders (incl. the UID itself - e.g. 
  * "me.com/service/[#UID#]"). Note, that if the URL does not have placeholders
- * it will be always the same - regardles of what the UID actually is. This is
- * handy if the UID is the URL itself, so you can 
- * set uid_request_data_address=[#UID#]. 
+ * it will be always the same - regardles of what the UID actually is.  
  * 
  * - **uid_response_data_path** - used to find the data in the response for a 
  * request with a filter on UID (instead of response_data_path)
@@ -135,7 +133,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             // data address should be simply left empty - this gives much more flexibility!
             if ($this->getMainObject()->getUidAlias() == $qpart->getAlias() && $this->getMainObject()->getDataAddressProperty('uid_request_data_address')) {
                 $endpoint = $this->getMainObject()->getDataAddressProperty('uid_request_data_address');
-                $this->setRequestSplitFilter($qpart);
+                if (!$this->getMainObject()->getDataAddressProperty('uid_request_split_disabled')){
+                    $this->setRequestSplitFilter($qpart);
+                }
             } // Another way to set custom URLs is to give an attribute an explicit URL via filter_remote_url address property.
               // This ultimately does the same thing, as uid_request_data_address on object level, but it's more general
               // because it can be set for every attribute.
