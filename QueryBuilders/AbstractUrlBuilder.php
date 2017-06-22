@@ -133,9 +133,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             // data address should be simply left empty - this gives much more flexibility!
             if ($this->getMainObject()->getUidAlias() == $qpart->getAlias() && $this->getMainObject()->getDataAddressProperty('uid_request_data_address')) {
                 $endpoint = $this->getMainObject()->getDataAddressProperty('uid_request_data_address');
-                if (!$this->getMainObject()->getDataAddressProperty('uid_request_split_disabled')){
-                    $this->setRequestSplitFilter($qpart);
-                }
+                $this->setRequestSplitFilter($qpart);
             } // Another way to set custom URLs is to give an attribute an explicit URL via filter_remote_url address property.
               // This ultimately does the same thing, as uid_request_data_address on object level, but it's more general
               // because it can be set for every attribute.
@@ -149,7 +147,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                     }
                     
                     $this->setRequestSplitFilter($qpart);
-                    $value = reset(explode(EXF_LIST_SEPARATOR, $qpart->getCompareValue()));
+                    $value = reset(explode($qpart->getValueListDelimiter(), $qpart->getCompareValue()));
                 } else {
                     $value = $qpart->getCompareValue();
                 }
@@ -286,7 +284,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             if ($ph_filter = $this->getFilter($ph)) {
                 if (! is_null($ph_filter->getCompareValue())) {
                     if ($this->getRequestSplitFilter() == $ph_filter && $ph_filter->getComparator() == EXF_COMPARATOR_IN) {
-                        $ph_value = explode(EXF_LIST_SEPARATOR, $ph_filter->getCompareValue())[0];
+                        $ph_value = explode($ph_filter->getValueListDelimiter(), $ph_filter->getCompareValue())[0];
                     } else {
                         $ph_value = $ph_filter->getCompareValue();
                     }
@@ -460,7 +458,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             // If we filter over ids and have multiple values, we will need to make as many identical requests as there are values and merge
             // the results together here. So the easiest thing to do is perform this query multiple times, changing the split filter value each time.
             if ($this->getRequestSplitFilter() && $this->getRequestSplitFilter()->getComparator() == EXF_COMPARATOR_IN) {
-                $split_values = explode(EXF_LIST_SEPARATOR, $this->getRequestSplitFilter()->getCompareValue());
+                $split_values = explode($this->getRequestSplitFilter()->getValueListDelimiter(), $this->getRequestSplitFilter()->getCompareValue());
                 // skip the first UID as it has been fetched already
                 $skip_val = true;
                 foreach ($split_values as $val) {
@@ -478,7 +476,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 }
                 // Make sure, we give back the split filter it's initial value, in case any further code will be interested in filters.
                 // This is particulary important if we need to apply additional filterin in-memory!
-                $this->getRequestSplitFilter()->setCompareValue(implode(EXF_LIST_SEPARATOR, $split_values));
+                $this->getRequestSplitFilter()->setCompareValue(implode($this->getRequestSplitFilter()->getValueListDelimiter(), $split_values));
             }
             
             // Apply live filters, sorters and pagination
