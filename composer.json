@@ -30,5 +30,13 @@
             "model_md5": "01b3d889f5906b1e0fabaf66504b0e99",
             "model_timestamp": "2017-04-27 15:26:46"
         }
+    },
+    "autoload": {
+        "psr-4": { "exface\\UrlDataConnector\\": "" },
+        "exclude-from-classmap": [
+            "/Config/",
+            "/Translations/",
+            "/Model/"
+        ]
     }
 }
