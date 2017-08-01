@@ -133,12 +133,6 @@ class HttpConnector extends AbstractUrlConnector
         return $query;
     }
 
-    function getInsertId()
-    {
-        // TODO
-        return 0;
-    }
-
     public function getUser()
     {
         return $this->user;

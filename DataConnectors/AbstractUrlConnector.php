@@ -30,26 +30,6 @@ abstract class AbstractUrlConnector extends AbstractDataConnectorWithoutTransact
      *
      * {@inheritdoc}
      *
-     * @see \exface\Core\CommonLogic\AbstractDataConnector::getInsertId()
-     */
-    function getInsertId()
-    {
-        // TODO
-        return 0;
-    }
-
-    /**
-     */
-    function getAffectedRowsCount()
-    {
-        // TODO
-        return 0;
-    }
-
-    /**
-     *
-     * {@inheritdoc}
-     *
      * @see \exface\Core\CommonLogic\AbstractDataConnector::getLastError()
      */
     function getLastError($conn = NULL)
