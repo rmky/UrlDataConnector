@@ -68,14 +68,14 @@
     "rows": [
         {
             "CREATED_ON": "2016-10-18 10:30:13",
-            "MODIFIED_ON": "2016-10-18 10:30:13",
+            "MODIFIED_ON": "2017-08-02 09:20:49",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
             "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
             "UID": "0x11e6951dda3ba520b48b847beb4a5184",
             "PACKAGE": "ExFace\/UrlDataConnector",
             "ALIAS": "ExFace.UrlDataConnector",
-            "NAME": "URL DataConnector",
-            "LABEL": "URL DataConnector"
+            "NAME": "ExFace URL DataConnector",
+            "LABEL": "ExFace URL DataConnector"
         }
     ],
     "totals_rows": [],

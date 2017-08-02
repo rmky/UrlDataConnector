@@ -27,12 +27,14 @@
         "app": {
             "app_uid": "0x11e6951dda3ba520b48b847beb4a5184",
             "app_alias": "exface.UrlDataConnector",
-            "model_md5": "01b3d889f5906b1e0fabaf66504b0e99",
-            "model_timestamp": "2017-04-27 15:26:46"
+            "model_md5": "876dbf90c13666ab279d434aa97f0e3d",
+            "model_timestamp": "2017-08-02 09:20:49"
         }
     },
     "autoload": {
-        "psr-4": { "exface\\UrlDataConnector\\": "" },
+        "psr-4": {
+            "exface\\UrlDataConnector\\": ""
+        },
         "exclude-from-classmap": [
             "/Config/",
             "/Translations/",
