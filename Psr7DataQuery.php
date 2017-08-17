@@ -1,7 +1,7 @@
 <?php
 namespace exface\UrlDataConnector;
 
-use exface\Core\CommonLogic\AbstractDataQuery;
+use exface\Core\CommonLogic\DataQueries\AbstractDataQuery;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use GuzzleHttp\Psr7\Request;
