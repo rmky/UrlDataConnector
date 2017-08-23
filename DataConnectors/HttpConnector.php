@@ -13,6 +13,8 @@ use GuzzleHttp\HandlerStack;
 use Kevinrob\GuzzleCache\CacheMiddleware;
 use Kevinrob\GuzzleCache\Storage\Psr6CacheStorage;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
+use GuzzleHttp\Exception\RequestException;
+use exface\Core\Exceptions\DataSources\HttpConnectorRequestError;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -128,9 +130,26 @@ class HttpConnector extends AbstractUrlConnector
             if (! $this->client) {
                 $this->connect();
             }
-            $query->setResponse($this->client->send($query->getRequest()));
+            try {
+                $query->setResponse($this->client->send($query->getRequest()));
+            } catch (RequestException $re) {
+                $this->processError($re);
+            }
         }
         return $query;
+    }
+    
+    /**
+     * 
+     * @param RequestException $re
+     * @throws HttpConnectorRequestError
+     */
+    protected function processError(RequestException $re) {
+        if ($response = $re->getResponse()) {
+            throw new HttpConnectorRequestError($this, $response->getStatusCode(), $response->getReasonPhrase());
+        } else {
+            throw new HttpConnectorRequestError($this, 0, 'No Response from Server');
+        }
     }
 
     public function getUser()
