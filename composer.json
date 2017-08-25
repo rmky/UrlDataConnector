@@ -26,7 +26,7 @@
     "extra": {
         "app": {
             "app_uid": "0x11e6951dda3ba520b48b847beb4a5184",
-            "app_alias": "ExFace.UrlDataConnector",
+            "app_alias": "exface.UrlDataConnector",
             "model_md5": "fc26e4a2a54fa4ea89eb4899d5b05453",
             "model_timestamp": "2017-08-22 15:31:36"
         }
