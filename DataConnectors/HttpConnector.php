@@ -142,6 +142,10 @@ class HttpConnector extends AbstractUrlConnector
     }
     
     /**
+     * Processes an error occuring during a request.
+     * 
+     * The Guzzle HTTP Client throws errors if a response contains an HTTP status code
+     * indicating an error (4xx or 5xx).
      * 
      * @param RequestException $re
      * @throws HttpConnectorRequestError
