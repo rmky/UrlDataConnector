@@ -15,6 +15,8 @@ use Kevinrob\GuzzleCache\Storage\Psr6CacheStorage;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use GuzzleHttp\Exception\RequestException;
 use exface\Core\Exceptions\DataSources\HttpConnectorRequestError;
+use function GuzzleHttp\Psr7\_caseless_remove;
+use function GuzzleHttp\Psr7\modify_request;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -133,7 +135,7 @@ class HttpConnector extends AbstractUrlConnector
             try {
                 $query->setResponse($this->client->send($query->getRequest()));
             } catch (RequestException $re) {
-                $this->processError($re);
+                $this->processConnectionError($re, $query);
             }
         }
         return $query;
@@ -144,11 +146,21 @@ class HttpConnector extends AbstractUrlConnector
      * @param RequestException $re
      * @throws HttpConnectorRequestError
      */
-    protected function processError(RequestException $re) {
+    protected function processConnectionError(RequestException $re, Psr7DataQuery $query) {
         if ($response = $re->getResponse()) {
-            throw new HttpConnectorRequestError($this, $response->getStatusCode(), $response->getReasonPhrase());
+            // Setzen der Antwort an der Query
+            $query->setResponse($response);
+            
+            // Hinzufuegen der Default Headers, die am Client definiert sind zur
+            // Request, um sie im Fehler anzuzeigen.
+            $requestHeaders = $query->getRequest()->getHeaders();
+            $clientHeaders = $this->client->getConfig('headers');
+            $clientHeaders = _caseless_remove(array_keys($requestHeaders), $clientHeaders);
+            $query->setRequest(modify_request($query->getRequest(), ['set_headers'=> $clientHeaders]));
+            
+            throw new HttpConnectorRequestError($this, $response->getStatusCode(), $response->getReasonPhrase(), $re->getMessage(), null, $re);
         } else {
-            throw new HttpConnectorRequestError($this, 0, 'No Response from Server');
+            throw new HttpConnectorRequestError($this, 0, 'No Response from Server', $re->getMessage(), null, $re);
         }
     }
 
