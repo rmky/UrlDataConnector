@@ -13,6 +13,10 @@ use GuzzleHttp\HandlerStack;
 use Kevinrob\GuzzleCache\CacheMiddleware;
 use Kevinrob\GuzzleCache\Storage\Psr6CacheStorage;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
+use GuzzleHttp\Exception\RequestException;
+use exface\UrlDataConnector\Exceptions\HttpConnectorRequestError;
+use function GuzzleHttp\Psr7\_caseless_remove;
+use function GuzzleHttp\Psr7\modify_request;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -128,9 +132,52 @@ class HttpConnector extends AbstractUrlConnector
             if (! $this->client) {
                 $this->connect();
             }
-            $query->setResponse($this->client->send($query->getRequest()));
+            try {
+                $query->setResponse($this->client->send($query->getRequest()));
+                // Default Headers zur Request hinzufuegen, um sie im Tracer anzuzeigen.
+                $this->addDefaultHeadersToQuery($query);
+            } catch (RequestException $re) {
+                $this->processConnectionError($re, $query);
+            }
         }
         return $query;
+    }
+    
+    /**
+     * Processes an error occuring during a request.
+     * 
+     * The Guzzle HTTP Client throws errors if a response contains an HTTP status code
+     * indicating an error (4xx or 5xx).
+     * 
+     * @param RequestException $re
+     * @throws HttpConnectorRequestError
+     */
+    protected function processConnectionError(RequestException $re, Psr7DataQuery $query) {
+        // Default Headers zur Request hinzufuegen, um sie im Fehler anzuzeigen.
+        $this->addDefaultHeadersToQuery($query);
+        
+        if ($response = $re->getResponse()) {
+            // Setzen der Antwort an der Query
+            $query->setResponse($response);
+            
+            throw new HttpConnectorRequestError($query, $response->getStatusCode(), $response->getReasonPhrase(), $re->getMessage(), null, $re);
+        } else {
+            throw new HttpConnectorRequestError($query, 0, 'No Response from Server', $re->getMessage(), null, $re);
+        }
+    }
+    
+    /**
+     * Adds the default headers, which are defined on the client, to the request
+     * to show them in the tracer or errors.
+     * 
+     * @param Psr7DataQuery $query
+     */
+    protected function addDefaultHeadersToQuery(Psr7DataQuery $query)
+    {
+        $requestHeaders = $query->getRequest()->getHeaders();
+        $clientHeaders = $this->client->getConfig('headers');
+        $clientHeaders = _caseless_remove(array_keys($requestHeaders), $clientHeaders);
+        $query->setRequest(modify_request($query->getRequest(), ['set_headers'=> $clientHeaders]));
     }
 
     public function getUser()
