@@ -123,10 +123,9 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     }
 
     /**
-     *
-     * {@inheritdoc}
-     *
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::findRowCounter()
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::findRowCounter()
      */
     protected function findRowCounter($data)
     {
@@ -134,10 +133,9 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     }
 
     /**
-     *
-     * {@inheritdoc}
-     *
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::buildResultRows()
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildResultRows()
      */
     protected function buildResultRows($parsed_data, Psr7DataQuery $query)
     {
@@ -189,10 +187,9 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     }
 
     /**
-     *
-     * {@inheritdoc}
-     *
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::findRowData()
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::findRowData()
      */
     protected function findRowData($parsed_data, $data_path = null)
     {
@@ -242,7 +239,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
      * Converts a data path string to an array (e.g.
      * issue/status/id to [issue, status, id]
      *
-     * @param unknown $string            
+     * @param string $string            
      */
     protected function dataPathSplit($string)
     {
@@ -250,10 +247,9 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     }
 
     /**
-     *
-     * {@inheritdoc}
-     *
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::findFieldInData()
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::findFieldInData()
      */
     protected function findFieldInData($data_address, $data)
     {
@@ -278,12 +274,27 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         return $val;
     }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::update()
+     */
     function update(AbstractDataConnector $data_connection = null)
     {}
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::delete()
+     */
     function delete(AbstractDataConnector $data_connection = null)
     {}
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::parseResponse()
+     */
     protected function parseResponse(Psr7DataQuery $query)
     {
         return json_decode($query->getResponse()->getBody(), true);
