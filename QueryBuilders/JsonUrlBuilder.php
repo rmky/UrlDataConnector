@@ -68,10 +68,16 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         // Create JSON objects from value query parts
         $json_objects = array();
         foreach ($this->getValues() as $qpart) {
+            // Ignore values, that do not belong to attributes
             try {
                 $attr = $qpart->getAttribute();
             } catch (MetaAttributeNotFoundError $e) {
-                // Ignore values, that do not belong to attributes
+                continue;
+            }
+            
+            // Ignore values of related attributes
+            if (! $attr->getRelationPath()->isEmpty()){
+                $this->getWorkbench()->getLogger()->notice('JsonUrlBuilder cannot perform create-operations on related attributes: skipping "' . $attr->getAliasWithRelationPath() . '" of object "' . $this->getMainObject()->getAliasWithNamespace() . '"!');
                 continue;
             }
             
