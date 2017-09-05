@@ -133,9 +133,9 @@ class HtmlUrlBuilder extends AbstractUrlBuilder
         }
         
         $result_rows_with_uid_keys = array();
-        if ($this->getAttribute($this->getMainObject()->getUidAlias())) {
+        if ($this->getAttribute($this->getMainObject()->getUidAttributeAlias())) {
             foreach ($result_rows as $row) {
-                $result_rows_with_uid_keys[$row[$this->getMainObject()->getUidAlias()]] = $row;
+                $result_rows_with_uid_keys[$row[$this->getMainObject()->getUidAttributeAlias()]] = $row;
             }
         } else {
             $result_rows_with_uid_keys = $result_rows;

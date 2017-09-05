@@ -131,7 +131,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             // data address for UID-based queries. Other filters will get applied to, but most APIs will
             // probably ignore them. If the API can actually handle a regular UID-filter, the special
             // data address should be simply left empty - this gives much more flexibility!
-            if ($this->getMainObject()->getUidAlias() == $qpart->getAlias() && $this->getMainObject()->getDataAddressProperty('uid_request_data_address')) {
+            if ($this->getMainObject()->getUidAttributeAlias() == $qpart->getAlias() && $this->getMainObject()->getDataAddressProperty('uid_request_data_address')) {
                 $endpoint = $this->getMainObject()->getDataAddressProperty('uid_request_data_address');
                 $this->setRequestSplitFilter($qpart);
             } // Another way to set custom URLs is to give an attribute an explicit URL via filter_remote_url address property.
