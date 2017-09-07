@@ -176,7 +176,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             $this->prepareSorter($qpart);
             $sorters[] = $this->buildUrlSorter($qpart);
         }
-        if (count($sorters) > 0) {
+        if (! empty($sorters)) {
             $params_string = $this->addParameterToUrl($params_string, 'sort', implode(',', $sorters));
         }
         

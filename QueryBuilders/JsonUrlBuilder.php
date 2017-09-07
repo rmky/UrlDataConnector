@@ -142,7 +142,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         $result_rows = array();
         $rows = $this->findRowData($parsed_data);
         $has_uid_column = $this->getAttribute($this->getMainObject()->getUidAttributeAlias()) ? true : false;
-        if (count($rows) > 0) {
+        if (! empty($rows)) {
             if (is_array($rows)) {
                 foreach ($rows as $nr => $row) {
                     $result_row = array();
