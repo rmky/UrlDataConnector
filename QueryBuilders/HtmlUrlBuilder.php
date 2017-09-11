@@ -3,8 +3,8 @@ namespace exface\UrlDataConnector\QueryBuilders;
 
 use Symfony\Component\DomCrawler\Crawler;
 use exface\Core\Exceptions\DataTypeValidationError;
-use GuzzleHttp\Psr7\Request;
 use exface\UrlDataConnector\Psr7DataQuery;
+use exface\Core\DataTypes\HtmlDataType;
 
 /**
  * This is a crawler for HTML pages.
@@ -43,10 +43,9 @@ class HtmlUrlBuilder extends AbstractUrlBuilder
     private $cache = array();
 
     /**
-     *
-     * {@inheritdoc}
-     *
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::buildResultRows()
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildResultRows()
      */
     protected function buildResultRows($parsed_data, Psr7DataQuery $query)
     {
@@ -62,7 +61,7 @@ class HtmlUrlBuilder extends AbstractUrlBuilder
                 continue;
             
             // Determine, if we are interested in the entire node or only it's values
-            if ($qpart->getAttribute()->getDataType()->is(EXF_DATA_TYPE_HTML)) {
+            if ($qpart->getAttribute()->getDataType() instanceof HtmlDataType) {
                 $get_html = true;
             } else {
                 $get_html = false;
@@ -179,10 +178,9 @@ class HtmlUrlBuilder extends AbstractUrlBuilder
     }
 
     /**
-     *
-     * {@inheritdoc}
-     *
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractRest::findFieldInData()
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::findFieldInData()
      */
     protected function findFieldInData($data_address, $data)
     {
