@@ -78,7 +78,7 @@ class XmlUrlBuilder extends AbstractUrlBuilder
                             
                             // Check if the value is still an array and an aggregator must be applied
                             if (is_array($val)) {
-                                $val = DataColumn::aggregateValues($val, $qpart->getAggregateFunction());
+                                $val = DataColumn::aggregateValues($val, $qpart->getAggregator());
                             }
                             $result_rows[$nr][$qpart->getAlias()] = $val;
                         }
