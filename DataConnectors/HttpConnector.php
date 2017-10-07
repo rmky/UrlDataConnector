@@ -270,7 +270,7 @@ class HttpConnector extends AbstractUrlConnector
      */
     public function setUseCookies($value)
     {
-        $this->use_cookies = \exface\Core\DataTypes\BooleanDataType::parse($value);
+        $this->use_cookies = \exface\Core\DataTypes\BooleanDataType::cast($value);
         return $this;
     }
 
@@ -291,7 +291,7 @@ class HttpConnector extends AbstractUrlConnector
      */
     public function setCacheEnabled($value)
     {
-        $this->cache_enabled = \exface\Core\DataTypes\BooleanDataType::parse($value);
+        $this->cache_enabled = \exface\Core\DataTypes\BooleanDataType::cast($value);
         return $this;
     }
 
@@ -315,7 +315,7 @@ class HttpConnector extends AbstractUrlConnector
      */
     public function setCacheIgnoreHeaders($value)
     {
-        $this->cache_ignore_headers = \exface\Core\DataTypes\BooleanDataType::parse($value);
+        $this->cache_ignore_headers = \exface\Core\DataTypes\BooleanDataType::cast($value);
         if ($this->getCacheIgnoreHeaders()) {
             $this->setCacheLifetimeInSeconds(60);
         }
