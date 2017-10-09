@@ -76,7 +76,7 @@ use exface\Core\Exceptions\QueryBuilderException;
  * - **filter_remote** - set to 1 to enable remote filtering (0 by default)
  * 
  * - **filter_remote_url** - used to set a custom URL to be used if there is a 
- * filter over this attribute. The URL accepts the placeholder [#value#] which
+ * filter over this attribute. The URL accepts the placeholder [#~value#] which
  * will be replaced by the. Note, that if the URL does not have the placeholder,
  * it will be always the same - regardles of what the filter is actually set to. 
  * 
@@ -154,7 +154,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 // The filter_remote_url accepts the value placeholder along with attribute alias based placeholders. Since the value-placeholder
                 // is not supported in the regular data_address or the uid_request_data_address (there simply is nothing to take the value from),
                 // it must be replaced here already
-                $endpoint = str_replace('[#value#]', $value, $filter_endpoint);
+                $endpoint = str_replace('[#~value#]', $value, $filter_endpoint);
             } else {
                 $params_string = $this->addParameterToUrl($params_string, $this->buildUrlFilter($qpart));
             }
