@@ -2,7 +2,7 @@
 namespace exface\UrlDataConnector\QueryBuilders;
 
 use Symfony\Component\DomCrawler\Crawler;
-use exface\Core\Exceptions\DataTypeValidationError;
+use exface\Core\Exceptions\DataTypes\DataTypeCastingError;
 use exface\UrlDataConnector\Psr7DataQuery;
 use exface\Core\DataTypes\HtmlDataType;
 
@@ -115,7 +115,7 @@ class HtmlUrlBuilder extends AbstractUrlBuilder
                         // Sanitize value in compilance with the expected data type in the meta model
                         try {
                             $value = $data_type->parse($value);
-                        } catch (DataTypeValidationError $e) {
+                        } catch (DataTypeCastingError $e) {
                             // ignore errors for now
                         }
                         
