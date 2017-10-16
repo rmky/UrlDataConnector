@@ -97,38 +97,44 @@ class Psr7DataQuery extends AbstractDataQuery
     {
         $page = $debug_widget->getPage();
         
+        // Request
         $request_tab = $debug_widget->createTab();
         $request_tab->setCaption('Request');
         
-        // Request-Headers
-        $request_headers_widget = WidgetFactory::create($page, 'Html', $request_tab);
-        $request_headers_widget->setValue('<div style="padding:10px;"><h3>HTTP-Headers</h3>' . $this->generateRequestHeaders($debug_widget->getWorkbench()) . '</div>');
-        $request_headers_widget->setWidth('100%');
-        $request_tab->addWidget($request_headers_widget);
-        
-        // Request-Body
-        $request_body_widget = WidgetFactory::create($page, 'Html', $request_tab);
-        $request_body_widget->setValue('<div style="padding:10px;"><h3>HTTP-Body</h3>' . $this->generateMessageBody($debug_widget->getWorkbench(), $this->getRequest()) . '</div>');
-        $request_body_widget->setWidth('100%');
-        
-        $request_tab->addWidget($request_body_widget);
+        $request_widget = WidgetFactory::create($page, 'Html', $request_tab);
+        $request_widget_html = <<<HTML
+            <div style="padding:10px;">
+                <h3>HTTP-Headers</h3>
+                {$this->generateRequestHeaders($debug_widget->getWorkbench())}
+            </div>
+            <div style="padding:10px;">
+                <h3>HTTP-Body</h3>
+                {$this->generateMessageBody($debug_widget->getWorkbench(), $this->getRequest())}
+            </div>
+HTML;
+        $request_widget->setValue($request_widget_html);
+        $request_widget->setWidth('100%');
+        $request_tab->addWidget($request_widget);
         $debug_widget->addTab($request_tab);
         
+        // Response
         $response_tab = $debug_widget->createTab();
         $response_tab->setCaption('Response');
         
-        // Response-Headers
-        $response_headers_widget = WidgetFactory::create($page, 'Html', $response_tab);
-        $response_headers_widget->setValue('<div style="padding:10px;"><h3>HTTP-Headers</h3>' . $this->generateResponseHeaders($debug_widget->getWorkbench()) . '</div>');
-        $response_headers_widget->setWidth('100%');
-        $response_tab->addWidget($response_headers_widget);
-        
-        // Response-Body
-        $response_body_widget = WidgetFactory::create($page, 'Html', $response_tab);
-        $response_body_widget->setValue('<div style="padding:10px;"><h3>HTTP-Body</h3>' . $this->generateMessageBody($debug_widget->getWorkbench(), $this->getResponse()) . '</div>');
-        $response_body_widget->setWidth('100%');
-        
-        $response_tab->addWidget($response_body_widget);
+        $response_widget = WidgetFactory::create($page, 'Html', $response_tab);
+        $response_widget_html = <<<HTML
+            <div style="padding:10px;">
+                <h3>HTTP-Headers</h3>
+                {$this->generateResponseHeaders($debug_widget->getWorkbench())}
+            </div>
+            <div style="padding:10px;">
+                <h3>HTTP-Body</h3>
+                {$this->generateMessageBody($debug_widget->getWorkbench(), $this->getResponse())}
+            </div>
+HTML;
+        $response_widget->setValue($response_widget_html);
+        $response_widget->setWidth('100%');
+        $response_tab->addWidget($response_widget);
         $debug_widget->addTab($response_tab);
         
         return $debug_widget;
