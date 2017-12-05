@@ -9,6 +9,9 @@ use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use exface\Core\Exceptions\QueryBuilderException;
+use exface\Core\Interfaces\Model\MetaAttributeInterface;
+use exface\Core\Interfaces\Model\MetaObjectInterface;
+use Psr\Http\Message\RequestInterface;
 
 /**
  * This is an abstract query builder for REST APIs.
@@ -99,6 +102,12 @@ use exface\Core\Exceptions\QueryBuilderException;
  * 
  * - **sort_locally** - set to 1 to sort in ExFace after reading the data (if 
  * the data source does not support filtering over this attribute).
+ * 
+ * - **create_data_address** - used in the body of create queries (typically 
+ * POST-queries) instead of the data address
+ * 
+ * - **update_data_address** - used in the body of update queries (typically 
+ * PUT/PATCH-queries) instead of the data address
  *
  * @author Andrej Kabachnik
  *        
@@ -116,7 +125,13 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
 
     private $request_split_filter = null;
 
-    protected function buildQuery()
+    /**
+     * Returns a PSR7 GET-Request for this query.
+     * 
+     * @throws QueryBuilderException
+     * @return RequestInterface
+     */
+    protected function buildRequestGet()
     {
         $endpoint = $this->getMainObject()->getDataAddress();
         $params_string = '';
@@ -160,14 +175,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             }
         }
         
-        // Add the offset
-        if ($this->getOffset() && $this->getMainObject()->getDataAddressProperty('request_offset_parameter')) {
-            $params_string = $this->addParameterToUrl($params_string, $this->getMainObject()->getDataAddressProperty('request_offset_parameter'), $this->getOffset());
-        }
-        
-        // Add the limit
-        if ($this->getLimit() && $this->getMainObject()->getDataAddressProperty('request_limit_parameter')) {
-            $params_string = $this->addParameterToUrl($params_string, $this->getMainObject()->getDataAddressProperty('request_limit_parameter'), $this->getLimit());
+        // Add pagination
+        if ($this->getLimit() || $this->getOffset()) {
+            $params_string = $this->addParameterToUrl($params_string, $this->buildUrlPagination());
         }
         
         // Add sorting
@@ -202,7 +212,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             }
         }
         
-        return new Psr7DataQuery(new Request('GET', $query_string));
+        return new Request('GET', $query_string);
     }
 
     /**
@@ -405,20 +415,47 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
 
     /**
      * Extracts the actual data from the parsed response.
-     * If not the entire response is usefull data, the useless parts can be ignored by
-     * setting the data source property 'response_data_path'. If this property is not set, the entire response is treated as data.
+     * 
+     * If the response contains metadata or any other overhead information, the actual
+     * data rows must first be extracted from the response. This method will do to the
+     * extraction based on the given response and data path.
      *
      * @param mixed $response            
      * @return mixed
      */
-    protected function findRowData($parsed_response, $data_path = null)
+    protected function findRowData($parsed_response, $path)
     {
-        return $parsed_response;
+        // If the path is not empty, follow it. Otherwise just return the entire response.
+        if ($path) {
+            return $this->findFieldInData($path, $parsed_response);
+        } else {
+            return $parsed_response;
+        }
     }
-
-    protected function findRowCounter($parsed_data)
+    
+    /**
+     * Builds the path from response root to the container with data rows.
+     *
+     * The path can be specified in each object using the data source options
+     * uid_response_data_path and response_data_path. The former will be used
+     * for signle-entity requests (typically a request with the UID as the only
+     * filter), while the latter will be used for all other cases - that is,
+     * whenever multiple entities are expected in the response.
+     *
+     * @return string
+     */
+    protected function buildPathToResponseRows(Psr7DataQuery $query)
     {
-        return $this->findFieldInData($this->getMainObject()->getDataAddressProperty('response_total_count_path'), $parsed_data);
+        switch ($query->getRequest()->getMethod()) {
+            default:
+                // TODO make work with any request_split_filter, not just the UID
+                if ($this->getRequestSplitFilter() && $this->getRequestSplitFilter()->getAttribute()->isUidForObject() && ! is_null($this->getMainObject()->getDataAddressProperty('uid_response_data_path'))) {
+                    $path = $this->getMainObject()->getDataAddressProperty('uid_response_data_path');
+                } else {
+                    $path = $this->getMainObject()->getDataAddressProperty('response_data_path');
+                }
+        }
+        return $path;
     }
 
     protected abstract function findFieldInData($data_address, $data);
@@ -446,10 +483,10 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             return false;
         }
         
-        $query = $data_connection->query($this->buildQuery());
+        $query = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
         if ($data = $this->parseResponse($query)) {
             // Find the total row counter within the response
-            $this->setResultTotalRows($this->findRowCounter($data));
+            $this->setResultTotalRows($this->findRowCounter($data, $query));
             // Find data rows within the response and do the postprocessing
             $result_rows = $this->buildResultRows($data, $query);
             $result_rows = $this->applyPostprocessing($result_rows);
@@ -467,9 +504,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                         continue;
                     }
                     $this->getRequestSplitFilter()->setCompareValue($val);
-                    $subquery = $data_connection->query($this->buildQuery());
+                    $subquery = $data_connection->query($this->buildRequestGet());
                     if ($data = $this->parseResponse($subquery)) {
-                        $this->setResultTotalRows($this->getResultTotalRows() + $this->findRowCounter($data));
+                        $this->setResultTotalRows($this->getResultTotalRows() + $this->findRowCounter($data, $query));
                         $subquery_rows = $this->buildResultRows($data, $subquery);
                         $result_rows = array_merge($result_rows, $this->applyPostprocessing($subquery_rows));
                     }
@@ -545,10 +582,100 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
 
     protected function isRemotePaginationConfigured()
     {
-        if ($this->getMainObject()->getDataAddressProperty('request_offset_parameter')) {
+        if ($this->buildUrlParamOffset($this->getMainObject())) {
             return true;
         }
         return false;
+    }
+    
+    /**
+     * Returns the data address for the given attribute in the context of the specified http method.
+     * 
+     * Depending on the method, the custom data shource properties create_data_address, update_data_address,
+     * etc. will be used instead of the regular data address of the attribute.
+     * 
+     * @param MetaAttributeInterface $attribute
+     * @param string $method
+     * @return string
+     */
+    protected function buildDataAddressForAttribute(MetaAttributeInterface $attribute, $method = 'GET')
+    {
+        $data_address = $attribute->getDataAddress();
+        switch (strtoupper($method)) {
+            case 'POST':
+                return ($attribute->getDataAddressProperty('create_data_address') ? $attribute->getDataAddressProperty('create_data_address') : $data_address);
+            case 'PUT':
+            case 'PATCH':
+                return ($attribute->getDataAddressProperty('update_data_address') ? $attribute->getDataAddressProperty('update_data_address') : $data_address);
+        }
+        return $data_address;
+    }
+    
+    /**
+     * Returns the data address for the given object in the context of the specified http method.
+     *
+     * Depending on the method, the custom data shource properties create_request_data_address, 
+     * update_request_data_address, etc. will be used instead of the regular data address of the object.
+     *
+     * @param MetaObjectInterface $attribute
+     * @param string $method
+     * @return string
+     */
+    protected function buildDataAddressForObject(MetaObjectInterface $object, $method = 'GET')
+    {
+        $data_address = $object->getDataAddress();
+        switch (strtoupper($method)) {
+            case 'POST':
+                return ($object->getDataAddressProperty('create_request_data_address') ? $object->getDataAddressProperty('create_request_data_address') : $data_address);
+            case 'PUT':
+            case 'PATCH':
+                return ($object->getDataAddressProperty('update_request_data_address') ? $object->getDataAddressProperty('update_request_data_address') : $data_address);
+        }
+        return $data_address;
+    }
+    
+    /**
+     * Returns the total number of rows matching the request (without pagination).
+     * 
+     * @param mixed $data
+     * @return number|null
+     */
+    protected function findRowCounter($data, Psr7DataQuery $query)
+    {
+        return $this->findFieldInData($this->buildPathToTotalRowCounter($this->getMainObject()), $data);
+    }
+    
+    /**
+     * Returns the path to the total row counter (e.g. the response_total_count_path of the object)
+     * 
+     * @param MetaObjectInterface $object
+     * @return string
+     */
+    protected function buildPathToTotalRowCounter(MetaObjectInterface $object)
+    {
+        return $object->getDataAddressProperty('response_total_count_path');
+    }
+    
+    protected function buildUrlPagination()
+    {
+        $params = '';
+        if ($offsetParam = $this->buildUrlParamLimit($this->getMainObject())) {
+            $params = $this->addParameterToUrl($params, $offsetParam, $this->getLimit());
+        }
+        if ($limitParam = $this->buildUrlParamOffset($this->getMainObject())) {
+            $params = $this->addParameterToUrl($params, $limitParam, $this->getOffset());
+        }
+        return $params;
+    }
+    
+    protected function buildUrlParamOffset(MetaObjectInterface $object)
+    {
+        return $object->getDataAddressProperty('request_offset_parameter');
+    }
+    
+    protected function buildUrlParamLimit(MetaObjectInterface $object)
+    {
+        return $object->getDataAddressProperty('request_limit_parameter');
     }
 }
 ?>

@@ -7,6 +7,8 @@ use exface\Core\CommonLogic\DataSheets\DataColumn;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
 use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
+use exface\Core\Exceptions\NotImplementedError;
+use exface\Core\Interfaces\Model\MetaObjectInterface;
 
 /**
  * This is a query builder for JSON-based REST APIs.
@@ -15,34 +17,11 @@ use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
  * parse the responses and create request bodies as JSON.
  * 
  * # Syntax of data addresses
- * ==========================
  * 
  * - **my_field** will get the value from {"my_field": "value"}
  * - **address.street** will get the value from {"address": {"street": "value"}}
  * - **authors[1].name** will get the value from {"authors": [{...}, {"name: "value", ...}, {...}]}
  * - **barcodes[type=ean8].code** will get the value from {"barcodes": [{...}, {"type": "ean8", "code": "value"}]}
- *
- * # Data source options
- * =====================
- * 
- * In addition to the data source options of the AbstractUrlBuilder, the
- * JsonUrlBuilder supports the following options. 
- * 
- * ## On object level
- * ------------------
- *
- * - **create_request_data_path** - this is where the data is put in the body of 
- * create requests (if not specified the attributes are just put in the root 
- * object)
- * 
- * ## On attribute level
- * ---------------------
- * 
- * - **create_query_parameter** - used in the body of create queries (typically 
- * POST-queries) instead of the data address
- * 
- * - **update_query_parameter** - used in the body of update queries (typically 
- * PUT-queries) instead of the data address
  *
  * @see AbstractUrlBuilder for basic configuration
  * @see HtmlUrlBuilder for an HTML-parser
@@ -57,13 +36,13 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     /**
      *
      * {@inheritdoc}
-     *
      * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::create()
      */
-    function create(AbstractDataConnector $data_connection = null)
+    public function create(AbstractDataConnector $data_connection = null)
     {
         // Create the request URI
-        $uri = $this->getMainObject()->getDataAddressProperty('create_request_data_address') ? $this->getMainObject()->getDataAddressProperty('create_request_data_address') : $this->getMainObject()->getDataAddress();
+        $method = 'POST';
+        $uri = $this->buildDataAddressForObject($this->getMainObject(), $method);
         
         // Create JSON objects from value query parts
         $json_objects = array();
@@ -81,8 +60,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
                 continue;
             }
             
-            if ($attr->getDataAddress() || $attr->getDataAddressProperty('create_query_parameter')) {
-                $json_attr = ($attr->getDataAddressProperty('create_query_parameter') ? $attr->getDataAddressProperty('create_query_parameter') : $attr->getDataAddress());
+            if ($json_attr = $this->buildDataAddressForAttribute($attr, $method)) {
                 foreach ($qpart->getValues() as $row => $val) {
                     if (! $json_objects[$row]) {
                         $json_objects[$row] = new \stdClass();
@@ -108,28 +86,18 @@ class JsonUrlBuilder extends AbstractUrlBuilder
                 $json = $obj;
             }
             
-            $query = new Psr7DataQuery(new Request('POST', $uri, array(
+            $query = new Psr7DataQuery(new Request($method, $uri, array(
                 'Content-Type' => 'application/json'
             ), json_encode($json)));
-            
+                        
             $result = $this->parseResponse($data_connection->query($query));
             if (is_array($result)) {
                 $result_data = $this->findRowData($result, $data_path);
             }
-            $insert_ids[] = $this->findFieldInData($this->getMainObject()->getUidAttribute()->getDataAddress(), $result_data);
+            $insert_ids[] = $this->findFieldInData($this->buildDataAddressForAttribute($this->getMainObject()->getUidAttribute()), $result_data);
         }
         
         return $insert_ids;
-    }
-
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::findRowCounter()
-     */
-    protected function findRowCounter($data)
-    {
-        return $data[$this->getMainObject()->getDataAddressProperty('response_total_count_path')];
     }
 
     /**
@@ -140,7 +108,9 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     protected function buildResultRows($parsed_data, Psr7DataQuery $query)
     {
         $result_rows = array();
-        $rows = $this->findRowData($parsed_data);
+        
+        $rows = $this->findRowData($parsed_data, $this->buildPathToResponseRows($query));
+        
         $has_uid_column = $this->getAttribute($this->getMainObject()->getUidAttributeAlias()) ? true : false;
         if (! empty($rows)) {
             if (is_array($rows)) {
@@ -190,21 +160,14 @@ class JsonUrlBuilder extends AbstractUrlBuilder
      * 
      * {@inheritDoc}
      * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::findRowData()
+     * 
+     * @param array $parsed_data
+     * @param string $path
+     * 
+     * @return array
      */
-    protected function findRowData($parsed_data, $data_path = null)
+    protected function findRowData($parsed_data, $path)
     {
-        // Get the response data path from the meta model
-        if (is_null($data_path)) {
-            // TODO make work with any request_split_filter, not just the UID
-            if ($this->getRequestSplitFilter() && $this->getRequestSplitFilter()->getAttribute()->isUidForObject() && ! is_null($this->getMainObject()->getDataAddressProperty('uid_response_data_path'))) {
-                $path = $this->getMainObject()->getDataAddressProperty('uid_response_data_path');
-            } else {
-                $path = $this->getMainObject()->getDataAddressProperty('response_data_path');
-            }
-        } else {
-            $path = $data_path;
-        }
-        
         // Get the actual data
         if ($path) {
             // If a path could be determined, follow it
@@ -279,16 +242,20 @@ class JsonUrlBuilder extends AbstractUrlBuilder
      * {@inheritDoc}
      * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::update()
      */
-    function update(AbstractDataConnector $data_connection = null)
-    {}
+    public function update(AbstractDataConnector $data_connection = null)
+    {
+        throw new NotImplementedError('Update requests currently not implemented in "' . get_class($this) . '"!');
+    }
 
     /**
      * 
      * {@inheritDoc}
      * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::delete()
      */
-    function delete(AbstractDataConnector $data_connection = null)
-    {}
+    public function delete(AbstractDataConnector $data_connection = null)
+    {
+        throw new NotImplementedError('Delete requests currently not implemented in "' . get_class($this) . '"!');
+    }
 
     /**
      * 

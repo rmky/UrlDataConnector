@@ -32,7 +32,8 @@ class XmlUrlBuilder extends AbstractUrlBuilder
     function read(AbstractDataConnector $data_connection = null)
     {
         $result_rows = array();
-        if ($data = $this->parseResponse($data_connection->query($this->buildQuery()))) {
+        $query = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
+        if ($data = $this->parseResponse($query)) {
             $data_array = (array) $data;
             
             $total_count = $data_array;
