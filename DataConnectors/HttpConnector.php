@@ -42,6 +42,8 @@ class HttpConnector extends AbstractUrlConnector
     private $cache_ignore_headers = false;
 
     private $cache_lifetime_in_seconds = 0;
+    
+    private $fixed_params = '';
 
     /** @var Client */
     protected $client;
@@ -133,6 +135,10 @@ class HttpConnector extends AbstractUrlConnector
                 $this->connect();
             }
             try {
+                if ($this->getFixedUrlParams()) {
+                    $uri = $query->getRequest()->getUri();
+                    $query->setRequest($query->getRequest()->withUri($uri->withQuery($uri->getQuery() . $this->getFixedUrlParams())));
+                }
                 $query->setResponse($this->client->send($query->getRequest()));
                 // Default Headers zur Request hinzufuegen, um sie im Tracer anzuzeigen.
                 $this->addDefaultHeadersToQuery($query);
@@ -353,5 +359,27 @@ class HttpConnector extends AbstractUrlConnector
         }
         return $path;
     }
+    
+    /**
+     * Adds specified params to every request: e.g. &format=json&ignoreETag=false.
+     * 
+     * @uxon-property fixed_params
+     * @uxon-type string
+     * 
+     * @return string
+     */
+    public function getFixedUrlParams()
+    {
+        return $this->fixed_params;
+    }
+
+    /**
+     * @param string $fixed_params
+     */
+    public function setFixedUrlParams($fixed_params)
+    {
+        $this->fixed_params = $fixed_params;
+    }
+
 }
 ?>
