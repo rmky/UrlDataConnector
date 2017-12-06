@@ -33,6 +33,11 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
     
     private $metadata = null;
     
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\ModelBuilders\AbstractModelBuilder::generateAttributesForObject()
+     */
     public function generateAttributesForObject(MetaObjectInterface $meta_object)
     {
         $transaction = $meta_object->getWorkbench()->data()->startTransaction();
@@ -47,6 +52,14 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
         return $created_ds;
     }
     
+    /**
+     * Generates the attributes for a given meta object and saves them in the model.
+     * 
+     * @param MetaObjectInterface $meta_object
+     * @param DataTransactionInterface $transaction
+     * 
+     * @return \exface\Core\Interfaces\DataSheets\DataSheetInterface
+     */
     protected function generateAttributes(MetaObjectInterface $meta_object, DataTransactionInterface $transaction = null)
     {
         $created_ds = DataSheetFactory::createFromObjectIdOrAlias($meta_object->getWorkbench(), 'exface.Core.ATTRIBUTE');
@@ -204,6 +217,7 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
     {
         if (is_null($this->metadata)) {
             $query = new Psr7DataQuery(new Request('GET', $this->getDataConnection()->getMetadataUrl()));
+            $query->setUriFixed(true);
             $query = $this->getDataConnection()->query($query);
             $this->metadata = new Crawler((string) $query->getResponse()->getBody());
         }
@@ -218,24 +232,25 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
      * @param DataSourceInterface $data_source
      * @return DataSheetInterface
      */
-    protected function getObjectData(Crawler $entity_nodes, AppInterface $app, DataSourceInterface $data_source) {
+    protected function getObjectData(Crawler $entity_nodes, AppInterface $app, DataSourceInterface $data_source) 
+    {
         $sheet = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.OBJECT');
         $ds_uid = $data_source->getId();
         $app_uid = $app->getUid();
         foreach ($entity_nodes as $entity) {
             $namespace = $entity_nodes->parents()->first()->attr('Namespace');
             $entityName = $entity->getAttribute('Name');
-            $address = $this->getMetadata()->filterXPath($this->getXPathToEntitySets() . '[@EntityType="' . $namespace . '.' . $entityName . '"]')->attr('Name');
+            $address = $this->getEntitySetNode($entity)->attr('Name');
             $sheet->addRow([
                 'LABEL' => $entityName,
                 'ALIAS' => $entityName,
                 'DATA_ADDRESS' => $address,
                 'DATA_SOURCE' => $ds_uid,
                 'APP' => $app_uid,
-                'DATA_ADDRESS_PROPS' => '{'
-                                        . '"EntityType": "' . $entityName . '",'
-                                        . '"Namespace": "' . $namespace . '"'
-                                        . '}'
+                'DATA_ADDRESS_PROPS' => json_encode([
+                                            "EntityType" => $entityName,
+                                            "Namespace" => $namespace
+                                        ])
             ]);
         }
         return $sheet;
@@ -354,5 +369,17 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
     protected function getEntityType(MetaObjectInterface $object)
     {
         return $this->stripNamespace($this->getMetadata()->filterXPath($this->getXPathToEntitySets() . '[@Name="' . $object->getDataAddress() . '"]')->attr('EntityType'));
+    }
+    
+    /**
+     * 
+     * @param \DOMElement $entityTypeNode
+     * @return \Symfony\Component\DomCrawler\Crawler
+     */
+    protected function getEntitySetNode(\DOMElement $entityTypeNode)
+    {
+        $namespace = (new Crawler($entityTypeNode))->parents()->first()->attr('Namespace');
+        $entityName = $entityTypeNode->getAttribute('Name');
+        return $this->getMetadata()->filterXPath($this->getXPathToEntitySets() . '[@EntityType="' . $namespace . '.' . $entityName . '"]');
     }
 }
