@@ -39,6 +39,8 @@ use Psr\Http\Message\RequestInterface;
  * group ignoring all rows with other values of the group attribute than the 
  * first row.
  * 
+ * - **request_remote_pagination** - set to false to disable remote pagination
+ * 
  * - **request_offset_parameter** - name of the URL parameter containing the 
  * page offset for pagination
  * 
@@ -484,6 +486,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         
         $query = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
+        $r = $this->parseResponse($query);
         if ($data = $this->parseResponse($query)) {
             // Find the total row counter within the response
             $this->setResultTotalRows($this->findRowCounter($data, $query));
@@ -533,7 +536,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
 
     protected function parseResponse(Psr7DataQuery $query)
     {
-        return $query->getResponse()->getBody()->getContents();
+        return (string) $query->getResponse()->getBody();
     }
 
     /**
@@ -582,7 +585,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
 
     protected function isRemotePaginationConfigured()
     {
-        if ($this->buildUrlParamOffset($this->getMainObject())) {
+        if ($this->getMainObject()->getDataAddressProperty('request_remote_pagination') && $this->buildUrlParamOffset($this->getMainObject())) {
             return true;
         }
         return false;
