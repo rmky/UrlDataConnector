@@ -135,7 +135,7 @@ class HttpConnector extends AbstractUrlConnector
                 $this->connect();
             }
             try {
-                if ($this->getFixedUrlParams()) {
+                if (! $query->isUriFixed() && $this->getFixedUrlParams()) {
                     $uri = $query->getRequest()->getUri();
                     $query->setRequest($query->getRequest()->withUri($uri->withQuery($uri->getQuery() . $this->getFixedUrlParams())));
                 }

@@ -11,6 +11,7 @@ use Psr\Http\Message\StreamInterface;
 use exface\Core\Widgets\DebugMessage;
 use exface\Core\Factories\WidgetFactory;
 use exface\Core\CommonLogic\Workbench;
+use exface\Core\DataTypes\BooleanDataType;
 
 class Psr7DataQuery extends AbstractDataQuery
 {
@@ -18,6 +19,8 @@ class Psr7DataQuery extends AbstractDataQuery
     private $request;
 
     private $response;
+    
+    private $fixedUrl = false;
 
     const MIME_TYPE_JSON = 'application/json';
     
@@ -252,4 +255,22 @@ HTML;
         
         return $messageBody;
     }
+    /**
+     * @return boolean
+     */
+    public function isUriFixed()
+    {
+        return $this->fixedUrl;
+    }
+
+    /**
+     * @param boolean $fixedUrl
+     * @return Psr7DataQuery
+     */
+    public function setUriFixed($true_or_false)
+    {
+        $this->fixedUrl = BooleanDataType::cast($true_or_false);
+        return $this;
+    }
+
 }
