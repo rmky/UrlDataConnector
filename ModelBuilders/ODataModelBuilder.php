@@ -282,7 +282,7 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
             $sheet->addRow([
                 'LABEL' => $this->generateLabel($name),
                 'ALIAS' => $name,
-                'DATATYPE' => $this->getDataTypeId($this->guessDataType($object->getWorkbench(), $node)),
+                'DATATYPE' => $this->getDataTypeId($this->guessDataType($object->getWorkbench(), $node->getAttribute('Type'), $node)),
                 'DATA_ADDRESS' => $name,
                 'OBJECT' => $object_uid,
                 'REQUIREDFLAG' => (strcasecmp($node->getAttribute('Nullable'), 'false') === 0 ? 1 : 0),
@@ -325,9 +325,31 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
      * {@inheritDoc}
      * @see \exface\Core\CommonLogic\ModelBuilders\AbstractModelBuilder::guessDataType()
      */
-    protected function guessDataType(Workbench $workbench, $node)
+    protected function guessDataType(Workbench $workbench, $source_data_type, $node = null)
     {
-        return DataTypeFactory::createFromAlias($workbench, 'exface.Core.String');
+        $source_data_type = strtoupper($source_data_type);
+        switch (true) {
+            case (strpos($source_data_type, 'INT') !== false):
+                $type = DataTypeFactory::createFromAlias($workbench, 'exface.Core.Integer');
+                break;
+            case (strpos($source_data_type, 'FLOAT') !== false):
+            case (strpos($source_data_type, 'DECIMAL') !== false):
+            case (strpos($source_data_type, 'DOUBLE') !== false):
+                $type = DataTypeFactory::createFromAlias($workbench, 'exface.Core.Number');
+                break;
+            case (strpos($source_data_type, 'BOOL') !== false):
+                $type = DataTypeFactory::createFromAlias($workbench, 'exface.Core.Boolean');
+                break;
+            case (strpos($source_data_type, 'DATETIME') !== false):
+                $type = DataTypeFactory::createFromAlias($workbench, 'exface.Core.Timestamp');
+                break;
+            case (strpos($source_data_type, 'DATE') !== false):
+                $type = DataTypeFactory::createFromAlias($workbench, 'exface.Core.Date');
+                break;
+            default:
+                $type = DataTypeFactory::createFromAlias($workbench, 'exface.Core.String');
+        }
+        return $type;
     }
     
     /**
