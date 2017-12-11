@@ -49,13 +49,16 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
             $uri = $query->getRequest()->getUri();
             $count_uri = $uri->withPath($uri->getPath() . '/$count');
             
-            $count_query = $uri->getQuery();
-            $count_query = preg_replace('/\&?' . preg_quote($this->buildUrlParamLimit($this->getMainObject())) . '=\d*/', "", $count_query);
-            $count_query = preg_replace('/\&?' . preg_quote($this->buildUrlParamOffset($this->getMainObject())) . '=\d*/', "", $count_query);
-            $count_uri = $count_uri->withQuery($count_query);
+            $count_url_params = $uri->getQuery();
+            $count_url_params = preg_replace('/\&?' . preg_quote($this->buildUrlParamLimit($this->getMainObject())) . '=\d*/', "", $count_url_params);
+            $count_url_params = preg_replace('/\&?' . preg_quote($this->buildUrlParamOffset($this->getMainObject())) . '=\d*/', "", $count_url_params);
+            $count_url_params = preg_replace('/\&?\$format=.*/', "", $count_url_params);
+            $count_uri = $count_uri->withQuery($count_url_params);
+            $count_query = new Psr7DataQuery(new Request('GET', $count_uri));
+            $count_query->setUriFixed(true);
             
             try {
-                $count_query = $this->getMainObject()->getDataConnection()->query(new Psr7DataQuery(new Request('GET', $count_uri)));
+                $count_query = $this->getMainObject()->getDataConnection()->query($count_query);
                 $count = (string) $count_query->getResponse()->getBody();
             } catch (\Throwable $e) {
                 $this->getWorkbench()->getLogger()->logException($e, LoggerInterface::WARNING);

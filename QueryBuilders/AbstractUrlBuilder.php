@@ -520,9 +520,18 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             }
             
             // Apply live filters, sorters and pagination
+            $cnt_before_filters = count($result_rows);
             $result_rows = $this->applyFilters($result_rows);
+            $cnt_after_filters = count($result_rows);
+            if ($cnt_before_filters !== $cnt_after_filters) {
+                $this->setResultTotalRows($cnt_after_filters);
+            }
             $result_rows = $this->applySorting($result_rows);
+            
             if (! $this->isRemotePaginationConfigured()) {
+                if (! $this->getResultTotalRows()) {
+                    $this->setResultTotalRows(count($result_rows));
+                }
                 $result_rows = $this->applyPagination($result_rows);
             }
         }
