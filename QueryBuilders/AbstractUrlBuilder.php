@@ -12,6 +12,7 @@ use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\Interfaces\Model\MetaAttributeInterface;
 use exface\Core\Interfaces\Model\MetaObjectInterface;
 use Psr\Http\Message\RequestInterface;
+use exface\Core\CommonLogic\Model\Condition;
 
 /**
  * This is an abstract query builder for REST APIs.
@@ -19,10 +20,8 @@ use Psr\Http\Message\RequestInterface;
  * specific implementation (e.g. JSON vs. XML)
  * 
  * # Data source options
- * ===================== 
  * 
  * ## On object level
- * ------------------
  * 
  * - **force_filtering** - disables request withot at least a single filter (1). 
  * Some APIs disallow this!
@@ -75,8 +74,7 @@ use Psr\Http\Message\RequestInterface;
  * of update requests (if not specified the attributes are just put in the root 
  * object)
  * 
- *  ## On attribute level
- *  ---------------------
+ * ## On attribute level
  * 
  * - **filter_remote** - set to 1 to enable remote filtering (0 by default)
  * 
@@ -93,8 +91,10 @@ use Psr\Http\Message\RequestInterface;
  * &[data_address]=[filter_remote_prefix]VALUE. Can be used to pass default 
  * operators etc.
  * 
- * - **filter_locally** - set to 1 to filter in ExFace after reading the data 
- * (if the data source does not support filtering over this attribute).
+ * - **filter_locally** - set to 1 to filter in ExFace after reading the data
+ * (e.g. if the data source does not support filtering over this attribute) or
+ * set to 0 to take the data as it is. If not set, the data will be filtered
+ * locally automatically if no remote filtering is configured.
  * 
  * - **sort_remote** - set to 1 to enable remote sorting (0 by default)
  * 
@@ -137,11 +137,10 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     {
         $endpoint = $this->getMainObject()->getDataAddress();
         $params_string = '';
+        $urlFilters = [];
         
         // Add filters
         foreach ($this->getFilters()->getFilters() as $qpart) {
-            $this->prepareFilter($qpart);
-            
             // In REST APIs it is common to have a special URL to fetch data by UID of the object:
             // e.g. /users/1.xml would be the URL to fetch data for the user with UID = 1. Since in ExFace
             // the UID filter can also be used in regular searches, we can tell ExFace to use a special
@@ -173,8 +172,16 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 // it must be replaced here already
                 $endpoint = str_replace('[#~value#]', $value, $filter_endpoint);
             } else {
-                $params_string = $this->addParameterToUrl($params_string, $this->buildUrlFilter($qpart));
+                // Remember filter query parts, that do not affect the endpoint to process them later.
+                // This is important to process them in a single run, so complex filter expressions can be
+                // built instead of an individual URL parameter for every filter.
+                $urlFilters[] = $qpart;
             }
+        }
+        
+        // Add the remaining filters to the URL
+        if (! empty($urlFilters)) {
+            $params_string = $this->addParameterToUrl($params_string, $this->buildUrlFilters($urlFilters));
         }
         
         // Add pagination
@@ -182,14 +189,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             $params_string = $this->addParameterToUrl($params_string, $this->buildUrlPagination());
         }
         
-        // Add sorting
-        $sorters = array();
-        foreach ($this->getSorters() as $qpart) {
-            $this->prepareSorter($qpart);
-            $sorters[] = $this->buildUrlSorter($qpart);
-        }
-        if (! empty($sorters)) {
-            $params_string = $this->addParameterToUrl($params_string, 'sort', implode(',', $sorters));
+        // Add sorters
+        if ($sorters = $this->buildUrlSorters()) {
+            $params_string = $this->addParameterToUrl($params_string, $sorters);
         }
         
         // Add attributes needed for address property logic
@@ -215,6 +217,69 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         
         return new Request('GET', $query_string);
+    }
+    
+    /**
+     * Returns the part of the URL query responsible for sorting (without a leading "&"!)
+     * 
+     * @return string
+     */
+    protected function buildUrlSorters()
+    {
+        $url = '';
+        $sorters = array();
+        
+        foreach ($this->getSorters() as $qpart) {
+            $sorters[] = $this->buildUrlParamSorter($qpart);
+        }
+        if (! empty($sorters)) {
+            $url = $this->addParameterToUrl($url, 'sort', implode(',', $sorters));
+        }
+        
+        return $url;
+    }
+    
+    /**
+     * Returns a URL query string with parameters for the given filters  (without a leading "&"!).
+     * 
+     * By default, this method will treat each condition as a separate URL parameter: e.g.
+     * &filter1=value1, etc.. Override this method to switch to a single URL param containing
+     * a complex filter expression like the oData "$filter=cond1 eq val1 and cond2 eq val2".
+     * 
+     * @param QueryPartFilter[] $filters
+     * @return string
+     */
+    protected function buildUrlFilters(array $filters)
+    {
+        $query = '';
+        foreach ($filters as $qpart) {
+            $query .= $this->addParameterToUrl($query, $this->buildUrlFilter($qpart));
+        }
+        return $query;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addFilter()
+     */
+    protected function addFilter(QueryPartFilter $filter)
+    {
+        $result = parent::addFilter($filter);
+        $this->prepareFilter($filter);
+        return $result;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addFilterCondition()
+     */
+    public function addFilterCondition(Condition $condition)
+    {
+        $qpart = parent::addCondition($condition);
+        $this->prepareFilter($qpart);
+        return $qpart;
     }
 
     /**
@@ -245,6 +310,17 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 $this->addAttribute($qpart->getAlias());
             }
         }
+        return $qpart;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addSorter()
+     */
+    public function addSorter($sort_by, $order) {
+        $qpart = parent::addSorter($sort_by, $order);
+        $this->prepareSorter($qpart);
         return $qpart;
     }
 
@@ -320,34 +396,34 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         return $url . ($url ? '&' : '') . $parameter . (! is_null($value) ? '=' . $value : '');
     }
 
-    function getResultRows()
+    public function getResultRows()
     {
         return $this->result_rows;
     }
 
-    function getResultTotals()
+    public function getResultTotals()
     {
         return $this->result_totals;
     }
 
-    function getResultTotalRows()
+    public function getResultTotalRows()
     {
         return $this->result_total_rows;
     }
 
-    function setResultRows(array $array)
+    public function setResultRows(array $array)
     {
         $this->result_rows = $array;
         return $this;
     }
 
-    function setResultTotals(array $array)
+    public function setResultTotals(array $array)
     {
         $this->result_totals = $array;
         return $this;
     }
 
-    function setResultTotalRows($value)
+    public function setResultTotalRows($value)
     {
         $this->result_total_rows = $value;
         return $this;
@@ -362,22 +438,11 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function buildUrlFilter(QueryPartFilter $qpart)
     {
-        if (! $qpart->getDataAddressProperty('filter_remote')) {
-            return '';
-        }
-        
         $filter = '';
-        // Determine filter name (URL parameter name)
-        if ($param = $qpart->getDataAddressProperty('filter_remote_url_param')) {
-            // Use the filter_remote_url_param if explicitly defined
-            $filter = $param;
-        } elseif (stripos($qpart->getDataAddress(), '->') === 0) {
-            // Use the data_address if it is not a property itself (starts with ->)
-            $filter = $qpart->getDataAddress();
-        }
+        $param = $this->buildUrlParamFilter($qpart);
         
-        if ($filter) {
-            $filter .= '=';
+        if ($param) {
+            $filter = $param . '=';
             
             // Add a prefix to the value if needed
             if ($prefix = $qpart->getDataAddressProperty('filter_remote_prefix')) {
@@ -394,11 +459,42 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         
         return $filter;
     }
-
-    protected function buildUrlSorter(QueryPartSorter $qpart)
+    
+    /**
+     * Returns the URL parameter for the given filter query part
+     * 
+     * @param QueryPartFilter $qpart
+     * @return string
+     */
+    protected function buildUrlParamFilter(QueryPartFilter $qpart)
     {
-        if (! $qpart->getDataAddressProperty('sort_remote'))
+        if (! $qpart->getDataAddressProperty('filter_remote')) {
             return '';
+        }
+        
+        $filter = '';
+        // Determine filter name (URL parameter name)
+        if ($param = $qpart->getDataAddressProperty('filter_remote_url_param')) {
+            // Use the filter_remote_url_param if explicitly defined
+            $filter = $param;
+        } elseif (stripos($qpart->getDataAddress(), '->') !== 0) {
+            // Use the data_address if it is not a property itself (starts with ->)
+            $filter = $qpart->getDataAddress();
+        }
+        return $filter;
+    }
+
+    /**
+     * Returns the sorting URL parameter for the given sorter query part.
+     * 
+     * @param QueryPartSorter $qpart
+     * @return string
+     */
+    protected function buildUrlParamSorter(QueryPartSorter $qpart)
+    {
+        if (! $qpart->getDataAddressProperty('sort_remote') && ! $qpart->getDataAddressProperty('sort_remote_url_param')) {
+            return '';
+        }
         return ($qpart->getDataAddressProperty('sort_remote_url_param') ? $qpart->getDataAddressProperty('sort_remote_url_param') : $qpart->getDataAddress());
     }
 
@@ -486,7 +582,6 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         
         $query = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
-        $r = $this->parseResponse($query);
         if ($data = $this->parseResponse($query)) {
             // Find the total row counter within the response
             $this->setResultTotalRows($this->findRowCounter($data, $query));
