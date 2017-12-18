@@ -1,7 +1,6 @@
 <?php
 namespace exface\UrlDataConnector\DataConnectors;
 
-use exface\Core\CommonLogic\AbstractDataConnector;
 use GuzzleHttp\Client;
 use exface\UrlDataConnector\Psr7DataQuery;
 use exface\Core\Interfaces\DataSources\DataQueryInterface;
@@ -17,6 +16,7 @@ use GuzzleHttp\Exception\RequestException;
 use exface\UrlDataConnector\Exceptions\HttpConnectorRequestError;
 use function GuzzleHttp\Psr7\_caseless_remove;
 use function GuzzleHttp\Psr7\modify_request;
+use exface\UrlDataConnector\Interfaces\HttpConnectionInterface;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -24,7 +24,7 @@ use function GuzzleHttp\Psr7\modify_request;
  * @author Andrej Kabachnik
  *        
  */
-class HttpConnector extends AbstractUrlConnector
+class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterface
 {
 
     private $user = null;
@@ -361,10 +361,6 @@ class HttpConnector extends AbstractUrlConnector
     }
     
     /**
-     * Adds specified params to every request: e.g. &format=json&ignoreETag=false.
-     * 
-     * @uxon-property fixed_params
-     * @uxon-type string
      * 
      * @return string
      */
@@ -374,11 +370,18 @@ class HttpConnector extends AbstractUrlConnector
     }
 
     /**
+     * Adds specified params to every request: e.g. &format=json&ignoreETag=false.
+     * 
+     * @uxon-property fixed_params
+     * @uxon-type string
+     * 
      * @param string $fixed_params
+     * @return HttpConnectionInterface
      */
     public function setFixedUrlParams($fixed_params)
     {
         $this->fixed_params = $fixed_params;
+        return $this;
     }
 
 }

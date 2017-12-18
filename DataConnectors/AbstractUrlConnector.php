@@ -1,8 +1,8 @@
 <?php
 namespace exface\UrlDataConnector\DataConnectors;
 
-use exface\Core\CommonLogic\AbstractDataConnector;
 use exface\Core\CommonLogic\AbstractDataConnectorWithoutTransactions;
+use exface\UrlDataConnector\Interfaces\UrlConnectionInterface;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -10,7 +10,7 @@ use exface\Core\CommonLogic\AbstractDataConnectorWithoutTransactions;
  * @author Andrej Kabachnik
  *        
  */
-abstract class AbstractUrlConnector extends AbstractDataConnectorWithoutTransactions
+abstract class AbstractUrlConnector extends AbstractDataConnectorWithoutTransactions implements UrlConnectionInterface
 {
 
     private $url = null;
