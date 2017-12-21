@@ -3,18 +3,15 @@ namespace exface\UrlDataConnector\ModelBuilders;
 
 use exface\Core\Interfaces\DataSources\ModelBuilderInterface;
 use exface\Core\CommonLogic\ModelBuilders\AbstractModelBuilder;
-use exface\Core\Exceptions\NotImplementedError;
 use exface\Core\Interfaces\AppInterface;
 use exface\Core\Factories\DataSheetFactory;
 use exface\Core\Interfaces\Model\MetaObjectInterface;
-use exface\UrlDataConnector\DataConnectors\ODataConnector;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
 use Symfony\Component\DomCrawler\Crawler;
 use exface\Core\Interfaces\DataSources\DataSourceInterface;
 use exface\Core\CommonLogic\Workbench;
 use exface\Core\Factories\DataTypeFactory;
-use exface\Core\Interfaces\DataSources\DataConnectionInterface;
 use exface\Core\Interfaces\DataSources\DataTransactionInterface;
 use exface\Core\Interfaces\DataSheets\DataSheetInterface;
 use exface\Core\Exceptions\Model\MetaObjectNotFoundError;
@@ -285,7 +282,7 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
                 'DATATYPE' => $this->getDataTypeId($this->guessDataType($object->getWorkbench(), $node->getAttribute('Type'), $node)),
                 'DATA_ADDRESS' => $name,
                 'OBJECT' => $object_uid,
-                'REQUIREDFLAG' => (strcasecmp($node->getAttribute('Nullable'), 'false') === 0 ? 1 : 0),
+                'REQUIREDFLAG' => (strtolower($node->getAttribute('Nullable')) === 'false' ? 1 : 0),
                 'UIDFLAG' => ($name === $primary_key ? 1 : 0)
             ]);
         }
