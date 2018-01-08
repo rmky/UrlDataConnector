@@ -13,6 +13,8 @@ use exface\Core\Interfaces\Model\MetaAttributeInterface;
 use exface\Core\Interfaces\Model\MetaObjectInterface;
 use Psr\Http\Message\RequestInterface;
 use exface\Core\CommonLogic\Model\Condition;
+use exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup;
+use exface\Core\CommonLogic\Model\ConditionGroup;
 
 /**
  * This is an abstract query builder for REST APIs.
@@ -281,6 +283,72 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         $this->prepareFilter($qpart);
         return $qpart;
     }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addFilterGroup()
+     */
+    protected function addFilterGroup(QueryPartFilterGroup $filter_group)
+    {
+        $result = parent::addFilterGroup($filter_group);
+        $this->prepareFilterGroup($filter_group);
+        return $result;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addFilterConditionGroup()
+     */
+    public function addFilterConditionGroup(ConditionGroup $condition_group)
+    {
+        $qpart = parent::addFilterConditionGroup($condition_group);
+        $this->prepareFilterGroup($qpart);
+        return $qpart;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::setFiltersConditionGroup()
+     */
+    public function setFiltersConditionGroup(ConditionGroup $condition_group)
+    {
+        $result = parent::setFiltersConditionGroup($condition_group);
+        $this->prepareFilterGroup($this->getFilters());
+        return $result;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::setFilters()
+     */
+    protected function setFilters(QueryPartFilterGroup $filter_group)
+    {
+        $result = parent::setFilters($filter_group);
+        $this->prepareFilterGroup($filter_group);
+        return $result;
+    }
+    
+    /**
+     * 
+     * @param QueryPartFilterGroup $group
+     * @return \exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup
+     */
+    protected function prepareFilterGroup(QueryPartFilterGroup $group)
+    {
+        foreach ($group->getFilters() as $qpart) {
+            $this->prepareFilter($qpart);
+        }
+        
+        foreach ($group->getNestedGroups() as $qpart) {
+            $this->prepareFilterGroup($qpart);
+        }
+        
+        return $group;
+    }
 
     /**
      * Checks the custom filter configuration of a query part for consistency.
@@ -468,7 +536,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function buildUrlParamFilter(QueryPartFilter $qpart)
     {
-        if (! $qpart->getDataAddressProperty('filter_remote')) {
+        if (! $this->isRemoteFilter($qpart)) {
             return '';
         }
         
@@ -483,6 +551,17 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         return $filter;
     }
+    
+    /**
+     * Returns TRUE if the given filter query part uses remote filtering and FALSE otherwise.
+     * 
+     * @param QueryPartFilter $qpart
+     * @return boolean
+     */
+    protected function isRemoteFilter(QueryPartFilter $qpart)
+    {
+        return $qpart->getDataAddressProperty('filter_remote') || $qpart->getDataAddressProperty('filter_remote_url_param');
+    }
 
     /**
      * Returns the sorting URL parameter for the given sorter query part.
@@ -492,10 +571,21 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function buildUrlParamSorter(QueryPartSorter $qpart)
     {
-        if (! $qpart->getDataAddressProperty('sort_remote') && ! $qpart->getDataAddressProperty('sort_remote_url_param')) {
+        if (! $this->isRemoteSorter($qpart)) {
             return '';
         }
         return ($qpart->getDataAddressProperty('sort_remote_url_param') ? $qpart->getDataAddressProperty('sort_remote_url_param') : $qpart->getDataAddress());
+    }
+    
+    /**
+     * Returns TRUE if the given sorter query part uses remote sorting and FALSE otherwise.
+     * 
+     * @param QueryPartSorter $qpart
+     * @return boolean
+     */
+    protected function isRemoteSorter(QueryPartSorter $qpart)
+    {
+        return $qpart->getDataAddressProperty('sort_remote') || $qpart->getDataAddressProperty('sort_remote_url_param');
     }
 
     /**
