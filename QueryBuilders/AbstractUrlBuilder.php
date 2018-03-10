@@ -15,6 +15,7 @@ use Psr\Http\Message\RequestInterface;
 use exface\Core\CommonLogic\Model\Condition;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup;
 use exface\Core\CommonLogic\Model\ConditionGroup;
+use exface\Core\DataTypes\StringDataType;
 
 /**
  * This is an abstract query builder for REST APIs.
@@ -436,7 +437,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function replacePlaceholdersInUrl($url_string)
     {
-        foreach ($this->getWorkbench()->utils()->findPlaceholdersInString($url_string) as $ph) {
+        foreach (StringDataType::findPlaceholders($url_string) as $ph) {
             if ($ph_filter = $this->getFilter($ph)) {
                 if (! is_null($ph_filter->getCompareValue())) {
                     if ($this->getRequestSplitFilter() == $ph_filter && $ph_filter->getComparator() == EXF_COMPARATOR_IN) {

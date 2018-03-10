@@ -11,6 +11,7 @@ use Psr\Http\Message\UriInterface;
 use exface\UrlDataConnector\Interfaces\HttpConnectionInterface;
 use exface\UrlDataConnector\Psr7DataQuery;
 use Psr\Http\Message\RequestInterface;
+use exface\Core\DataTypes\StringDataType;
 
 class CallWebService extends AbstractAction {
     private $outputObject = null;
@@ -221,7 +222,7 @@ class CallWebService extends AbstractAction {
         $row_params = [];
         foreach ($this->getUrlParams() as $param => $value) {
             $is_static = true;
-            foreach ($this->getWorkbench()->utils()->findPlaceholdersInString($value) as $ph) {
+            foreach (StringDataType::findPlaceholders($value) as $ph) {
                 $is_static = false;
                 if ($col = $input_data->getColumns()->get($ph)) {
                     foreach ($col->getValues(false) as $row => $ph_val) {
