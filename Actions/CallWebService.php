@@ -12,6 +12,10 @@ use exface\UrlDataConnector\Interfaces\HttpConnectionInterface;
 use exface\UrlDataConnector\Psr7DataQuery;
 use Psr\Http\Message\RequestInterface;
 use exface\Core\DataTypes\StringDataType;
+use exface\Core\Interfaces\Tasks\TaskInterface;
+use exface\Core\Interfaces\DataSources\DataTransactionInterface;
+use exface\Core\Interfaces\Tasks\TaskResultInterface;
+use exface\Core\Factories\TaskResultFactory;
 
 class CallWebService extends AbstractAction {
     private $outputObject = null;
@@ -38,7 +42,7 @@ class CallWebService extends AbstractAction {
             if (! is_null($this->outputObjectAlias)) {
                 return $this->getWorkbench()->model()->getObject($this->outputObjectAlias);
             } else {
-                return $this->getInputDataSheet()->getMetaObject();
+                return $this->getInputDataPreset()->getMetaObject();
             }
         }
         return $this->outputObject;
@@ -190,21 +194,6 @@ class CallWebService extends AbstractAction {
     
     /**
      * 
-     * @return HttpConnectionInterface
-     */
-    public function getDataConnection()
-    {
-        $conn = $this->getInputDataSheet()->getMetaObject()->getDataConnection();
-        
-        if (! ($conn instanceof HttpConnectionInterface)) {
-            throw new ActionConfigurationError($this, 'Cannot use data connection "' . $conn->getAliasWithNamespace() . '" with action ' . $this->getAliasWithNamespace() . ': only connectors implementing the HttpConnectionInterface allowed!');
-        }
-        
-        return $conn;
-    }
-    
-    /**
-     * 
      * @return UriInterface
      */
     protected function getUri()
@@ -213,9 +202,9 @@ class CallWebService extends AbstractAction {
         return $uri;
     }
     
-    protected function perform()
+    protected function perform(TaskInterface $task, DataTransactionInterface $transaction) : TaskResultInterface
     {
-        $input_data = $this->getInputDataSheet();
+        $input_data = $this->getInputDataSheet($task);
         $uri = $this->getUri();
         
         $static_params = '';
@@ -259,20 +248,23 @@ class CallWebService extends AbstractAction {
             }
             $uri = $uri->withQuery($query_string);
             $request = new Request($this->getMethod(), $uri);
+            $conn = $input_data->getMetaObject()->getDataConnection();
+            if (! ($conn instanceof HttpConnectionInterface)) {
+                throw new ActionConfigurationError($this, 'Cannot use data connection "' . $conn->getAliasWithNamespace() . '" with action ' . $this->getAliasWithNamespace() . ': only connectors implementing the HttpConnectionInterface allowed!');
+            }
             try {
-                $result = $this->send($request);
+                $result = $this->send($conn, $request);
             } catch (\Throwable $e) {
                 $errors[$e];
             }
         }
         
-        $this->setResult('');
-        $this->setResultMessage((count($queries)-count($errors)) . ' requests completed successfully.' . (! empty($errors) ? count($errors) . ' errors' : ''));
+        return TaskResultFactory::createMessageResult($task, (count($queries)-count($errors)) . ' requests completed successfully.' . (! empty($errors) ? count($errors) . ' errors' : ''));
     }
     
-    protected function send(RequestInterface $request)
+    protected function send(HttpConnectionInterface $connection, RequestInterface $request)
     {
-        return $this->getDataConnection()->query(new Psr7DataQuery($request));
+        return $connection->query(new Psr7DataQuery($request));
     }
 
 }
