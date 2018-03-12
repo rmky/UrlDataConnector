@@ -14,8 +14,8 @@ use Psr\Http\Message\RequestInterface;
 use exface\Core\DataTypes\StringDataType;
 use exface\Core\Interfaces\Tasks\TaskInterface;
 use exface\Core\Interfaces\DataSources\DataTransactionInterface;
-use exface\Core\Interfaces\Tasks\TaskResultInterface;
-use exface\Core\Factories\TaskResultFactory;
+use exface\Core\Interfaces\Tasks\ResultInterface;
+use exface\Core\Factories\ResultFactory;
 
 class CallWebService extends AbstractAction {
     private $outputObject = null;
@@ -202,7 +202,7 @@ class CallWebService extends AbstractAction {
         return $uri;
     }
     
-    protected function perform(TaskInterface $task, DataTransactionInterface $transaction) : TaskResultInterface
+    protected function perform(TaskInterface $task, DataTransactionInterface $transaction) : ResultInterface
     {
         $input_data = $this->getInputDataSheet($task);
         $uri = $this->getUri();
@@ -259,7 +259,7 @@ class CallWebService extends AbstractAction {
             }
         }
         
-        return TaskResultFactory::createMessageResult($task, (count($queries)-count($errors)) . ' requests completed successfully.' . (! empty($errors) ? count($errors) . ' errors' : ''));
+        return ResultFactory::createMessageResult($task, (count($queries)-count($errors)) . ' requests completed successfully.' . (! empty($errors) ? count($errors) . ' errors' : ''));
     }
     
     protected function send(HttpConnectionInterface $connection, RequestInterface $request)
