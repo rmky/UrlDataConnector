@@ -81,7 +81,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
                 '/',
                 '.'
             ), '', $this->getUrl()) . '.cookie';
-            $cookieDir = $this->getWorkbench()->context()->getScopeUser()->getUserDataFolderAbsolutePath() . DIRECTORY_SEPARATOR . '.cookies';
+            $cookieDir = $this->getWorkbench()->getContext()->getScopeUser()->getUserDataFolderAbsolutePath() . DIRECTORY_SEPARATOR . '.cookies';
             if (! file_exists($cookieDir)) {
                 mkdir($cookieDir);
             }
