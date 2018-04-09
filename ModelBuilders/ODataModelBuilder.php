@@ -18,6 +18,11 @@ use exface\Core\Exceptions\Model\MetaObjectNotFoundError;
 use exface\Core\Interfaces\Log\LoggerInterface;
 use exface\Core\Exceptions\ModelBuilders\ModelBuilderRuntimeError;
 use exface\Core\DataTypes\StringDataType;
+use exface\Core\DataTypes\IntegerDataType;
+use exface\Core\DataTypes\NumberDataType;
+use exface\Core\DataTypes\BooleanDataType;
+use exface\Core\DataTypes\TimestampDataType;
+use exface\Core\DataTypes\DateDataType;
 
 /**
  * 
@@ -327,24 +332,24 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
         $source_data_type = strtoupper($source_data_type);
         switch (true) {
             case (strpos($source_data_type, 'INT') !== false):
-                $type = DataTypeFactory::createFromAlias($workbench, 'exface.Core.Integer');
+                $type = DataTypeFactory::createFromString($workbench, IntegerDataType::class);
                 break;
             case (strpos($source_data_type, 'FLOAT') !== false):
             case (strpos($source_data_type, 'DECIMAL') !== false):
             case (strpos($source_data_type, 'DOUBLE') !== false):
-                $type = DataTypeFactory::createFromAlias($workbench, 'exface.Core.Number');
+                $type = DataTypeFactory::createFromString($workbench, NumberDataType::class);
                 break;
             case (strpos($source_data_type, 'BOOL') !== false):
-                $type = DataTypeFactory::createFromAlias($workbench, 'exface.Core.Boolean');
+                $type = DataTypeFactory::createFromString($workbench, BooleanDataType::class);
                 break;
             case (strpos($source_data_type, 'DATETIME') !== false):
-                $type = DataTypeFactory::createFromAlias($workbench, 'exface.Core.Timestamp');
+                $type = DataTypeFactory::createFromString($workbench, TimestampDataType::class);
                 break;
             case (strpos($source_data_type, 'DATE') !== false):
-                $type = DataTypeFactory::createFromAlias($workbench, 'exface.Core.Date');
+                $type = DataTypeFactory::createFromString($workbench, DateDataType::class);
                 break;
             default:
-                $type = DataTypeFactory::createFromAlias($workbench, 'exface.Core.String');
+                $type = DataTypeFactory::createFromString($workbench, StringDataType::class);
         }
         return $type;
     }
