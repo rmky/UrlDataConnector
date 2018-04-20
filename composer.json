@@ -16,11 +16,11 @@
     "require": {
         "exface/core": "~0.1",
         "guzzlehttp/guzzle": "~6.2.2",
-        "symfony/Finder": "~3.1.2",
-        "symfony/Css-Selector": "~3.1.2",
-        "symfony/Dom-Crawler": "~3.1.2",
-        "symfony/Cache": "~3.2",
-        "psr/cache": "~1.0.1",
+        "symfony/Finder": "^3.1.2||^4.0",
+        "symfony/Css-Selector": "^3.1.2||^4.0",
+        "symfony/Dom-Crawler": "^3.1.2||^4.0",
+        "symfony/Cache": "^3.2||^4.0",
+        "psr/cache": "^1.0.1",
         "kevinrob/guzzle-cache-middleware": "~2.0"
     },
     "extra": {
