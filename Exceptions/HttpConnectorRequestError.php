@@ -86,7 +86,7 @@ class HttpConnectorRequestError extends DataQueryFailedError
     {
         $this->setHttpStatusCode($httpStatusCode);
         $this->setHttpReasonPhrase($httpReasonPhrase);
-        parent::__construct($query, ($message ? $message : $this->getHttpStatusCode() . ' ' . $this->getHttpReasonPhrase()), ($alias ? $alias : $this->getDefaultAlias()), $previous);
+        parent::__construct($query, ($message ? $message : $this->getHttpStatusCode() . ' ' . $this->getHttpReasonPhrase()), ($alias ? $alias : null), $previous);
     }
 
     /**
