@@ -16,6 +16,7 @@ use exface\Core\CommonLogic\Model\Condition;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup;
 use exface\Core\CommonLogic\Model\ConditionGroup;
 use exface\Core\DataTypes\StringDataType;
+use exface\Core\DataTypes\BooleanDataType;
 
 /**
  * This is an abstract query builder for REST APIs.
@@ -561,7 +562,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function isRemoteFilter(QueryPartFilter $qpart)
     {
-        return $qpart->getDataAddressProperty('filter_remote') || $qpart->getDataAddressProperty('filter_remote_url_param');
+        return BooleanDataType::cast($qpart->getDataAddressProperty('filter_remote')) || $qpart->getDataAddressProperty('filter_remote_url_param');
     }
 
     /**
@@ -586,7 +587,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function isRemoteSorter(QueryPartSorter $qpart)
     {
-        return $qpart->getDataAddressProperty('sort_remote') || $qpart->getDataAddressProperty('sort_remote_url_param');
+        return BooleanDataType::cast($qpart->getDataAddressProperty('sort_remote')) || $qpart->getDataAddressProperty('sort_remote_url_param');
     }
 
     /**
@@ -780,7 +781,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
 
     protected function isRemotePaginationConfigured()
     {
-        if ($this->getMainObject()->getDataAddressProperty('request_remote_pagination') && $this->buildUrlParamOffset($this->getMainObject())) {
+        if (BooleanDataType::cast($this->getMainObject()->getDataAddressProperty('request_remote_pagination')) && $this->buildUrlParamOffset($this->getMainObject())) {
             return true;
         }
         return false;
