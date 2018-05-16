@@ -750,7 +750,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      * processing the query. This is important for data sources, where UID-requests must be split or handled differently in any other way.
      *
      * @param QueryPartFilter $value            
-     * @return \exface\DataSources\QueryBuilders\REST_AbstractRest
+     * @return AbstractUrlBuilder
      */
     protected function setRequestSplitFilter(QueryPartFilter $value)
     {
@@ -875,6 +875,17 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     protected function buildUrlParamLimit(MetaObjectInterface $object)
     {
         return $object->getDataAddressProperty('request_limit_parameter');
+    }
+    
+    /**
+     * Generally UrlBuilders can only handle attributes of one objects - no relations (JOINs) supported!
+     *
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::canRead()
+     */
+    public function canRead(MetaAttributeInterface $attribute) : bool
+    {
+        return $attribute->getRelationPath()->isEmpty();
     }
 }
 ?>
