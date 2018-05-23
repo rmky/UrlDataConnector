@@ -272,5 +272,15 @@ HTML;
         $this->fixedUrl = BooleanDataType::cast($true_or_false);
         return $this;
     }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\DataQueries\AbstractDataQuery::toString()
+     */
+    public function toString($prettify = true)
+    {
+        return $this->getRequest()->getUri()->__toString();
+    }
 
 }
