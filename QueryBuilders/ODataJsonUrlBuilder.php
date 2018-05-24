@@ -169,7 +169,7 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
         switch ($comp) {
             case EXF_COMPARATOR_IS:
             case EXF_COMPARATOR_IS_NOT:
-                return "contains({$param},{$value})";
+                return ($comp === EXF_COMPARATOR_IS_NOT ? 'not ' : '') . "contains({$param},{$value})";
                 break;
             case EXF_COMPARATOR_IN:
                 return "{$param} in {$this->buildUrlFilterValue($qpart)}";
