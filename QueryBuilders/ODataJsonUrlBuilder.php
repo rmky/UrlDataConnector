@@ -158,7 +158,6 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
             return '';
         }
         
-        $comparator = $this->buildUrlFilterComparator($qpart);
         $value = $this->buildUrlFilterValue($qpart);
         
         // Add a prefix to the value if needed
@@ -166,7 +165,22 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
             $value = $prefix . $value;
         }
         
-        return $param . ' ' . $comparator . ' ' . $value;
+        $comp = $qpart->getComparator();
+        switch ($comp) {
+            case EXF_COMPARATOR_IS:
+            case EXF_COMPARATOR_IS_NOT:
+                return "contains({$param},{$value})";
+                break;
+            case EXF_COMPARATOR_IN:
+                return "{$param} in {$this->buildUrlFilterValue($qpart)}";
+                break;
+            case EXF_COMPARATOR_NOT_IN:
+                return "not ({$param} in {$this->buildUrlFilterValue($qpart)})";
+                break;
+            default: 
+                $operatior = $this->buildUrlFilterComparator($qpart);
+                return $param . ' ' . $operatior . ' ' . $value;
+        }        
     }
     
     /**
@@ -182,11 +196,9 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
     protected function buildUrlFilterComparator(QueryPartFilter $qpart)
     {
         switch ($qpart->getComparator()) {
-            case EXF_COMPARATOR_IS:
             case EXF_COMPARATOR_EQUALS:
                 $comp = 'eq';
                 break;
-            case EXF_COMPARATOR_IS_NOT:
             case EXF_COMPARATOR_EQUALS_NOT:
                 $comp = 'ne';
                 break;
@@ -209,8 +221,22 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
     protected function buildUrlFilterValue(QueryPartFilter $qpart)
     {
         $value = $qpart->getCompareValue();
+        $comparator = $qpart->getComparator();
         
-        if (is_array($qpart->getCompareValue())) {
+        if ($comparator === EXF_COMPARATOR_IN || $comparator === EXF_COMPARATOR_NOT_IN) {
+            $values = [];
+            if (! is_array($value)) {
+                $value = explode($qpart->getAttribute()->getValueListDelimiter(), $qpart->getCompareValue());
+            }
+            foreach ($value as $val) {
+                $splitQpart = clone $qpart;
+                $splitQpart->setCompareValue($val);
+                $values[] = $this->buildUrlFilterValue($splitQpart);
+            }
+            return '(' . implode(',', $values) . ')';
+        }
+        
+        if (is_array($value)) {
             $value = implode($qpart->getAttribute()->getValueListDelimiter(), $value);
         }
         
