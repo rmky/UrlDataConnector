@@ -17,6 +17,7 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup;
 use exface\Core\CommonLogic\Model\ConditionGroup;
 use exface\Core\DataTypes\StringDataType;
 use exface\Core\DataTypes\BooleanDataType;
+use exface\Core\Factories\ConditionGroupFactory;
 
 /**
  * This is an abstract query builder for REST APIs.
@@ -141,23 +142,24 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     {
         $endpoint = $this->getMainObject()->getDataAddress();
         $params_string = '';
-        $urlFilters = [];
+        $urlFilters = $this->getFilters()->copy();
         
         // Add filters
-        foreach ($this->getFilters()->getFilters() as $qpart) {
-            // In REST APIs it is common to have a special URL to fetch data by UID of the object:
-            // e.g. /users/1.xml would be the URL to fetch data for the user with UID = 1. Since in ExFace
-            // the UID filter can also be used in regular searches, we can tell ExFace to use a special
-            // data address for UID-based queries. Other filters will get applied to, but most APIs will
-            // probably ignore them. If the API can actually handle a regular UID-filter, the special
-            // data address should be simply left empty - this gives much more flexibility!
+        foreach ($urlFilters as $qpart) {
             if ($this->getMainObject()->getUidAttributeAlias() == $qpart->getAlias() && $this->getMainObject()->getDataAddressProperty('uid_request_data_address')) {
+                // In REST APIs it is common to have a special URL to fetch data by UID of the object:
+                // e.g. /users/1.xml would be the URL to fetch data for the user with UID = 1. Since in ExFace
+                // the UID filter can also be used in regular searches, we can tell ExFace to use a special
+                // data address for UID-based queries. Other filters will get applied to, but most APIs will
+                // probably ignore them. If the API can actually handle a regular UID-filter, the special
+                // data address should be simply left empty - this gives much more flexibility!
                 $endpoint = $this->getMainObject()->getDataAddressProperty('uid_request_data_address');
                 $this->setRequestSplitFilter($qpart);
-            } // Another way to set custom URLs is to give an attribute an explicit URL via filter_remote_url address property.
-              // This ultimately does the same thing, as uid_request_data_address on object level, but it's more general
-              // because it can be set for every attribute.
-            elseif ($filter_endpoint = $qpart->getDataAddressProperty('filter_remote_url')) {
+                $urlFilters->removeFilter($qpart);
+            } elseif ($filter_endpoint = $qpart->getDataAddressProperty('filter_remote_url')) {
+                // Another way to set custom URLs is to give an attribute an explicit URL via filter_remote_url address property.
+                // This ultimately does the same thing, as uid_request_data_address on object level, but it's more general
+                // because it can be set for every attribute.
                 if ($qpart->getComparator() == EXF_COMPARATOR_IN) {
                     // FIXME this check prevents split filter collisions, but it can be greatly improved in two ways
                     // - we should generally look for other custom URLs
@@ -175,17 +177,17 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 // is not supported in the regular data_address or the uid_request_data_address (there simply is nothing to take the value from),
                 // it must be replaced here already
                 $endpoint = str_replace('[#~value#]', $value, $filter_endpoint);
-            } else {
-                // Remember filter query parts, that do not affect the endpoint to process them later.
-                // This is important to process them in a single run, so complex filter expressions can be
-                // built instead of an individual URL parameter for every filter.
-                $urlFilters[] = $qpart;
-            }
+                $urlFilters->removeFilter($qpart);
+            } 
+            
+            // All (other) query parts, that do not affect the endpoint, remain in the filter group.
+            // This is important to process them in a single run, so complex filter expressions can be
+            // built instead of an individual URL parameter for every filter.
         }
         
         // Add the remaining filters to the URL
-        if (! empty($urlFilters)) {
-            $params_string = $this->addParameterToUrl($params_string, $this->buildUrlFilters($urlFilters));
+        if (! $urlFilters->isEmpty()) {
+            $params_string = $this->addParameterToUrl($params_string, $this->buildUrlFilterGroup($urlFilters));
         }
         
         // Add pagination
@@ -243,6 +245,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         return $url;
     }
     
+    
+    
     /**
      * Returns a URL query string with parameters for the given filters  (without a leading "&"!).
      * 
@@ -253,11 +257,14 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      * @param QueryPartFilter[] $filters
      * @return string
      */
-    protected function buildUrlFilters(array $filters)
+    protected function buildUrlFilterGroup(QueryPartFilterGroup $group)
     {
         $query = '';
-        foreach ($filters as $qpart) {
+        foreach ($group->getFilters() as $qpart) {
             $query .= $this->addParameterToUrl($query, $this->buildUrlFilter($qpart));
+        }
+        foreach ($group->getNestedGroups() as $qpart) {
+            $query .= $this->buildUrlFilterGroup($qpart);
         }
         return $query;
     }
@@ -531,7 +538,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     }
     
     /**
-     * Returns the URL parameter for the given filter query part
+     * Returns the URL parameter (without value) for the given filter query part
      * 
      * @param QueryPartFilter $qpart
      * @return string

@@ -11,6 +11,7 @@ use exface\Core\Interfaces\Model\MetaObjectInterface;
 use exface\Core\Interfaces\Log\LoggerInterface;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
 use exface\Core\DataTypes\StringDataType;
+use exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup;
 
 /**
  * This is a query builder for JSON-based oData APIs.
@@ -104,13 +105,26 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
     /**
      * 
      * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlFilters()
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlFilterGroup()
      */
-    protected function buildUrlFilters(array $filters)
+    protected function buildUrlFilterGroup(QueryPartFilterGroup $qpart)
     {
         $query = '';
-        foreach ($filters as $qpart) {
-            $query .= ($query ? ' and ' : '') . $this->buildUrlFilter($qpart);
+        
+        // If the filter group is just a wrapper, ignore it and build only the contents: e.g.
+        // AND(AND(expr1=val1, expr2=val2)) -> AND(expr1=val1, expr2=val2)
+        if (! $qpart->hasFilters() && count($qpart->getNestedGroups()) === 1) {
+            return $this->buildUrlFilterGroup($qpart->getNestedGroups()[0]);
+        }
+        
+        $op = ' ' . $this->buildUrlFilterGroupOperator($qpart->getOperator()) . ' ';
+        
+        foreach ($qpart->getFilters() as $filter) {
+            $query .= ($query ? $op : '') . $this->buildUrlFilter($filter);
+        }
+        
+        foreach ($qpart->getNestedGroups() as $group) {
+            $query .= ($query ? $op : '') . $this->buildUrlFilterGroup($group);
         }
         
         if ($query !== '') {
@@ -118,6 +132,17 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
         }
         
         return $query;
+    }
+    
+    protected function buildUrlFilterGroupOperator(string $logicalOperator) : string
+    {
+        switch (strtoupper($logicalOperator)) {
+            case EXF_LOGICAL_XOR:
+            case EXF_LOGICAL_NULL:
+                throw new QueryBuilderException('Logical operator "' . $logicalOperator . '" not supported by query builder "' . get_class($this) . '"!');
+            default:
+                return strtolower($logicalOperator);
+        }
     }
     
     /**
