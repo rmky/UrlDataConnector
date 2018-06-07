@@ -888,9 +888,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      * Generally UrlBuilders can only handle attributes of one objects - no relations (JOINs) supported!
      *
      * {@inheritDoc}
-     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::canRead()
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::canReadAttribute()
      */
-    public function canRead(MetaAttributeInterface $attribute) : bool
+    public function canReadAttribute(MetaAttributeInterface $attribute) : bool
     {
         return $attribute->getRelationPath()->isEmpty();
     }
