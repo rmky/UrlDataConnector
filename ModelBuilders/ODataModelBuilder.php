@@ -175,7 +175,7 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
             // If the object has no relation matching the alias or the relation is not 
             $relationAttribute = null;
             foreach ($object->findAttributesByDataAddress($relationAddress) as $attr) {
-                if ($attr->isRelation() && $attr->getRelation()->getRelatedObject()->isExactly($relatedObject)) {
+                if ($attr->isRelation() && $attr->getRelation()->getRightObject()->isExactly($relatedObject)) {
                     $skipped++;
                     continue;
                 } elseif (! is_null($relationAttribute)) {
