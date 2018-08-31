@@ -142,7 +142,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
                             if (is_array($val)) {
                                 $val = DataColumn::aggregateValues($val, $qpart->getAggregator());
                             }
-                            $result_row[$qpart->getAlias()] = $val;
+                            $result_row[$qpart->getColumnKey()] = $val;
                         }
                     }
                     if ($has_uid_column) {

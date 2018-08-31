@@ -119,7 +119,7 @@ class HtmlUrlBuilder extends AbstractUrlBuilder
                             // ignore errors for now
                         }
                         
-                        $result_rows[$rownr][$qpart->getAlias()] = $value;
+                        $result_rows[$rownr][$qpart->getColumnKey()] = $value;
                     }
                 }
             }

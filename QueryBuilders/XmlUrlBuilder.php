@@ -81,7 +81,7 @@ class XmlUrlBuilder extends AbstractUrlBuilder
                             if (is_array($val)) {
                                 $val = DataColumn::aggregateValues($val, $qpart->getAggregator());
                             }
-                            $result_rows[$nr][$qpart->getAlias()] = $val;
+                            $result_rows[$nr][$qpart->getColumnKey()] = $val;
                         }
                     }
                 }

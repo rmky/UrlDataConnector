@@ -773,11 +773,11 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 $group_value = null;
                 foreach ($result_rows as $row_nr => $row) {
                     if (! $group_value) {
-                        $group_value = $row[$qpart->getAlias()];
+                        $group_value = $row[$qpart->getColumnKey()];
                         continue;
                     }
                     
-                    if ($row[$qpart->getAlias()] != $group_value) {
+                    if ($row[$qpart->getColumnKey()] != $group_value) {
                         unset($result_rows[$row_nr]);
                     }
                 }
