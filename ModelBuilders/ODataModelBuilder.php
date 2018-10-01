@@ -40,7 +40,7 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
      * {@inheritDoc}
      * @see \exface\Core\CommonLogic\ModelBuilders\AbstractModelBuilder::generateAttributesForObject()
      */
-    public function generateAttributesForObject(MetaObjectInterface $meta_object)
+    public function generateAttributesForObject(MetaObjectInterface $meta_object) : DataSheetInterface
     {
         $transaction = $meta_object->getWorkbench()->data()->startTransaction();
         
@@ -93,7 +93,7 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
      * {@inheritDoc}
      * @see \exface\Core\Interfaces\DataSources\ModelBuilderInterface::generateObjectsForDataSource()
      */
-    public function generateObjectsForDataSource(AppInterface $app, DataSourceInterface $source, $data_address_mask = null)
+    public function generateObjectsForDataSource(AppInterface $app, DataSourceInterface $source, string $data_address_mask = null) : DataSheetInterface
     {
         $existing_objects = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.OBJECT');
         $existing_objects->getColumns()->addFromExpression('DATA_ADDRESS');
