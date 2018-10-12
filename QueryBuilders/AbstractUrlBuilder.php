@@ -261,7 +261,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     {
         $query = '';
         foreach ($group->getFilters() as $qpart) {
-            $query .= $this->addParameterToUrl($query, $this->buildUrlFilter($qpart));
+            $query = $this->addParameterToUrl($query, $this->buildUrlFilter($qpart));
         }
         foreach ($group->getNestedGroups() as $qpart) {
             $query .= $this->buildUrlFilterGroup($qpart);
@@ -470,7 +470,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     {
         if (! $parameter)
             return $url;
-        return $url . ($url ? '&' : '') . $parameter . (! is_null($value) ? '=' . $value : '');
+        return $url . ($url ? '&' : '') . ltrim($parameter, "&") . (! is_null($value) ? '=' . $value : '');
     }
 
     public function getResultRows()
