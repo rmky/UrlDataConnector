@@ -12,6 +12,7 @@ use exface\Core\Interfaces\Log\LoggerInterface;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
 use exface\Core\DataTypes\StringDataType;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup;
+use exface\Core\DataTypes\NumberDataType;
 
 /**
  * This is a query builder for JSON-based oData APIs.
@@ -120,11 +121,15 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
         $op = ' ' . $this->buildUrlFilterGroupOperator($qpart->getOperator()) . ' ';
         
         foreach ($qpart->getFilters() as $filter) {
-            $query .= ($query ? $op : '') . $this->buildUrlFilter($filter);
+            if ($stmt = $this->buildUrlFilter($filter)) {
+                $query .= ($query ? $op : '') . $stmt;
+            }
         }
         
         foreach ($qpart->getNestedGroups() as $group) {
-            $query .= ($query ? $op : '') . $this->buildUrlFilterGroup($group);
+            if ($stmt = $this->buildUrlFilterGroup($group)) {
+                $query .= ($query ? $op : '') . $stmt;
+            }
         }
         
         if ($query !== '') {
@@ -169,17 +174,32 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
         switch ($comp) {
             case EXF_COMPARATOR_IS:
             case EXF_COMPARATOR_IS_NOT:
-                return ($comp === EXF_COMPARATOR_IS_NOT ? 'not ' : '') . "contains({$param},{$value})";
-                break;
+                if ($qpart->getDataType() instanceof NumberDataType) {
+                    $op = ($comp === EXF_COMPARATOR_IS_NOT ? 'ne ' : 'eq');
+                    return "{$param} {$op} {$value}";
+                } else {
+                    return ($comp === EXF_COMPARATOR_IS_NOT ? 'not ' : '') . "contains({$param},{$value})";
+                }
             case EXF_COMPARATOR_IN:
-                return "{$param} in {$this->buildUrlFilterValue($qpart)}";
-                break;
             case EXF_COMPARATOR_NOT_IN:
-                return "not ({$param} in {$this->buildUrlFilterValue($qpart)})";
-                break;
+                $values = is_array($qpart->getCompareValue()) === true ? $qpart->getCompareValue() : explode($qpart->getAttribute()->getValueListDelimiter(), $qpart->getCompareValue());
+                if (count($values) === 1) {
+                    // If there is only one value, it is better to treat it as an equals-condition because many oData services have
+                    // difficulties in() or simply do not support it.
+                    $qpart->setComparator($qpart->getComparator() === EXF_COMPARATOR_IN ? EXF_COMPARATOR_EQUALS : EXF_COMPARATOR_EQUALS_NOT);
+                    // Rebuild the value because we changed the comparator!
+                    $value = $this->buildUrlFilterValue($qpart);
+                    // Continue with next case here.
+                } else {
+                    if ($qpart->getComparator() === EXF_COMPARATOR_IN) {
+                        return "{$param} in {$this->buildUrlFilterValue($qpart)}";
+                    } else {
+                        return "not ({$param} in {$this->buildUrlFilterValue($qpart)})";
+                    }
+                }
             default: 
                 $operatior = $this->buildUrlFilterComparator($qpart);
-                return $param . ' ' . $operatior . ' ' . $value;
+                return "{$param} {$operatior} {$value}";
         }        
     }
     
@@ -228,9 +248,11 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
             if (! is_array($value)) {
                 $value = explode($qpart->getAttribute()->getValueListDelimiter(), $qpart->getCompareValue());
             }
+            
             foreach ($value as $val) {
                 $splitQpart = clone $qpart;
                 $splitQpart->setCompareValue($val);
+                $splitQpart->setComparator($comparator === EXF_COMPARATOR_IN ? EXF_COMPARATOR_EQUALS : EXF_COMPARATOR_EQUALS_NOT);
                 $values[] = $this->buildUrlFilterValue($splitQpart);
             }
             return '(' . implode(',', $values) . ')';
