@@ -865,6 +865,10 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     protected function buildUrlPagination()
     {
         $params = '';
+        if ($this->isRemotePaginationConfigured() === false) {
+            return $params;
+        }
+        
         if ($offsetParam = $this->buildUrlParamLimit($this->getMainObject())) {
             $params = $this->addParameterToUrl($params, $offsetParam, $this->getLimit());
         }
