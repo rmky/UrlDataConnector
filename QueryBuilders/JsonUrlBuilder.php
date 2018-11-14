@@ -217,6 +217,9 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     protected function findFieldInData($data_address, $data)
     {
         $val = (array) $data;
+        if ($data_address === '/') {
+            return $data;
+        }
         foreach ($this->dataPathSplit($data_address) as $step) {
             if ($cond_start = strpos($step, '[')) {
                 if (substr($step, - 1) != ']')
