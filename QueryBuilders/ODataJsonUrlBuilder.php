@@ -300,5 +300,18 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
         
         return $url;
     }
+    
+    protected function findRowData($parsed_data, $path)
+    {
+        if ($parsed_data['d'] === null) {
+            return [];
+        }
+        
+        if ($parsed_data['d']['results'] !== null) {
+            return $parsed_data['d']['results'];
+        }
+        
+        return [$parsed_data['d']];
+    }
 }
 ?>
