@@ -2,13 +2,15 @@
 namespace exface\UrlDataConnector\QueryBuilders;
 
 use exface\Core\Exceptions\QueryBuilderException;
-use exface\Core\CommonLogic\AbstractDataConnector;
 use exface\Core\CommonLogic\DataSheets\DataColumn;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
 use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
 use exface\Core\Exceptions\NotImplementedError;
 use exface\Core\Interfaces\Model\MetaObjectInterface;
+use exface\Core\Interfaces\DataSources\DataConnectionInterface;
+use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
+use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 
 /**
  * This is a query builder for JSON-based REST APIs.
@@ -38,7 +40,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
      * {@inheritdoc}
      * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::create()
      */
-    public function create(AbstractDataConnector $data_connection = null)
+    public function create(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
         // Create the request URI
         $method = 'POST';
@@ -73,6 +75,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         }
         
         $insert_ids = array();
+        $uidAlias = $this->getMainObject()->getUidAttributeAlias();
         foreach ($json_objects as $obj) {
             $json = new \stdClass();
             if ($data_path = $this->getMainObject()->getDataAddressProperty('create_request_data_path')) {
@@ -94,10 +97,10 @@ class JsonUrlBuilder extends AbstractUrlBuilder
             if (is_array($result)) {
                 $result_data = $this->findRowData($result, $data_path);
             }
-            $insert_ids[] = $this->findFieldInData($this->buildDataAddressForAttribute($this->getMainObject()->getUidAttribute()), $result_data);
+            $insert_ids[] = [$uidAlias => $this->findFieldInData($this->buildDataAddressForAttribute($this->getMainObject()->getUidAttribute()), $result_data)];
         }
         
-        return $insert_ids;
+        return new DataQueryResultData($insert_ids, count($insert_ids), false);
     }
 
     /**
@@ -245,7 +248,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
      * {@inheritDoc}
      * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::update()
      */
-    public function update(AbstractDataConnector $data_connection = null)
+    public function update(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
         throw new NotImplementedError('Update requests currently not implemented in "' . get_class($this) . '"!');
     }
@@ -255,7 +258,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
      * {@inheritDoc}
      * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::delete()
      */
-    public function delete(AbstractDataConnector $data_connection = null)
+    public function delete(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
         throw new NotImplementedError('Delete requests currently not implemented in "' . get_class($this) . '"!');
     }

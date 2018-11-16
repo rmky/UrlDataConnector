@@ -4,7 +4,6 @@ namespace exface\UrlDataConnector\QueryBuilders;
 use exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartSorter;
-use exface\Core\CommonLogic\AbstractDataConnector;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
@@ -17,7 +16,9 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup;
 use exface\Core\CommonLogic\Model\ConditionGroup;
 use exface\Core\DataTypes\StringDataType;
 use exface\Core\DataTypes\BooleanDataType;
-use exface\Core\Factories\ConditionGroupFactory;
+use exface\Core\Interfaces\DataSources\DataConnectionInterface;
+use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
+use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 
 /**
  * This is an abstract query builder for REST APIs.
@@ -28,92 +29,92 @@ use exface\Core\Factories\ConditionGroupFactory;
  * 
  * ## On object level
  * 
- * - **force_filtering** - disables request withot at least a single filter (1). 
+ * - `force_filtering` - disables request withot at least a single filter (1). 
  * Some APIs disallow this!
  * 
- * - **response_data_path** - path to the array containing the items
+ * - `response_data_path` - path to the array containing the items
  * 
- * - **response_total_count_path** - path to the total number of items matching 
+ * - `response_total_count_path` - path to the total number of items matching 
  * the filter (used for pagination)
  * 
- * - **response_group_by_attribute_alias** - result rows will get resorted and 
+ * - `response_group_by_attribute_alias` - result rows will get resorted and 
  * grouped by values of the given attribute
  * 
- * - **response_group_use_only_first** - set to TRUE to return only the first 
+ * - `response_group_use_only_first` - set to TRUE to return only the first 
  * group ignoring all rows with other values of the group attribute than the 
  * first row.
  * 
- * - **request_remote_pagination** - set to false to disable remote pagination
+ * - `request_remote_pagination` - set to false to disable remote pagination
  * 
- * - **request_offset_parameter** - name of the URL parameter containing the 
+ * - `request_offset_parameter` - name of the URL parameter containing the 
  * page offset for pagination
  * 
- * - **request_limit_parameter** - name of the URL parameter holding the 
+ * - `request_limit_parameter` - name of the URL parameter holding the 
  * maximum number of returned items
  * 
- * - **request_url_replace_pattern** - regular expression pattern for PHP 
+ * - `request_url_replace_pattern` - regular expression pattern for PHP 
  * preg_replace() function to be performed on the request URL
  * 
- * - **request_url_replace_with** - replacement string for PHP preg_replace() 
+ * - `request_url_replace_with` - replacement string for PHP preg_replace() 
  * function to be performed on the request URL
  * 
- * - **uid_request_data_address** - makes requests with filters over the UID go 
+ * - `uid_request_data_address` - makes requests with filters over the UID go 
  * to this URL instead of the one in the data address. The URL allows
  * attribute_alias as placeholders (incl. the UID itself - e.g. 
  * "me.com/service/[#UID#]"). Note, that if the URL does not have placeholders
  * it will be always the same - regardles of what the UID actually is.  
  * 
- * - **uid_response_data_path** - used to find the data in the response for a 
+ * - `uid_response_data_path` - used to find the data in the response for a 
  * request with a filter on UID (instead of response_data_path)
  * 
- * - **create_request_data_address** - used in create requests instead of the 
+ * - `create_request_data_address` - used in create requests instead of the 
  * data address
  * 
- * - **create_request_data_path** - path to the object/array holding the 
+ * - `create_request_data_path` - path to the object/array holding the 
  * attributes of the instance to be created
  * 
- * - **update_request_data_address** - used in update requests instead of the 
+ * - `update_request_data_address` - used in update requests instead of the 
  * data address
  * 
- * - **update_request_data_path** - this is where the data is put in the body 
+ * - `update_request_data_path` - this is where the data is put in the body 
  * of update requests (if not specified the attributes are just put in the root 
  * object)
  * 
  * ## On attribute level
  * 
- * - **filter_remote** - set to 1 to enable remote filtering (0 by default)
+ * - `filter_remote` - set to 1 to enable remote filtering (0 by default)
  * 
- * - **filter_remote_url** - used to set a custom URL to be used if there is a 
+ * - `filter_remote_url` - used to set a custom URL to be used if there is a 
  * filter over this attribute. The URL accepts the placeholder [#~value#] which
  * will be replaced by the. Note, that if the URL does not have the placeholder,
  * it will be always the same - regardles of what the filter is actually set to. 
  * 
- * - **filter_remote_url_param** - used for filtering instead of the attributes 
+ * - `filter_remote_url_param` - used for filtering instead of the attributes 
  * data address: e.g. &[filter_remote_url_param]=VALUE instead of 
  * &[data_address]=VALUE
  * 
- * - **filter_remote_prefix** - prefix for the value in a filter query: e.g. 
+ * - `filter_remote_prefix` - prefix for the value in a filter query: e.g. 
  * &[data_address]=[filter_remote_prefix]VALUE. Can be used to pass default 
  * operators etc.
  * 
- * - **filter_locally** - set to 1 to filter in ExFace after reading the data
+ * - `filter_locally` - set to 1 to filter in ExFace after reading the data
  * (e.g. if the data source does not support filtering over this attribute) or
  * set to 0 to take the data as it is. If not set, the data will be filtered
  * locally automatically if no remote filtering is configured.
  * 
- * - **sort_remote** - set to 1 to enable remote sorting (0 by default)
+ * - `sort_remote` - set to 1 to enable remote sorting (0 by default)
  * 
- * - **sort_remote_url_param** - used for sorting instead of the attributes 
+ * - `sort_remote_url_param` - used for sorting instead of the attributes 
  * data address: e.g. &[sort_remote_url_param]=VALUE instead of 
  * &[data_address]=VALUE
  * 
- * - **sort_locally** - set to 1 to sort in ExFace after reading the data (if 
+ * - `sort_locally` - set to 1 to sort in ExFace after reading the data (if 
  * the data source does not support filtering over this attribute).
  * 
- * - **create_data_address** - used in the body of create queries (typically 
+ * - `create_data_address` - used in the body of create queries (typically 
  * POST-queries) instead of the data address
  * 
- * - **update_data_address** - used in the body of update queries (typically 
+ * - `update_data_address` - used in the body of update queries (typically 
  * PUT/PATCH-queries) instead of the data address
  *
  * @author Andrej Kabachnik
@@ -121,13 +122,6 @@ use exface\Core\Factories\ConditionGroupFactory;
  */
 abstract class AbstractUrlBuilder extends AbstractQueryBuilder
 {
-
-    private $result_rows = array();
-
-    private $result_totals = array();
-
-    private $result_total_rows = 0;
-
     private $endpoint_filter = null;
 
     private $request_split_filter = null;
@@ -473,39 +467,6 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         return $url . ($url ? '&' : '') . ltrim($parameter, "&") . (! is_null($value) ? '=' . $value : '');
     }
 
-    public function getResultRows()
-    {
-        return $this->result_rows;
-    }
-
-    public function getResultTotals()
-    {
-        return $this->result_totals;
-    }
-
-    public function getResultTotalRows()
-    {
-        return $this->result_total_rows;
-    }
-
-    public function setResultRows(array $array)
-    {
-        $this->result_rows = $array;
-        return $this;
-    }
-
-    public function setResultTotals(array $array)
-    {
-        $this->result_totals = $array;
-        return $this;
-    }
-
-    public function setResultTotalRows($value)
-    {
-        $this->result_total_rows = $value;
-        return $this;
-    }
-
     /**
      * Builds a URL filter from a filter query part: e.g.
      * subject=word1+word2+word3
@@ -672,18 +633,25 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      *
      * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::read()
      */
-    public function read(AbstractDataConnector $data_connection = null)
+    public function read(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
         $result_rows = array();
+        $totalCnt = null;
         // Check if force filtering is enabled
         if ($this->getMainObject()->getDataAddressProperty('force_filtering') && count($this->getFilters()->getFiltersAndNestedGroups()) < 1) {
             return false;
         }
         
+        // Increase limit by one to check if there are more rows
+        $originalLimit = $this->getLimit();
+        if ($originalLimit > 0) {
+            $this->setLimit($originalLimit+1, $this->getOffset());
+        }
+        
         $query = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
         if ($data = $this->parseResponse($query)) {
             // Find the total row counter within the response
-            $this->setResultTotalRows($this->findRowCounter($data, $query));
+            $totalCnt = $this->findRowCounter($data, $query);
             // Find data rows within the response and do the postprocessing
             $result_rows = $this->buildResultRows($data, $query);
             $result_rows = $this->applyPostprocessing($result_rows);
@@ -703,7 +671,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                     $this->getRequestSplitFilter()->setCompareValue($val);
                     $subquery = $data_connection->query($this->buildRequestGet());
                     if ($data = $this->parseResponse($subquery)) {
-                        $this->setResultTotalRows($this->getResultTotalRows() + $this->findRowCounter($data, $query));
+                        $totalCnt = $totalCnt + $this->findRowCounter($data, $query);
                         $subquery_rows = $this->buildResultRows($data, $subquery);
                         $result_rows = array_merge($result_rows, $this->applyPostprocessing($subquery_rows));
                     }
@@ -714,27 +682,37 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             }
             
             // Apply live filters, sorters and pagination
-            $cnt_before_filters = count($result_rows);
+            $cnt_before_local_filters = count($result_rows);
+            
+            if ($originalLimit > 0 && $cnt_before_local_filters === $originalLimit + 1) {
+                $hasMoreRows = true;
+                array_pop($result_rows);
+            } else {
+                $hasMoreRows = false;
+            }
+            
             $result_rows = $this->applyFilters($result_rows);
-            $cnt_after_filters = count($result_rows);
-            if ($cnt_before_filters !== $cnt_after_filters) {
-                $this->setResultTotalRows($cnt_after_filters);
+            $cnt_after_local_filters = count($result_rows);
+            if ($cnt_before_local_filters !== $cnt_after_local_filters) {
+                $totalCnt = $cnt_after_local_filters;
             }
             $result_rows = $this->applySorting($result_rows);
             
             if (! $this->isRemotePaginationConfigured()) {
-                if (! $this->getResultTotalRows()) {
-                    $this->setResultTotalRows(count($result_rows));
+                if (! $totalCnt) {
+                    $totalCnt = count($result_rows);
                 }
                 $result_rows = $this->applyPagination($result_rows);
             }
         }
         
-        if (! $this->getResultTotalRows()) {
-            $this->setResultTotalRows(count($result_rows));
+        if (! $totalCnt) {
+            $totalCnt = count($result_rows);
         }
-        $this->setResultRows(array_values($result_rows));
-        return $this->getResultTotalRows();
+        
+        $rows = array_values($result_rows);
+        
+        return new DataQueryResultData($rows, count($result_rows), $hasMoreRows, $totalCnt);
     }
 
     protected function parseResponse(Psr7DataQuery $query)

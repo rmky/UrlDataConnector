@@ -2,7 +2,6 @@
 namespace exface\UrlDataConnector\QueryBuilders;
 
 use exface\Core\Exceptions\QueryBuilderException;
-use exface\Core\CommonLogic\AbstractDataConnector;
 use exface\Core\CommonLogic\DataSheets\DataColumn;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
@@ -13,6 +12,9 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
 use exface\Core\DataTypes\StringDataType;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup;
 use exface\Core\DataTypes\NumberDataType;
+use exface\Core\Interfaces\DataSources\DataConnectionInterface;
+use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
+use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 
 /**
  * This is a query builder for JSON-based oData APIs.
@@ -42,33 +44,31 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
     }
     
     /**
-     * 
+     *
      * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::findRowCounter()
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::count()
      */
-    protected function findRowCounter($data, Psr7DataQuery $query)
+    public function count(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
-        $count = parent::findRowCounter($data, $query);
-        if (is_null($count)) {
-            $uri = $query->getRequest()->getUri();
-            $count_uri = $uri->withPath($uri->getPath() . '/$count');
-            
-            $count_url_params = $uri->getQuery();
-            $count_url_params = preg_replace('/\&?' . preg_quote($this->buildUrlParamLimit($this->getMainObject())) . '=\d*/', "", $count_url_params);
-            $count_url_params = preg_replace('/\&?' . preg_quote($this->buildUrlParamOffset($this->getMainObject())) . '=\d*/', "", $count_url_params);
-            $count_url_params = preg_replace('/\&?\$format=.*/', "", $count_url_params);
-            $count_uri = $count_uri->withQuery($count_url_params);
-            $count_query = new Psr7DataQuery(new Request('GET', $count_uri));
-            $count_query->setUriFixed(true);
-            
-            try {
-                $count_query = $this->getMainObject()->getDataConnection()->query($count_query);
-                $count = (string) $count_query->getResponse()->getBody();
-            } catch (\Throwable $e) {
-                $this->getWorkbench()->getLogger()->logException($e, LoggerInterface::WARNING);
-            }
+        $uri = $this->buildRequestGet()->getRequest()->getUri();
+        $count_uri = $uri->withPath($uri->getPath() . '/$count');
+        
+        $count_url_params = $uri->getQuery();
+        $count_url_params = preg_replace('/\&?' . preg_quote($this->buildUrlParamLimit($this->getMainObject())) . '=\d*/', "", $count_url_params);
+        $count_url_params = preg_replace('/\&?' . preg_quote($this->buildUrlParamOffset($this->getMainObject())) . '=\d*/', "", $count_url_params);
+        $count_url_params = preg_replace('/\&?\$format=.*/', "", $count_url_params);
+        $count_uri = $count_uri->withQuery($count_url_params);
+        $count_query = new Psr7DataQuery(new Request('GET', $count_uri));
+        $count_query->setUriFixed(true);
+        
+        try {
+            $count_query = $this->getMainObject()->getDataConnection()->query($count_query);
+            $count = (string) $count_query->getResponse()->getBody();
+        } catch (\Throwable $e) {
+            $this->getWorkbench()->getLogger()->logException($e, LoggerInterface::WARNING);
         }
-        return $count;
+        
+        return new DataQueryResultData([], $count, false, $count);
     }
     
     /**

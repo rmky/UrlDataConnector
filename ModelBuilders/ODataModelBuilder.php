@@ -74,7 +74,7 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
                 $created_ds->addRow($row);
             }
         }
-        $created_ds->setCounterRowsAll(count($imported_rows));
+        $created_ds->setCounterForRowsInDataSource(count($imported_rows));
         
         if (! $created_ds->isEmpty()) {
             $created_ds->dataCreate(false, $transaction);
@@ -116,7 +116,7 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
                 $new_objects->addRow($row);
             } 
         }
-        $new_objects->setCounterRowsAll(count($imported_rows));
+        $new_objects->setCounterForRowsInDataSource(count($imported_rows));
         
         if (! $new_objects->isEmpty()) {
             $new_objects->dataCreate(false, $transaction);
@@ -201,7 +201,7 @@ class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInte
             }
         }
         
-        $new_relations->setCounterRowsAll($new_relations->countRows() + $skipped);
+        $new_relations->setCounterForRowsInDataSource($new_relations->countRows() + $skipped);
         
         if (! $new_relations->isEmpty()) {
             $new_relations->dataUpdate(false, $transaction);

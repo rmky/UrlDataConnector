@@ -3,10 +3,12 @@ namespace exface\UrlDataConnector\QueryBuilders;
 
 use exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder;
 use exface\Core\Exceptions\QueryBuilderException;
-use exface\Core\CommonLogic\AbstractDataConnector;
 use exface\Core\CommonLogic\DataSheets\DataColumn;
 use Psr\Http\Message\ResponseInterface;
 use exface\UrlDataConnector\Psr7DataQuery;
+use exface\Core\Interfaces\DataSources\DataConnectionInterface;
+use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
+use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 
 /**
  * TODO: This is a very early beta.
@@ -17,19 +19,14 @@ use exface\UrlDataConnector\Psr7DataQuery;
  */
 class XmlUrlBuilder extends AbstractUrlBuilder
 {
-
-    function create(AbstractDataConnector $data_connection = null)
-    {}
-
     /**
      * FIXME use simpleXmlElement instead of arrays.
      * The arrays were just a shortcut to keep this similar to the JSON query builder
-     *
-     * {@inheritdoc}
-     *
-     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::read()
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::read()
      */
-    function read(AbstractDataConnector $data_connection = null)
+    function read(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
         $result_rows = array();
         $query = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
@@ -40,7 +37,11 @@ class XmlUrlBuilder extends AbstractUrlBuilder
             foreach (explode('/', $this->getMainObject()->getDataAddressProperty('response_total_count_path')) as $step) {
                 $total_count = $total_count[$step];
             }
-            $this->setResultTotalRows($total_count);
+            
+            $originalLimit = $this->getLimit();
+            if ($originalLimit > 0) {
+                $this->setLimit($originalLimit+1, $this->getOffset());
+            }
             
             if ($this->getMainObject()->getDataAddressProperty('response_data_path')) {
                 $rows = (array) $data_array[$this->getMainObject()->getDataAddressProperty('response_data_path')];
@@ -87,21 +88,54 @@ class XmlUrlBuilder extends AbstractUrlBuilder
                 }
             }
         }
-        $this->setResultRows($result_rows);
-        return $this->getResultTotalRows();
+        
+        $rowCnt = count($result_rows);
+        if ($originalLimit > 0 && $rowCnt === $originalLimit + 1) {
+            $hasMoreRows = true;
+            array_pop($result_rows);
+        } else {
+            $hasMoreRows = false;
+        }
+        
+        return new DataQueryResultData($result_rows, $rowCnt, $hasMoreRows, $total_count);
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::count()
+     */
+    public function count(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
+    {
+        $query = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
+        if ($data = $this->parseResponse($query)) {
+            $data_array = (array) $data;
+            
+            $total_count = $data_array;
+            foreach (explode('/', $this->getMainObject()->getDataAddressProperty('response_total_count_path')) as $step) {
+                $total_count = $total_count[$step];
+            }
+        } else {
+            $total_count = 0;
+        }
+        return new DataQueryResultData([], $total_count, 0, $total_count);
     }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildResultRows()
+     */
     protected function buildResultRows($parsed_data, Psr7DataQuery $query)
     {
         return $parsed_data;
     }
 
-    function update(AbstractDataConnector $data_connection = null)
-    {}
-
-    function delete(AbstractDataConnector $data_connection = null)
-    {}
-
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::parseResponse()
+     */
     protected function parseResponse(ResponseInterface $response)
     {
         return new \SimpleXMLElement($response->getBody()->getContents());
