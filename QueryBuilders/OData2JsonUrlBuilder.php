@@ -24,7 +24,7 @@ use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
  * @author Andrej Kabachnik
  *        
  */
-class ODataJsonUrlBuilder extends JsonUrlBuilder
+class OData2JsonUrlBuilder extends JsonUrlBuilder
 {
     
     /**
