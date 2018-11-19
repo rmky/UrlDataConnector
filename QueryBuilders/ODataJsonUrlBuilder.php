@@ -50,7 +50,7 @@ class ODataJsonUrlBuilder extends JsonUrlBuilder
      */
     public function count(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
-        $uri = $this->buildRequestGet()->getRequest()->getUri();
+        $uri = $this->buildRequestGet()->getUri();
         $count_uri = $uri->withPath($uri->getPath() . '/$count');
         
         $count_url_params = $uri->getQuery();
