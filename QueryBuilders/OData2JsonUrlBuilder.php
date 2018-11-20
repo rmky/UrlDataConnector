@@ -17,9 +17,10 @@ use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 
 /**
- * This is a query builder for JSON-based oData APIs.
+ * This is a query builder for JSON-based oData 2.0 APIs.
  *
- * @see JsonUrlBuilder
+ * @see JsonUrlBuilder for data address syntax
+ * @see AbstractUrlBuilder for data source specific parameters
  * 
  * @author Andrej Kabachnik
  *        
