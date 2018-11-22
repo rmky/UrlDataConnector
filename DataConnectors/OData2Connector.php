@@ -1,33 +1,19 @@
 <?php
 namespace exface\UrlDataConnector\DataConnectors;
 
-use exface\Core\CommonLogic\AbstractDataConnector;
-use GuzzleHttp\Client;
-use exface\UrlDataConnector\Psr7DataQuery;
-use exface\Core\Interfaces\DataSources\DataQueryInterface;
-use exface\Core\Exceptions\DataSources\DataConnectionQueryTypeError;
-use exface\Core\Exceptions\DataSources\DataConnectionFailedError;
-use GuzzleHttp\Psr7\Response;
-use exface\Core\CommonLogic\Filemanager;
-use GuzzleHttp\HandlerStack;
-use Kevinrob\GuzzleCache\CacheMiddleware;
-use Kevinrob\GuzzleCache\Storage\Psr6CacheStorage;
-use Symfony\Component\Cache\Adapter\FilesystemAdapter;
-use GuzzleHttp\Exception\RequestException;
-use exface\UrlDataConnector\Exceptions\HttpConnectorRequestError;
 use function GuzzleHttp\Psr7\_caseless_remove;
 use function GuzzleHttp\Psr7\modify_request;
-use exface\UrlDataConnector\ModelBuilders\ODataModelBuilder;
+use exface\UrlDataConnector\ModelBuilders\OData2ModelBuilder;
 
 /**
- * Connector for oData web services
+ * Connector for oData 2.0 web services
  * 
  * Refer to the documentation of the HttpConnector for detailed information about connection settings. 
  *
  * @author Andrej Kabachnik
  *        
  */
-class ODataConnector extends HttpConnector
+class OData2Connector extends HttpConnector
 {
     private $metadataUrl = null;
 
@@ -38,7 +24,7 @@ class ODataConnector extends HttpConnector
      */
     public function getModelBuilder()
     {
-        return new ODataModelBuilder($this);
+        return new OData2ModelBuilder($this);
     }
     
     /**
@@ -67,8 +53,4 @@ class ODataConnector extends HttpConnector
         $this->metadataUrl = $metadataUrl;
         return $this;
     }
-
-    
-    
 }
-?>

@@ -23,15 +23,16 @@ use exface\Core\DataTypes\NumberDataType;
 use exface\Core\DataTypes\BooleanDataType;
 use exface\Core\DataTypes\TimestampDataType;
 use exface\Core\DataTypes\DateDataType;
+use exface\UrlDataConnector\DataConnectors\OData2Connector;
 
 /**
  * 
- * @method ODataConnector getDataConnection()
+ * @method OData2ConnectorConnector getDataConnection()
  * 
  * @author Andrej Kabachnik
  *
  */
-class ODataModelBuilder extends AbstractModelBuilder implements ModelBuilderInterface {
+class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInterface {
     
     private $metadata = null;
     
