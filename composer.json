@@ -11,7 +11,7 @@
 	],
 	"support" : {
 		"source" : "https://github.com/exface/UrlDataConnector",
-		"docs" : "https://github.com/exface/UrlDataConnector/Docs",
+		"docs" : "https://github.com/exface/UrlDataConnector/blob/master/Docs",
 		"issues" : "https://github.com/exface/UrlDataConnector/issues"
 	},
 	"require" : {
