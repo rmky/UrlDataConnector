@@ -18,6 +18,11 @@ use exface\Core\Interfaces\Log\LoggerInterface;
  */
 class OData4ModelBuilder extends OData2ModelBuilder {
     
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\ModelBuilders\OData2ModelBuilder::generateRelations()
+     */
     protected function generateRelations(AppInterface $app, Crawler $referentialConstraints = null, DataTransactionInterface $transaction = null)
     {
         // If no nodes specified, get all constraint nodes from the metadata
@@ -83,5 +88,15 @@ class OData4ModelBuilder extends OData2ModelBuilder {
         }
         
         return $new_relations;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\ModelBuilders\OData2ModelBuilder::findRelationNodes()
+     */
+    protected function findRelationNodes(string $entityType)
+    {
+        return $this->getMetadata()->filterXPath($this->getXPathToProperties($entityType))->siblings()->filterXPath('default:NavigationProperty/default:ReferentialConstraint');
     }
 }

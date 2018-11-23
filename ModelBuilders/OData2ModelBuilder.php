@@ -47,12 +47,17 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         
         $created_ds = $this->generateAttributes($meta_object, $transaction);
         
-        $relationConstraints = $this->getMetadata()->filterXPath($this->getXPathToProperties($this->getEntityType($meta_object)))->siblings()->filterXPath('default:NavigationProperty/default:ReferentialConstraint');
+        $relationConstraints = $this->findRelationNodes($this->getEntityType($meta_object));
         $this->generateRelations($meta_object->getApp(), $relationConstraints, $transaction);
         
         $transaction->commit();
         
         return $created_ds;
+    }
+    
+    protected function findRelationNodes(string $entityType) : Crawler
+    {
+        return $this->getMetadata()->filterXPath($this->getXPathToProperties($entityType))->siblings()->filterXPath('default:NavigationProperty/default:ReferentialConstraint');
     }
     
     /**
@@ -140,15 +145,15 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
     /**
      * 
      * @param AppInterface $app
-     * @param Crawler $referentialConstraints
+     * @param Crawler $associations
      * @param DataTransactionInterface $transaction
      * @return \exface\Core\Interfaces\DataSheets\DataSheetInterface
      */
-    protected function generateRelations(AppInterface $app, Crawler $referentialConstraints = null, DataTransactionInterface $transaction = null)
+    protected function generateRelations(AppInterface $app, Crawler $associations = null, DataTransactionInterface $transaction = null)
     {
         // If no nodes specified, get all constraint nodes from the metadata
-        if (is_null($referentialConstraints)) {
-            $referentialConstraints = $this->getMetadata()->filterXPath('//default:EntityType/default:NavigationProperty/default:ReferentialConstraint');
+        if (is_null($associations)) {
+            $associations = $this->getMetadata()->filterXPath('//default:Association');
         }
         
         $new_relations = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.ATTRIBUTE');
@@ -157,10 +162,10 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         }
         $skipped = 0;
         
-        foreach ($referentialConstraints as $node) {
+        foreach ($associations as $node) {
             // Find object on both ends of the relation. If not there, log an info and skip the relation
             try {
-                $relationAlias = $node->parentNode->attributes['Name']->nodeValue;
+                $relationAlias = $node->getAttribute('Name');
                 $relationAddress = $node->getAttribute('Property');
                 $entityType = $this->stripNamespace($node->parentNode->parentNode->attributes['Name']->nodeValue);
                 $object = $app->getWorkbench()->model()->getObjectByAlias($entityType, $app->getAliasWithNamespace());

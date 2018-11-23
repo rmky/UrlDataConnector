@@ -171,37 +171,57 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
             $value = $prefix . $value;
         }
         
+        return $this->buildUrlFilterPredicate($qpart, $param, $value);
+    }
+    
+    /**
+     * Returns a filter predicate to be used in $filter (e.g. "Price le 100").
+     * 
+     * This method is separated from buildUrlFilter() in order be able to override just the
+     * predicate generation in other OData builders, leaving common checks and enrichment
+     * in buildUrlFilter().
+     * 
+     * @param QueryPartFilter $qpart
+     * @param string $property
+     * @param string $escapedValue
+     * @return string
+     */
+    protected function buildUrlFilterPredicate(QueryPartFilter $qpart, string $property, string $escapedValue) : string
+    {
         $comp = $qpart->getComparator();
         switch ($comp) {
             case EXF_COMPARATOR_IS:
             case EXF_COMPARATOR_IS_NOT:
                 if ($qpart->getDataType() instanceof NumberDataType) {
-                    $op = ($comp === EXF_COMPARATOR_IS_NOT ? 'ne ' : 'eq');
-                    return "{$param} {$op} {$value}";
+                    $op = ($comp === EXF_COMPARATOR_IS_NOT ? 'ne' : 'eq');
+                    return "{$property} {$op} {$escapedValue}";
                 } else {
-                    return ($comp === EXF_COMPARATOR_IS_NOT ? 'not ' : '') . "contains({$param},{$value})";
+                    return "substringof({$escapedValue}, {$property}) " . ($comp === EXF_COMPARATOR_IS_NOT ? 'ne' : 'eq') . ' true';
                 }
             case EXF_COMPARATOR_IN:
             case EXF_COMPARATOR_NOT_IN:
-                $values = is_array($qpart->getCompareValue()) === true ? $qpart->getCompareValue() : explode($qpart->getAttribute()->getValueListDelimiter(), $qpart->getCompareValue());
-                if (count($values) === 1) {
-                    // If there is only one value, it is better to treat it as an equals-condition because many oData services have
-                    // difficulties in() or simply do not support it.
-                    $qpart->setComparator($qpart->getComparator() === EXF_COMPARATOR_IN ? EXF_COMPARATOR_EQUALS : EXF_COMPARATOR_EQUALS_NOT);
-                    // Rebuild the value because we changed the comparator!
-                    $value = $this->buildUrlFilterValue($qpart);
-                    // Continue with next case here.
+                if ($comp === EXF_COMPARATOR_NOT_IN) {
+                    $op = 'ne';
+                    $glue = ' and ';
                 } else {
-                    if ($qpart->getComparator() === EXF_COMPARATOR_IN) {
-                        return "{$param} in {$this->buildUrlFilterValue($qpart)}";
-                    } else {
-                        return "not ({$param} in {$this->buildUrlFilterValue($qpart)})";
-                    }
+                    $op = 'eq';
+                    $glue = ' or ';
                 }
-            default: 
+                $values = is_array($qpart->getCompareValue()) === true ? $qpart->getCompareValue() : explode($qpart->getAttribute()->getValueListDelimiter(), $qpart->getCompareValue());
+                $isString = $qpart->getDataType() instanceof StringDataType;
+                $ors = [];
+                foreach ($values as $val) {
+                    $ors[] = $property . ' ' . $op . ' ' . ($isString === true ? $this->buildUrlFilterValueEscapedString($qpart, $val) : $val);
+                }
+                if (empty($ors) === false) {
+                    return '(' . implode($glue, $ors) . ')';
+                } else {
+                    return '';
+                }
+            default:
                 $operatior = $this->buildUrlFilterComparator($qpart);
-                return "{$param} {$operatior} {$value}";
-        }        
+                return "{$property} {$operatior} {$escapedValue}";
+        }
     }
     
     /**
@@ -242,22 +262,6 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
     protected function buildUrlFilterValue(QueryPartFilter $qpart)
     {
         $value = $qpart->getCompareValue();
-        $comparator = $qpart->getComparator();
-        
-        if ($comparator === EXF_COMPARATOR_IN || $comparator === EXF_COMPARATOR_NOT_IN) {
-            $values = [];
-            if (! is_array($value)) {
-                $value = explode($qpart->getAttribute()->getValueListDelimiter(), $qpart->getCompareValue());
-            }
-            
-            foreach ($value as $val) {
-                $splitQpart = clone $qpart;
-                $splitQpart->setCompareValue($val);
-                $splitQpart->setComparator($comparator === EXF_COMPARATOR_IN ? EXF_COMPARATOR_EQUALS : EXF_COMPARATOR_EQUALS_NOT);
-                $values[] = $this->buildUrlFilterValue($splitQpart);
-            }
-            return '(' . implode(',', $values) . ')';
-        }
         
         if (is_array($value)) {
             $value = implode($qpart->getAttribute()->getValueListDelimiter(), $value);
@@ -267,10 +271,22 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
             // Wrap string data types in single quotes
             // Since spaces are used as delimiters in oData filter expression, they need to be
             // replaced by x0020.
-            case ($qpart->getDataType() instanceof StringDataType): $value = "'" . str_replace(' ', 'x0020', $value) . "'"; break; 
+            case ($qpart->getDataType() instanceof StringDataType): $value = $this->buildUrlFilterValueEscapedString($qpart, $value); break; 
         }
         
         return $value;
+    }
+    
+    /**
+     * Escapes a string value to be safe to use within a filter predicate.
+     * 
+     * @param QueryPartFilter $qpart
+     * @param string $value
+     * @return string
+     */
+    protected function buildUrlFilterValueEscapedString(QueryPartFilter $qpart, string $value) : string
+    {
+        return "'" . str_replace(' ', 'x0020', $value) . "'";
     }
     
     /**
