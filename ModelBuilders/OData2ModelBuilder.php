@@ -24,6 +24,8 @@ use exface\Core\DataTypes\BooleanDataType;
 use exface\Core\DataTypes\TimestampDataType;
 use exface\Core\DataTypes\DateDataType;
 use exface\UrlDataConnector\DataConnectors\OData2Connector;
+use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
+use exface\Core\CommonLogic\UxonObject;
 
 /**
  * 
@@ -102,7 +104,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
     public function generateObjectsForDataSource(AppInterface $app, DataSourceInterface $source, string $data_address_mask = null) : DataSheetInterface
     {
         $existing_objects = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.OBJECT');
-        $existing_objects->getColumns()->addFromExpression('DATA_ADDRESS');
+        $existing_objects->getColumns()->addMultiple(['DATA_ADDRESS', 'ALIAS']);
         $existing_objects->addFilterFromString('APP', $app->getUid(), EXF_COMPARATOR_EQUALS);
         $existing_objects->dataRead();
         
@@ -117,8 +119,13 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         }
         $entities = $this->getMetadata()->filterXPath($this->getXPathToEntityTypes() . $filter);
         $imported_rows = $this->getObjectData($entities, $app, $source)->getRows();
+        $existingAddressCol = $existing_objects->getColumns()->getByExpression('DATA_ADDRESS');
+        $existingAliasCol = $existing_objects->getColumns()->getByExpression('ALIAS');
         foreach ($imported_rows as $row) {
-            if ($existing_objects->getColumns()->getByExpression('DATA_ADDRESS')->findRowByValue($row['DATA_ADDRESS']) === false) {
+            if ($existingAddressCol->findRowByValue($row['DATA_ADDRESS']) === false) {
+                if ($existingAliasCol->findRowByValue($row['ALIAS']) !== false) {
+                    $row['ALIAS'] = $row['ALIAS'] . '2';
+                }
                 $new_objects->addRow($row);
             } 
         }
@@ -157,63 +164,144 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         }
         
         $new_relations = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.ATTRIBUTE');
-        foreach ($new_relations->getMetaObject()->getAttributes()->getSystem() as $sys) {
-            $new_relations->getColumns()->addFromAttribute($sys);
-        }
         $skipped = 0;
         
         foreach ($associations as $node) {
-            // Find object on both ends of the relation. If not there, log an info and skip the relation
-            try {
-                $relationAlias = $node->getAttribute('Name');
-                $relationAddress = $node->getAttribute('Property');
-                $entityType = $this->stripNamespace($node->parentNode->parentNode->attributes['Name']->nodeValue);
-                $object = $app->getWorkbench()->model()->getObjectByAlias($entityType, $app->getAliasWithNamespace());
+            // This array needs to be filled
+            $attributeData = [
+                'UID' => null,
+                'ALIAS' => null,
+                'LABEL' => null,
+                'RELATED_OBJ' => null,
+                'RELATED_OBJ_ATTR' => null,
+                'DATA_ADDRESS_PROPS' => null,
+                'COPY_WITH_RELATED_OBJECT' => 0, // oData services are expected to take care of correct copying themselves
+                'DELETE_WITH_RELATED_OBJECT' => 0 // oData services are expected to take care of cascading deletes themselves
+            ];
                 
-                $relatedEntityType = $this->stripNamespace($node->parentNode->attributes['Type']->nodeValue);
-                $relatedObject = $app->getWorkbench()->model()->getObjectByAlias($relatedEntityType, $app->getAliasWithNamespace());
-                $relatedObjectKeyAlias = $node->getAttribute('ReferencedProperty');
-            } catch (MetaObjectNotFoundError $e) {
-                $app->getWorkbench()->getLogger()->logException(new ModelBuilderRuntimeError($this, 'Cannot find related object for NavigationProperty ' . $relationAlias . ': EntityType ' . $relatedEntityType . ' not imported yet?', null, $e), LoggerInterface::INFO);
-                continue;
-            }
-            
-            // If the object has no relation matching the alias or the relation is not 
-            $relationAttribute = null;
-            foreach ($object->findAttributesByDataAddress($relationAddress) as $attr) {
-                if ($attr->isRelation() && $attr->getRelation()->getRightObject()->isExactly($relatedObject)) {
+            try {
+                
+                $ends = [];
+                foreach ($node->getElementsByTagName('End') as $endNode) {
+                    $ends[$endNode->getAttribute('Role')] = $endNode;
+                }
+                
+                $constraintNode = $node->getElementsByTagName('ReferentialConstraint')->item(0);
+                $principalNode = $constraintNode->getElementsByTagName('Principal')->item(0);
+                $dependentNode = $constraintNode->getElementsByTagName('Dependent')->item(0);
+                
+                $leftEndNode = $ends[$dependentNode->getAttribute('Role')];
+                $leftEntityType = $this->stripNamespace($leftEndNode->getAttribute('Type'));
+                $leftObject = $app->getWorkbench()->model()->getObjectByAlias($leftEntityType, $app->getAliasWithNamespace());
+                $leftAttributeAlias = $dependentNode->getElementsByTagName('PropertyRef')->item(0)->getAttribute('Name');
+                $leftAttribute = $leftObject->getAttribute($leftAttributeAlias);
+                
+                // Skip existing relations with the same alias
+                if ($leftAttribute->isRelation() === true) {
                     $skipped++;
                     continue;
-                } elseif (! is_null($relationAttribute)) {
-                    throw new ModelBuilderRuntimeError($this, 'Cannot create relation for object ' . $object->getAliasWithNamespace() . ' automatically: found multiple attributes (' . $attr->getAlias() . ', ' . $relationAttribute->getAlias() . ') matching the data address and not being a relation - cannot decide, which one to make a relation!.');
-                } else {
-                    $relationAttribute = $attr;
-                }
-            }
-            
-            if ($skipped === 0) {
-                if (is_null($relationAttribute)) {
-                    throw new ModelBuilderRuntimeError($this, 'Cannot create relation for object ' . $object->getAliasWithNamespace() . ' automatically: no attribute found with relation property "' . $relationAddress . '" as data address - please rebuild the model for object ' . $object->getAliasWithNamespace() . '!');
                 }
                 
-                // Add relation data to the data sheet: just those fields, that will mark the attribute as a relation
-                $new_relations->addRow([
-                    $new_relations->getMetaObject()->getUidAttributeAlias() => $relationAttribute->getId(),
-                    'LABEL' => $this->generateLabel($relationAlias),
-                    'ALIAS' => $relationAlias,
-                    'RELATED_OBJ_ATTR' => ($relatedObject->getUidAttributeAlias() !== $relatedObjectKeyAlias ? $relatedObjectKeyAlias : ''),
-                    'RELATED_OBJ' => $relatedObject->getId()
-                ]);
+                $rightEndNode = $ends[$principalNode->getAttribute('Role')];
+                $rightEntityType = $this->stripNamespace($rightEndNode->getAttribute('Type'));
+                $rightObject = $app->getWorkbench()->model()->getObjectByAlias($rightEntityType, $app->getAliasWithNamespace());
+                $rightAttributeAlias = $principalNode->getElementsByTagName('PropertyRef')->item(0)->getAttribute('Name');
+                $rightKeyAttribute = $rightObject->getAttribute($rightAttributeAlias);
+                
+                $attributeData['UID'] = $leftObject->getAttribute($leftAttributeAlias)->getId();
+                $attributeData['ALIAS'] = $leftAttributeAlias;
+                $attributeData['LABEL'] = $rightObject->getName();
+                $attributeData['RELATED_OBJ'] = $rightObject->getId();
+                $attributeData['RELATED_OBJ_ATTR'] = $rightKeyAttribute->isUidForObject() === false ? $rightKeyAttribute->getId() : '';
+                $attributeData['DATA_ADDRESS_PROPS'] = $leftAttribute->getDataAddressProperties()->extend(new UxonObject(['odata_association' => $node->getAttribute('Name')]))->toJson();
+                
+            } catch (MetaObjectNotFoundError $eo) {
+                $app->getWorkbench()->getLogger()->logException(new ModelBuilderRuntimeError($this, 'Cannot find object for one of the ends of oData association ' . $node->getAttribute('Name') . ': Skipping association!', '73G87II', $eo), LoggerInterface::WARNING);
+                continue;
+            } catch (MetaAttributeNotFoundError $ea) {
+                throw new ModelBuilderRuntimeError($this, 'Cannot convert oData association "' . $node->getAttribute('Name') . '" to relation for object ' . $leftObject->getAliasWithNamespace() . ' automatically: one of the key attributes was not found - see details below.', '73G87II', $ea);
             }
+                
+            // Add relation data to the data sheet: just those fields, that will mark the attribute as a relation
+            $new_relations->addRow($attributeData);
         }
         
         $new_relations->setCounterForRowsInDataSource($new_relations->countRows() + $skipped);
         
         if (! $new_relations->isEmpty()) {
-            $new_relations->dataUpdate(false, $transaction);
+            // To update attributes with new relation data, we need to read the current system columns first
+            // (e.g. to allow TimeStampingBehavior, etc.)
+            $attributes = $new_relations->copy();
+            $attributes->getColumns()->addFromSystemAttributes();
+            $attributes->addFilterFromColumnValues($attributes->getUidColumn());
+            $attributes->dataRead();
+            
+            // Overwrite existing values with those read from the $metadata
+            $attributes->merge($new_relations);
+            $attributes->dataUpdate(false, $transaction);
         }
         
         return $new_relations;
+    }
+    
+    /**
+     * Here is how an <Association> node looks like (provided, that each Delivery consists
+     * of 0 to many Tasks).
+     * 
+<Association Name="DeliveryToTasks" sap:content-version="1">
+    <End Type="Namespace.Delivery" Multiplicity="1" Role="FromRole_DeliveryToTasks"/>
+    <End Type="Namespace.Task" Multiplicity="*" Role="ToRole_DeliveryToTasks"/>
+    <ReferentialConstraint>
+        <Principal Role="FromRole_DeliveryToTasks">
+            <PropertyRef Name="DeliveryId"/>
+        </Principal>
+        <Dependent Role="ToRole_DeliveryToTasks">
+            <PropertyRef Name="DeliveryId"/>
+        </Dependent>
+    </ReferentialConstraint>
+</Association>
+     * 
+     * @param \DOMElement $association
+     * @return array
+     */
+    private function getRelationDataFromAssociation(\DOMElement $association, AppInterface $app) : array
+    {
+        // This array needs to be filled
+        $attributeData = [
+            'UID' => null,
+            'ALIAS' => null,
+            'LABEL' => null,
+            'RELATED_OBJ' => null,
+            'RELATED_OBJ_ATTR' => null
+        ];
+        
+        $ends = [];
+        foreach ($association->getElementsByTagName('End') as $endNode) {
+            $ends[$endNode->getAttribute('Role')] = $endNode;
+        }
+        
+        $constraintNode = $association->getElementsByTagName('ReferentialConstraint')->item(0);
+        $principalNode = $constraintNode->getElementsByTagName('Principal')->item(0);
+        $dependentNode = $constraintNode->getElementsByTagName('Dependent')->item(0);
+        
+        $leftEndNode = $ends[$dependentNode->getAttribute('Role')];
+        $leftEntityType = $this->stripNamespace($leftEndNode->getAttribute('Type'));
+        $leftObject = $app->getWorkbench()->model()->getObjectByAlias($leftEntityType, $app->getAliasWithNamespace());
+        $leftAttributeAlias = $dependentNode->getElementsByTagName('PropertyRef')->getAttribute('Name');
+        
+        $rightEndNode = $ends[$principalNode->getAttribute('Role')];
+        $rightEntityType = $this->stripNamespace($rightEndNode->getAttribute('Type'));
+        $rightObject = $app->getWorkbench()->model()->getObjectByAlias($rightEntityType, $app->getAliasWithNamespace());
+        $rightAttributeAlias = $principalNode->getElementsByTagName('PropertyRef')->getAttribute('Name');
+        
+        $attributeData['UID'] = $leftObject->getAttribute($leftAttributeAlias)->getId();
+        $attributeData['ALIAS'] = $leftAttributeAlias;
+        $attributeData['LABEL'] = $rightObject->getName();
+        $attributeData['RELATED_OBJ'] = $rightObject->getId();
+        $rightKeyAttribute = $rightObject->getAttribute($rightAttributeAlias);
+        $attributeData['RELATED_OBJ_ATTR'] = $rightKeyAttribute->isUidForObject() === false ? $rightKeyAttribute->getId() : '';
+        
+        return $attributeData;
     }
     
     /**

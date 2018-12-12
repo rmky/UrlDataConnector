@@ -148,6 +148,20 @@
             "HINT": "",
             "TYPE": "ERROR",
             "DOCS": ""
+        },
+        {
+            "CREATED_ON": "2018-12-12 11:12:52",
+            "MODIFIED_ON": "2018-12-12 11:23:56",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11e8fdfed8ded899a23ee4b318306b9a",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "CODE": "73G87II",
+            "TITLE": "Cannot convert oData 2.0 association to a relation in the metamodel",
+            "DESCRIPTION": "",
+            "HINT": "Try to re-run the model builder for the objects at both ends of the association node",
+            "TYPE": "ERROR",
+            "DOCS": "exface\/UrlDataConnector\/Docs\/OData\/The_metamodel_for_OData_2.0.md"
         }
     ],
     "totals_rows": [],
