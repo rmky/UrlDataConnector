@@ -45,10 +45,28 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     
     private $fixed_params = '';
 
-    /** @var Client */
-    protected $client;
-
-    protected $last_request = null;
+    private $client;
+    
+    /**
+     * Returns the initialized Guzzle client
+     * 
+     * @return Client
+     */
+    protected function getClient() : Client
+    {
+        return $this->client;
+    }
+    
+    /**
+     * 
+     * @param Client $client
+     * @return HttpConnector
+     */
+    protected function setClient(Client $client) : HttpConnector
+    {
+        $this->client = $client;
+        return $this;
+    }
 
     /**
      *
@@ -85,7 +103,8 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             if (! file_exists($cookieDir)) {
                 mkdir($cookieDir);
             }
-            $cookieJar = new \GuzzleHttp\Cookie\FileCookieJar($cookieDir . DIRECTORY_SEPARATOR . $cookieFile);
+            $storeSessionCookies = $this->getWorkbench()->getCMS()->isUserLoggedIn();
+            $cookieJar = new \GuzzleHttp\Cookie\FileCookieJar($cookieDir . DIRECTORY_SEPARATOR . $cookieFile, $storeSessionCookies);
             $defaults['cookies'] = $cookieJar;
         }
         
@@ -108,10 +127,20 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         }
         
         try {
-            $this->client = new Client($defaults);
+            $this->setClient(new Client($defaults));
         } catch (\Throwable $e) {
             throw new DataConnectionFailedError($this, "Failed to instantiate HTTP client: " . $e->getMessage(), '6T4RAVX', $e);
         }
+    }
+    
+    /**
+     * Returns TRUE if the client is initialized and ready to perform queries.
+     * 
+     * @return bool
+     */
+    protected function isConnected() : bool
+    {
+        return $this->client !== null;
     }
 
     /**
@@ -131,7 +160,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         if (! $query->getRequest()->getUri()->__toString()) {
             $query->setResponse(new Response());
         } else {
-            if (! $this->client) {
+            if ($this->isConnected() === false) {
                 $this->connect();
             }
             try {
@@ -139,7 +168,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
                     $uri = $query->getRequest()->getUri();
                     $query->setRequest($query->getRequest()->withUri($uri->withQuery($uri->getQuery() . $this->getFixedUrlParams())));
                 }
-                $query->setResponse($this->client->send($query->getRequest()));
+                $query->setResponse($this->getClient()->send($query->getRequest()));
                 // Default Headers zur Request hinzufuegen, um sie im Tracer anzuzeigen.
                 $this->addDefaultHeadersToQuery($query);
             } catch (RequestException $re) {
@@ -181,7 +210,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     protected function addDefaultHeadersToQuery(Psr7DataQuery $query)
     {
         $requestHeaders = $query->getRequest()->getHeaders();
-        $clientHeaders = $this->client->getConfig('headers');
+        $clientHeaders = $this->getClient()->getConfig('headers');
         $clientHeaders = _caseless_remove(array_keys($requestHeaders), $clientHeaders);
         $query->setRequest(modify_request($query->getRequest(), ['set_headers'=> $clientHeaders]));
     }
