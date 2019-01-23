@@ -639,7 +639,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         $totalCnt = null;
         // Check if force filtering is enabled
         if ($this->getMainObject()->getDataAddressProperty('force_filtering') && count($this->getFilters()->getFiltersAndNestedGroups()) < 1) {
-            return false;
+            return new DataQueryResultData([], 0, false);
         }
         
         // Increase limit by one to check if there are more rows
