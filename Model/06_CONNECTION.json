@@ -60,7 +60,7 @@
             "APP": "0x11e6951dda3ba520b48b847beb4a5184",
             "LABEL": "Local file URI",
             "CONNECTOR": "exface\/UrlDataConnector\/DataConnectors\/FileUriConnector.php",
-            "CONFIG": "{}",
+            "CONFIG": null,
             "READONLY": "0",
             "ALIAS": "LOCAL_FILE_URI",
             "FILTER_CONTEXT": ""
@@ -74,7 +74,7 @@
             "APP": "0x11e6951dda3ba520b48b847beb4a5184",
             "LABEL": "Web-URL (readonly)",
             "CONNECTOR": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
-            "CONFIG": "{}",
+            "CONFIG": null,
             "READONLY": "1",
             "ALIAS": "URL_READONLY",
             "FILTER_CONTEXT": ""
