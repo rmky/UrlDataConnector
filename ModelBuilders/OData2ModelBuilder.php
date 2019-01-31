@@ -171,7 +171,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             $attributeData = [
                 'UID' => null,
                 'ALIAS' => null,
-                'LABEL' => null,
+                'NAME' => null,
                 'RELATED_OBJ' => null,
                 'RELATED_OBJ_ATTR' => null,
                 'DATA_ADDRESS_PROPS' => null,
@@ -210,7 +210,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                 
                 $attributeData['UID'] = $leftObject->getAttribute($leftAttributeAlias)->getId();
                 $attributeData['ALIAS'] = $leftAttributeAlias;
-                $attributeData['LABEL'] = $rightObject->getName();
+                $attributeData['NAME'] = $rightObject->getName();
                 $attributeData['RELATED_OBJ'] = $rightObject->getId();
                 $attributeData['RELATED_OBJ_ATTR'] = $rightKeyAttribute->isUidForObject() === false ? $rightKeyAttribute->getId() : '';
                 $attributeData['DATA_ADDRESS_PROPS'] = $leftAttribute->getDataAddressProperties()->extend(new UxonObject(['odata_association' => $node->getAttribute('Name')]))->toJson();
@@ -270,7 +270,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         $attributeData = [
             'UID' => null,
             'ALIAS' => null,
-            'LABEL' => null,
+            'NAME' => null,
             'RELATED_OBJ' => null,
             'RELATED_OBJ_ATTR' => null
         ];
@@ -296,7 +296,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         
         $attributeData['UID'] = $leftObject->getAttribute($leftAttributeAlias)->getId();
         $attributeData['ALIAS'] = $leftAttributeAlias;
-        $attributeData['LABEL'] = $rightObject->getName();
+        $attributeData['NAME'] = $rightObject->getName();
         $attributeData['RELATED_OBJ'] = $rightObject->getId();
         $rightKeyAttribute = $rightObject->getAttribute($rightAttributeAlias);
         $attributeData['RELATED_OBJ_ATTR'] = $rightKeyAttribute->isUidForObject() === false ? $rightKeyAttribute->getId() : '';
@@ -338,7 +338,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             $entityName = $entity->getAttribute('Name');
             $address = $this->getEntitySetNode($entity)->attr('Name');
             $sheet->addRow([
-                'LABEL' => $entityName,
+                'NAME' => $entityName,
                 'ALIAS' => $entityName,
                 'DATA_ADDRESS' => $address,
                 'DATA_SOURCE' => $ds_uid,
@@ -376,7 +376,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         foreach ($property_nodes as $node) {
             $name = $node->getAttribute('Name');
             $sheet->addRow([
-                'LABEL' => $this->generateLabel($name),
+                'NAME' => $this->generateLabel($name),
                 'ALIAS' => $name,
                 'DATATYPE' => $this->getDataTypeId($this->guessDataType($object->getWorkbench(), $node->getAttribute('Type'), $node)),
                 'DATA_ADDRESS' => $name,

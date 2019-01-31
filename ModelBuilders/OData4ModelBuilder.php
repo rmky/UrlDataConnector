@@ -73,7 +73,7 @@ class OData4ModelBuilder extends OData2ModelBuilder {
                 // Add relation data to the data sheet: just those fields, that will mark the attribute as a relation
                 $new_relations->addRow([
                     $new_relations->getMetaObject()->getUidAttributeAlias() => $relationAttribute->getId(),
-                    'LABEL' => $this->generateLabel($relationAlias),
+                    'NAME' => $this->generateLabel($relationAlias),
                     'ALIAS' => $relationAlias,
                     'RELATED_OBJ_ATTR' => ($relatedObject->getUidAttributeAlias() !== $relatedObjectKeyAlias ? $relatedObjectKeyAlias : ''),
                     'RELATED_OBJ' => $relatedObject->getId()
