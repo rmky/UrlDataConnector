@@ -26,6 +26,7 @@ use exface\Core\DataTypes\DateDataType;
 use exface\UrlDataConnector\DataConnectors\OData2Connector;
 use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
 use exface\Core\CommonLogic\UxonObject;
+use exface\Core\Interfaces\DataTypes\DataTypeInterface;
 
 /**
  * 
@@ -378,7 +379,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             $sheet->addRow([
                 'NAME' => $this->generateLabel($name),
                 'ALIAS' => $name,
-                'DATATYPE' => $this->getDataTypeId($this->guessDataType($object->getWorkbench(), $node->getAttribute('Type'), $node)),
+                'DATATYPE' => $this->getDataTypeId($this->guessDataType($object, $node)),
                 'DATA_ADDRESS' => $name,
                 'OBJECT' => $object_uid,
                 'REQUIREDFLAG' => (strtolower($node->getAttribute('Nullable')) === 'false' ? 1 : 0),
@@ -417,13 +418,16 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
     }
     
     /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\Core\CommonLogic\ModelBuilders\AbstractModelBuilder::guessDataType()
+     * Returns the meta data type, that fit's the given XML node best.
+     *
+     * @param MetaObjectInterface $object
+     * @param \DOMElement $node
+     * @return DataTypeInterface
      */
-    protected function guessDataType(Workbench $workbench, $source_data_type, $node = null)
+    protected function guessDataType(MetaObjectInterface $object, \DOMElement $node) : DataTypeInterface
     {
-        $source_data_type = strtoupper($source_data_type);
+        $workbench = $object->getWorkbench();
+        $source_data_type = strtoupper($node->getAttribute('Type'));
         switch (true) {
             case (strpos($source_data_type, 'INT') !== false):
                 $type = DataTypeFactory::createFromString($workbench, IntegerDataType::class);
@@ -446,6 +450,17 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                 $type = DataTypeFactory::createFromString($workbench, StringDataType::class);
         }
         return $type;
+    }
+    
+    /**
+     * Returns a UXON configuration object for the given node and the target meta data type.
+     *
+     * @param DataTypeInterface $type
+     * @param string $source_data_type
+     */
+    protected function getDataTypeConfig(DataTypeInterface $type, \DOMElement $node) : UxonObject
+    {
+        return new UxonObject();
     }
     
     /**
