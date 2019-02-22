@@ -366,11 +366,13 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         $object_uid = $object->getId();
         
         // Find the primary key
-        $key_nodes = $property_nodes->siblings()->filterXPath('default:Key/default:PropertyRef');
-        if ($key_nodes->count() === 1) {
-            $primary_key = $key_nodes->first()->attr('Name');
+        $keys = $this->findPrimaryKeys($property_nodes);
+        if (count($keys) === 1) {
+            $primary_key = $keys[0];
         } else {
             $primary_key = false;
+        }
+        if (count($keys) > 1) {
             $object->getWorkbench()->getLogger()->logException(new ModelBuilderRuntimeError($this, 'Cannot import compound primary key for ' . $object->getAliasWithNamespace() . ' - please specify a UID manually if needed!'));
         }
         
@@ -383,10 +385,25 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                 'DATA_ADDRESS' => $name,
                 'OBJECT' => $object_uid,
                 'REQUIREDFLAG' => (strtolower($node->getAttribute('Nullable')) === 'false' ? 1 : 0),
-                'UIDFLAG' => ($name === $primary_key ? 1 : 0)
+                'UIDFLAG' => ($primary_key !== false && strcasecmp($name, $primary_key) === 0 ? 1 : 0)
             ]);
         }
         return $sheet;
+    }
+    
+    /**
+     * 
+     * @param Crawler $property_nodes
+     * @return string[]
+     */
+    protected function findPrimaryKeys(Crawler $property_nodes) : array
+    {
+        $keys = [];
+        $key_nodes = $property_nodes->siblings()->filterXPath('default:Key/default:PropertyRef');
+        foreach ($key_nodes as $node) {
+            $keys[] = $node->getAttribute('Name');
+        }
+        return $keys;
     }
     
     /**

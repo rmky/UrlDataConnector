@@ -95,7 +95,7 @@ class OData4ModelBuilder extends OData2ModelBuilder {
      * {@inheritDoc}
      * @see \exface\UrlDataConnector\ModelBuilders\OData2ModelBuilder::findRelationNodes()
      */
-    protected function findRelationNodes(string $entityType)
+    protected function findRelationNodes(string $entityType) : Crawler
     {
         return $this->getMetadata()->filterXPath($this->getXPathToProperties($entityType))->siblings()->filterXPath('default:NavigationProperty/default:ReferentialConstraint');
     }
