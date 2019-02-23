@@ -27,6 +27,10 @@ use exface\UrlDataConnector\DataConnectors\OData2Connector;
 use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
 use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Interfaces\DataTypes\DataTypeInterface;
+use Symfony\Component\DomCrawler\Field\ChoiceFormField;
+use exface\UrlDataConnector\Actions\CallOData2Operation;
+use exface\Core\Factories\ActionFactory;
+use exface\Core\Exceptions\Actions\ActionNotFoundError;
 
 /**
  * 
@@ -50,8 +54,13 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         
         $created_ds = $this->generateAttributes($meta_object, $transaction);
         
-        $relationConstraints = $this->findRelationNodes($this->getEntityType($meta_object));
+        $entityType = $this->getEntityType($meta_object);
+        
+        $relationConstraints = $this->findRelationNodes($entityType);
         $this->generateRelations($meta_object->getApp(), $relationConstraints, $transaction);
+        
+        $functionImports = $this->findActionNodes($entityType);
+        $this->generateActions($meta_object, $functionImports, $transaction);
         
         $transaction->commit();
         
@@ -61,6 +70,11 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
     protected function findRelationNodes(string $entityType) : Crawler
     {
         return $this->getMetadata()->filterXPath($this->getXPathToProperties($entityType))->siblings()->filterXPath('default:NavigationProperty/default:ReferentialConstraint');
+    }
+    
+    protected function findActionNodes(string $entityType) : Crawler
+    {
+        return $this->getMetadata()->filterXPath('default:FunctionImport[@ReturnType="' . $this->getNamespace($entityType) . '.' . $entityType . '"]');
     }
     
     /**
@@ -148,6 +162,92 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         $transaction->commit();
         
         return $new_objects;
+    }
+
+    /**
+     * Create action models for function imports.
+     * 
+     * Example $metadata:
+     * 
+     *  <FunctionImport Name="UnlockTaskItem" ReturnType="MY.NAMESPACE.TaskItem" EntitySet="TaskItemSet" m:HttpMethod="GET">
+            <Parameter Name="TaskId" Type="Edm.String" Mode="In" MaxLength="20"/>
+            <Parameter Name="TaskItemId" Type="Edm.String" Mode="In" MaxLength="20"/>
+            <Parameter Name="WarehouseNumber" Type="Edm.String" Mode="In" MaxLength="10"/>
+        </FunctionImport>
+     * 
+     * @param MetaObjectInterface $object
+     * @param Crawler $functionImports
+     * @param DataTransactionInterface $transaction
+     * @return DataSheetInterface
+     */
+    protected function generateActions(MetaObjectInterface $object, Crawler $functionImports, DataTransactionInterface $transaction) : DataSheetInterface
+    {
+        $newActions = DataSheetFactory::createFromObjectIdOrAlias($object->getWorkbench(), 'exface.Core.OBJECT_ACTION');
+        $skipped = 0;
+        
+        foreach ($functionImports as $node) {
+            
+            // Read action parameters
+            $parameters = [];
+            $paramNodes = (new Crawler($node))->filterXpath('//default:Parameter');
+            foreach ($paramNodes as $paramNode) {
+                $pType = $this->guessDataType($object, $paramNode);
+                $parameter = [
+                    'name' => $paramNode->getAttribute('Name'),
+                    'data_type' => [
+                        'alias' => $pType->getAliasWithNamespace()
+                    ]
+                ];
+                $pTypeOptions = $this->getDataTypeConfig($pType, $paramNode);
+                if (! $pTypeOptions->isEmpty()) {
+                    $parameter['data_type'] = array_merge($parameter['data_type'], $pTypeOptions->toArray());
+                }
+                $parameters[] = $parameter;
+            }
+            
+            // See if action alread exists in the model
+            $existingAction = DataSheetFactory::createFromObjectIdOrAlias($object->getWorkbench(), 'exface.Core.OBJECT_ACTION');
+            $existingAction->addFilterFromString('APP', $object->getApp()->getUid(), EXF_COMPARATOR_EQUALS);
+            $existingAction->addFilterFromString('ALIAS', $node->getAttribute('Name'), EXF_COMPARATOR_EQUALS);
+            $existingAction->getColumns()->addFromSystemAttributes()->addFromExpression('CONFIG_UXON');
+            $existingAction->dataRead();
+            
+            // If it does not exist, create it. Otherwise update the parameters only (because they really MUST match the metadata)
+            if ($existingAction->isEmpty()) {
+                $prototype = str_replace('\\', '/', CallOData2Operation::class) . '.php';
+                $actionData = [
+                    'ACTION_PROTOTYPE' => $prototype,
+                    'ALIAS' => $node->getAttribute('Name'),
+                    'APP' => $object->getApp()->getUid(),
+                    'NAME' => $this->getActionName($node->getAttribute('Name')),
+                    'OBJECT' => $object->getId(),
+                    'CONFIG_UXON' => (new UxonObject([
+                        'parameters' => $parameters
+                    ]))->toJson()
+                ]; 
+                // Add relation data to the data sheet: just those fields, that will mark the attribute as a relation
+                $newActions->addRow($actionData);
+            } else {
+                $existingConfig = UxonObject::fromJson($existingAction->getCellValue('CONFIG_UXON', 0));
+                $existingAction->setCellValue('CONFIG_UXON', 0, $existingConfig->setProperty('parameters', $parameters)->toJson());
+                $existingAction->dataUpdate(false, $transaction);
+                $skipped++;
+            }
+        }
+        
+        // Create all new actions
+        if (! $newActions->isEmpty()) {
+            $newActions->dataCreate(true, $transaction);
+        }
+        
+        $newActions->setCounterForRowsInDataSource($newActions->countRows() + $skipped);
+        
+        return $newActions;
+    }
+    
+    protected function getActionName(string $alias) : string
+    {
+        return ucwords(str_replace('_', ' ', StringDataType::convertCasePascalToUnderscore($alias)));
     }
     
     /**
@@ -310,7 +410,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
      * 
      * @return Crawler
      */
-    protected function getMetadata()
+    protected function getMetadata() : Crawler
     {
         if (is_null($this->metadata)) {
             $query = new Psr7DataQuery(new Request('GET', $this->getDataConnection()->getMetadataUrl()));
@@ -477,7 +577,14 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
      */
     protected function getDataTypeConfig(DataTypeInterface $type, \DOMElement $node) : UxonObject
     {
-        return new UxonObject();
+        $options = [];
+        switch (true) {
+            case $type instanceof StringDataType:
+                if ($length = $node->getAttribute('MaxLength')) {
+                    $options['length_max'] = $length;
+                }
+        }
+        return new UxonObject($options);
     }
     
     /**
@@ -531,5 +638,16 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         $namespace = (new Crawler($entityTypeNode))->parents()->first()->attr('Namespace');
         $entityName = $entityTypeNode->getAttribute('Name');
         return $this->getMetadata()->filterXPath($this->getXPathToEntitySets() . '[@EntityType="' . $namespace . '.' . $entityName . '"]');
+    }
+    
+    /**
+     * Returns the Namespace of the schema in the given XML
+     * 
+     * @param Crawler $xml
+     * @return string
+     */
+    protected function getNamespace(string $entityType) : string
+    {
+        return $this->getMetadata()->filterXPath('//default:Schema')->attr('Namespace');
     }
 }
