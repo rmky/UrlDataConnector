@@ -27,6 +27,23 @@ use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
  */
 class OData2JsonUrlBuilder extends JsonUrlBuilder
 {
+    /**
+     * 
+     * @return string
+     */
+    protected function getODataVersion() : string
+    {
+        return '2';
+    }
+    
+    /**
+     * 
+     * @return string
+     */
+    protected function getDefaultPathToResponseRows() : string
+    {
+        return 'd';
+    }
     
     /**
      * 
@@ -38,7 +55,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         $path = parent::buildPathToResponseRows($query);
         
         if (is_null($path)) {
-            $path = 'value';
+            $path = $this->getDefaultPathToResponseRows();
         }
         
         return $path;
@@ -318,17 +335,29 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         return $url;
     }
     
+    /**
+     * 
+     */
     protected function findRowData($parsed_data, $path)
     {
-        if ($parsed_data['d'] === null) {
+        if ($path) {
+            $data = $this->findFieldInData($path, $parsed_data);
+        }
+        
+        if ($data === null) {
             return [];
         }
         
-        if ($parsed_data['d']['results'] !== null) {
-            return $parsed_data['d']['results'];
+        // OData v2 uses a strange return format: {d: {...}} for single values and {d: {results: [...]}} for collections.
+        if (StringDataType::startsWith($this->getODataVersion(), '2')) {
+            if ($data['results'] !== null && count($data) === 1) {
+                return $data['results'];
+            }
+            
+            return [$data];
         }
         
-        return [$parsed_data['d']];
+        return $data;
     }
 }
 ?>

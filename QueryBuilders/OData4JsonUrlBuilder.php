@@ -18,6 +18,26 @@ class OData4JsonUrlBuilder extends OData2JsonUrlBuilder
     /**
      * 
      * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\OData2JsonUrlBuilder::getODataVersion()
+     */
+    protected function getODataVersion() : string
+    {
+        return '4';
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\OData2JsonUrlBuilder::getDefaultPathToResponseRows()
+     */
+    protected function getDefaultPathToResponseRows() : string
+    {
+        return 'value';
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
      * @see \exface\UrlDataConnector\QueryBuilders\OData2JsonUrlBuilder::buildUrlFilterPredicate()
      */
     protected function buildUrlFilterPredicate(QueryPartFilter $qpart, string $property, string $escapedValue) : string
