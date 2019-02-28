@@ -21,7 +21,7 @@ use exface\Core\DataTypes\StringDataType;
 use exface\Core\DataTypes\IntegerDataType;
 use exface\Core\DataTypes\NumberDataType;
 use exface\Core\DataTypes\BooleanDataType;
-use exface\Core\DataTypes\TimestampDataType;
+use exface\Core\DataTypes\DateTimeDataType;
 use exface\Core\DataTypes\DateDataType;
 use exface\UrlDataConnector\DataConnectors\OData2Connector;
 use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
@@ -558,7 +558,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                 $type = DataTypeFactory::createFromString($workbench, BooleanDataType::class);
                 break;
             case (strpos($source_data_type, 'DATETIME') !== false):
-                $type = DataTypeFactory::createFromString($workbench, TimestampDataType::class);
+                $type = DataTypeFactory::createFromString($workbench, DateTimeDataType::class);
                 break;
             case (strpos($source_data_type, 'DATE') !== false):
                 $type = DataTypeFactory::createFromString($workbench, DateDataType::class);
