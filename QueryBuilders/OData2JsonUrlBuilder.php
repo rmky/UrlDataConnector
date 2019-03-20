@@ -211,7 +211,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
                     $op = ($comp === EXF_COMPARATOR_IS_NOT ? 'ne' : 'eq');
                     return "{$property} {$op} {$escapedValue}";
                 } else {
-                    return "substringof({$escapedValue}, {$property})" /*. ($comp === EXF_COMPARATOR_IS_NOT ? ' ne' : ' eq') . ' true'*/;
+                    return "substringof({$escapedValue}, {$property})" . ($comp === EXF_COMPARATOR_IS_NOT ? ' ne' : ' eq') . ' true';
                 }
             case EXF_COMPARATOR_IN:
             case EXF_COMPARATOR_NOT_IN:
