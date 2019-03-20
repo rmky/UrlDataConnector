@@ -126,7 +126,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      * {@inheritDoc}
      * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlFilterGroup()
      */
-    protected function buildUrlFilterGroup(QueryPartFilterGroup $qpart)
+    protected function buildUrlFilterGroup(QueryPartFilterGroup $qpart, bool $isNested = false)
     {
         $query = '';
         
@@ -145,12 +145,12 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         }
         
         foreach ($qpart->getNestedGroups() as $group) {
-            if ($stmt = $this->buildUrlFilterGroup($group)) {
+            if ($stmt = $this->buildUrlFilterGroup($group, true)) {
                 $query .= ($query ? $op : '') . $stmt;
             }
         }
         
-        if ($query !== '') {
+        if ($query !== '' && $isNested === false) {
             $query = '$filter=' . $query;
         }
         
@@ -213,7 +213,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
                     $op = ($comp === EXF_COMPARATOR_IS_NOT ? 'ne' : 'eq');
                     return "{$property} {$op} {$escapedValue}";
                 } else {
-                    return "substringof({$escapedValue}, {$property}) " . ($comp === EXF_COMPARATOR_IS_NOT ? 'ne' : 'eq') . ' true';
+                    return "substringof({$escapedValue}, {$property})" /*. ($comp === EXF_COMPARATOR_IS_NOT ? ' ne' : ' eq') . ' true'*/;
                 }
             case EXF_COMPARATOR_IN:
             case EXF_COMPARATOR_NOT_IN:
@@ -360,4 +360,3 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         return $data;
     }
 }
-?>
