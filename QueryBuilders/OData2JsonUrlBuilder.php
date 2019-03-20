@@ -2,10 +2,8 @@
 namespace exface\UrlDataConnector\QueryBuilders;
 
 use exface\Core\Exceptions\QueryBuilderException;
-use exface\Core\CommonLogic\DataSheets\DataColumn;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
-use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
 use exface\Core\Interfaces\Model\MetaObjectInterface;
 use exface\Core\Interfaces\Log\LoggerInterface;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
@@ -146,7 +144,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         
         foreach ($qpart->getNestedGroups() as $group) {
             if ($stmt = $this->buildUrlFilterGroup($group, true)) {
-                $query .= ($query ? $op : '') . $stmt;
+                $query .= ($query ? $op.' ' : '') . '(' . $stmt . ')';
             }
         }
         
