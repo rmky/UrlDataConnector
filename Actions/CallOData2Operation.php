@@ -18,6 +18,8 @@ use exface\Core\Factories\ResultFactory;
 use exface\Core\Factories\DataSheetFactory;
 use exface\Core\Interfaces\Model\MetaObjectInterface;
 use exface\Core\Exceptions\Actions\ActionLogicError;
+use exface\Core\CommonLogic\Actions\ServiceParameter;
+use exface\Core\Interfaces\Actions\ServiceParameterInterface;
 
 /**
  * Calls an OData service operation (FunctionImport).
@@ -173,6 +175,11 @@ class CallOData2Operation extends AbstractAction implements iCallService
     }
     
     /**
+     * Defines parameters supported by the service.
+     * 
+     * @uxon-property parameters
+     * @uxon-type \exface\Core\CommonLogic\Actions\ServiceParameter[]
+     * @uxon-template [{"name": ""}]
      * 
      * @param UxonObject $value
      * @return CallOData2Operation
