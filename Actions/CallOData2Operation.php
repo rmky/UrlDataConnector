@@ -10,7 +10,6 @@ use exface\UrlDataConnector\QueryBuilders\OData2JsonUrlBuilder;
 use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Interfaces\DataSheets\DataSheetInterface;
 use GuzzleHttp\Psr7\Request;
-use exface\UrlDataConnector\Interfaces\UrlConnectionInterface;
 use exface\UrlDataConnector\Interfaces\HttpConnectionInterface;
 use exface\UrlDataConnector\Psr7DataQuery;
 use Psr\Http\Message\ResponseInterface;
