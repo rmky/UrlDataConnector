@@ -17,6 +17,7 @@ use exface\UrlDataConnector\Exceptions\HttpConnectorRequestError;
 use function GuzzleHttp\Psr7\_caseless_remove;
 use function GuzzleHttp\Psr7\modify_request;
 use exface\UrlDataConnector\Interfaces\HttpConnectionInterface;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -195,11 +196,12 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             // Setzen der Antwort an der Query
             $query->setResponse($response);
             
-            throw new HttpConnectorRequestError($query, $response->getStatusCode(), $response->getReasonPhrase(), $re->getMessage(), null, $re);
+            throw new HttpConnectorRequestError($query, $response->getStatusCode(), $this->getErrorText($response), $re->getMessage(), null, $re);
         } else {
             throw new HttpConnectorRequestError($query, 0, 'No Response from Server', $re->getMessage(), null, $re);
         }
     }
+    
     
     /**
      * Adds the default headers, which are defined on the client, to the request
@@ -412,6 +414,16 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         $this->fixed_params = $fixed_params;
         return $this;
     }
+    
+    /**
+     * Extracts the message text from an error-response.
+     *
+     * @param ResponseInterface $response
+     * @return string
+     */
+    protected function getErrorText(ResponseInterface $response) : string
+    {
+        return $response->getReasonPhrase();
+    }
 
 }
-?>
