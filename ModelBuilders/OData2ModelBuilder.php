@@ -10,7 +10,6 @@ use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
 use Symfony\Component\DomCrawler\Crawler;
 use exface\Core\Interfaces\DataSources\DataSourceInterface;
-use exface\Core\CommonLogic\Workbench;
 use exface\Core\Factories\DataTypeFactory;
 use exface\Core\Interfaces\DataSources\DataTransactionInterface;
 use exface\Core\Interfaces\DataSheets\DataSheetInterface;
@@ -27,10 +26,7 @@ use exface\UrlDataConnector\DataConnectors\OData2Connector;
 use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
 use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Interfaces\DataTypes\DataTypeInterface;
-use Symfony\Component\DomCrawler\Field\ChoiceFormField;
 use exface\UrlDataConnector\Actions\CallOData2Operation;
-use exface\Core\Factories\ActionFactory;
-use exface\Core\Exceptions\Actions\ActionNotFoundError;
 
 /**
  * 
@@ -222,6 +218,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                     'NAME' => $this->getActionName($node->getAttribute('Name')),
                     'OBJECT' => $object->getId(),
                     'CONFIG_UXON' => (new UxonObject([
+                        'function_import_name' => $node->getAttribute('Name'),
                         'parameters' => $parameters
                     ]))->toJson()
                 ]; 

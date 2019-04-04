@@ -49,7 +49,7 @@ class CallOData2Operation extends AbstractAction implements iCallService
         $response = $this->getDataConnection()->query($query)->getResponse();
         $resultData = $this->parseResponse($response);
         
-        return ResultFactory::createDataResult($resultData);
+        return ResultFactory::createDataResult($task, $resultData, $this->getResultMessageText() ?? $this->getWorkbench()->getApp('exface.SapConnector')->getTranslator()->translate('ACTION.CALLODATA2OPERATION.SUCCESS'));
     }
     
     protected function getDataConnection() : HttpConnectionInterface
@@ -73,9 +73,24 @@ class CallOData2Operation extends AbstractAction implements iCallService
         $params = '';
         foreach ($this->getParameters() as $param) {
             $val = $data->getCellValue($param->getName(), 0);
-            $params .= '&' . $param->getName() . '=' . $param->sanitize($val);
+            $params .= '&' . $param->getName() . '=' . $this->prepareParamValue($param, $val);
         }
         return $params;
+    }
+    
+    protected function prepareParamValue(ServiceParameterInterface $parameter, $val) : string
+    {
+        if ($parameter->hasDefaultValue() === true && $val === null) {
+            $val = $parameter->getDefaultValue();
+        }
+        
+        if ($val === null) {
+            return "''";
+        }
+        
+        $val = $parameter->getDataType()->parse($val);
+        
+        return "'" . $val . "'";
     }
 
     protected function getUrlBuilder() : OData2JsonUrlBuilder
@@ -86,9 +101,10 @@ class CallOData2Operation extends AbstractAction implements iCallService
     protected function parseResponse(ResponseInterface $response) : DataSheetInterface
     {
         $ds = DataSheetFactory::createFromObject($this->getResultObject());
+        $ds->setAutoCount(false);
         
-        if ($response->getStatusCode() !== '200') {
-            return $ds;
+        if ($response->getStatusCode() != 200) {
+            return $ds->setFresh(true);
         }
         
         $body = $response->getBody()->__toString();
@@ -100,9 +116,9 @@ class CallOData2Operation extends AbstractAction implements iCallService
         $json = json_decode($body);
         $result = $json->d;
         if ($result instanceof \stdClass) {
-            $rows = (array) $result;
+            $rows = [(array) $result];
         } elseif (is_array($result)) {
-            $rows = $result;
+            $rows = json_decode($body, true)['d'];
         } else {
             throw new ActionLogicError($this, 'Invalid result data of type ' . gettype($result) . ': JSON object or array expected!');
         }
@@ -134,6 +150,10 @@ class CallOData2Operation extends AbstractAction implements iCallService
     }
     
     /**
+     * The URL endpoint of the opertation (name property of the FunctionImport).
+     * 
+     * @uxon-property function_import_name
+     * @uxon-type string
      * 
      * @param string $value
      * @return CallOData2Operation
@@ -186,7 +206,7 @@ class CallOData2Operation extends AbstractAction implements iCallService
     public function setParameters(UxonObject $uxon) : CallOData2Operation
     {
         foreach ($uxon as $paramUxon) {
-            $this->parameters = new ServiceParameter($this, $paramUxon);
+            $this->parameters[] = new ServiceParameter($this, $paramUxon);
         }
         return $this;
     }
