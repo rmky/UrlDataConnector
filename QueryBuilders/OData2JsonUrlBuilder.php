@@ -357,4 +357,27 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         
         return $data;
     }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildDataAddressForObject()
+     */
+    protected function buildDataAddressForObject(MetaObjectInterface $object, $method = 'GET')
+    {
+        switch (strtoupper($method)) {
+            case 'PUT':
+            case 'PATCH':
+                if (! $object->getDataAddressProperty('update_request_data_address')) {
+                    if ($object->hasUidAttribute() === false) {
+                        throw new QueryBuilderException('Cannot update object "' . $object->getName() . '" (' . $object->getAliasWithNamespace() . ') via OData: there is no UID attribute defined for this object!');
+                    }
+                    
+                    $url = $object->getDataAddress();
+                    $url .= "('[#" . $object->getUidAttribute()->getAlias() . "#]')";
+                    return $url;
+                }
+        }
+        return parent::buildDataAddressForObject($object, $method);
+    }
 }
