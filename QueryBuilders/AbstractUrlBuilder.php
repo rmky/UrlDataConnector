@@ -135,7 +135,6 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     protected function buildRequestGet()
     {
         $endpoint = $this->getMainObject()->getDataAddress();
-        $params_string = '';
         $urlFilters = $this->getFilters()->copy();
         
         // Add filters
@@ -179,20 +178,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             // built instead of an individual URL parameter for every filter.
         }
         
-        // Add the remaining filters to the URL
-        if (! $urlFilters->isEmpty()) {
-            $params_string = $this->addParameterToUrl($params_string, $this->buildUrlFilterGroup($urlFilters));
-        }
-        
-        // Add pagination
-        if ($this->getLimit() || $this->getOffset()) {
-            $params_string = $this->addParameterToUrl($params_string, $this->buildUrlPagination());
-        }
-        
-        // Add sorters
-        if ($sorters = $this->buildUrlSorters()) {
-            $params_string = $this->addParameterToUrl($params_string, $sorters);
-        }
+        $params_string = $this->buildUrlParams($urlFilters);
         
         // Add attributes needed for address property logic
         if ($group_alias = $this->getMainObject()->getDataAddressProperty('response_group_by_attribute_alias')) {
@@ -217,6 +203,33 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         
         return new Request('GET', $query_string);
+    }
+    
+    /**
+     * 
+     * @param QueryPartFilterGroup $urlFilters
+     * @return string
+     */
+    protected function buildUrlParams(QueryPartFilterGroup $urlFilters) : string
+    {
+        $params_string = '';
+        
+        // Add the remaining filters to the URL
+        if (! $urlFilters->isEmpty()) {
+            $params_string = $this->addParameterToUrl($params_string, $this->buildUrlFilterGroup($urlFilters));
+        }
+        
+        // Add pagination
+        if ($this->getLimit() || $this->getOffset()) {
+            $params_string = $this->addParameterToUrl($params_string, $this->buildUrlPagination());
+        }
+        
+        // Add sorters
+        if ($sorters = $this->buildUrlSorters()) {
+            $params_string = $this->addParameterToUrl($params_string, $sorters);
+        }
+        
+        return $params_string;
     }
     
     /**
@@ -704,6 +717,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 }
                 $result_rows = $this->applyPagination($result_rows);
             }
+        } else {
+            $hasMoreRows = false;
         }
         
         if (! $totalCnt) {
