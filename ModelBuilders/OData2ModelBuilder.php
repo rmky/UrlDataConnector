@@ -475,15 +475,29 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         
         foreach ($property_nodes as $node) {
             $name = $node->getAttribute('Name');
-            $sheet->addRow([
+            $dataType = $this->guessDataType($object, $node);
+            
+            $dataAddressProps = [
+                'odata_type' => $node->getAttribute('Type')
+            ];
+            
+            $row = [
                 'NAME' => $this->generateLabel($name),
                 'ALIAS' => $name,
-                'DATATYPE' => $this->getDataTypeId($this->guessDataType($object, $node)),
+                'DATATYPE' => $this->getDataTypeId($dataType),
                 'DATA_ADDRESS' => $name,
+                'DATA_ADDRESS_PROPS' => json_encode($dataAddressProps),
                 'OBJECT' => $object_uid,
                 'REQUIREDFLAG' => (strtolower($node->getAttribute('Nullable')) === 'false' ? 1 : 0),
                 'UIDFLAG' => ($primary_key !== false && strcasecmp($name, $primary_key) === 0 ? 1 : 0)
-            ]);
+            ];
+            
+            $dataTypeOptions = $this->getDataTypeConfig($dataType, $node);
+            if (! $dataTypeOptions->isEmpty()) {
+                $row['CUSTOM_DATA_TYPE'] = json_encode($dataTypeOptions->toArray());
+            }
+            
+            $sheet->addRow($row);
         }
         return $sheet;
     }
@@ -546,6 +560,9 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             case (strpos($source_data_type, 'INT') !== false):
                 $type = DataTypeFactory::createFromString($workbench, IntegerDataType::class);
                 break;
+            case (strpos($source_data_type, 'BYTE') !== false):
+                $type = DataTypeFactory::createFromString($workbench, 'exface.Core.NumberNatural');
+                break;
             case (strpos($source_data_type, 'FLOAT') !== false):
             case (strpos($source_data_type, 'DECIMAL') !== false):
             case (strpos($source_data_type, 'DOUBLE') !== false):
@@ -580,6 +597,15 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                 if ($length = $node->getAttribute('MaxLength')) {
                     $options['length_max'] = $length;
                 }
+                break;
+            case $type instanceof NumberDataType:
+                if ($scale = $node->getAttribute('Scale')) {
+                    $options['precision'] = $scale;
+                }
+                if ($precision = $node->getAttribute('Precision')) {
+                    $options['max'] = pow($type->getBase(), ($precision - $scale)) - 1;
+                }
+                break;
         }
         return new UxonObject($options);
     }

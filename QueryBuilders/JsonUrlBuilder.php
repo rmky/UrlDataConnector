@@ -11,6 +11,8 @@ use exface\Core\Interfaces\Model\MetaObjectInterface;
 use exface\Core\Interfaces\DataSources\DataConnectionInterface;
 use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
+use Psr\Http\Message\RequestInterface;
+use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
 
 /**
  * This is a query builder for JSON-based REST APIs.
@@ -44,9 +46,66 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     {
         // Create the request URI
         $method = 'POST';
-        $uri = $this->buildDataAddressForObject($this->getMainObject(), $method);
-        
+
         // Create JSON objects from value query parts
+        $json_objects = $this->buildRequestBodyObjects($method);
+        
+        $insert_ids = array();
+        $uidAlias = $this->getMainObject()->getUidAttributeAlias();
+        $data_path = $this->getMainObject()->getDataAddressProperty('create_request_data_path');
+        foreach ($json_objects as $obj) {
+            $request = $this->buildRequestPutOrPost($method, $obj, $data_path);
+            $query = new Psr7DataQuery($request);
+                        
+            $result = $this->parseResponse($data_connection->query($query));
+            if (is_array($result)) {
+                $result_data = $this->findRowData($result, $data_path);
+            }
+            $insert_ids[] = [$uidAlias => $this->findFieldInData($this->buildDataAddressForAttribute($this->getMainObject()->getUidAttribute()), $result_data)];
+        }
+        
+        return new DataQueryResultData($insert_ids, count($insert_ids), false);
+    }
+    
+    protected function buildRequestPutOrPost($method, $jsonObject, string $dataPath = null) : RequestInterface
+    {
+        $uri = $this->buildDataAddressForObject($this->getMainObject(), $method);
+        $uri = $this->replacePlaceholdersInUrl($uri);
+        
+        $json = new \stdClass();
+        if ($dataPath) {
+            $level = & $json;
+            foreach ($this->dataPathSplit($dataPath) as $step) {
+                $level->$step = new \stdClass();
+                $level = & $level->$step;
+            }
+            $level = $jsonObject;
+        } else {
+            $json = $jsonObject;
+        }
+        
+        $request = new Request($method, $uri, ['Content-Type' => 'application/json'], $this->encodeBody($json));
+        
+        return $request;
+    }
+    
+    /**
+     * 
+     * @param \stdClass|array|string $serializableData
+     * @return string
+     */
+    protected function encodeBody($serializableData) : string
+    {
+        return json_encode($serializableData, JSON_NUMERIC_CHECK);
+    }
+    
+    /**
+     * 
+     * @param string $method
+     * @return \stdClass[]
+     */
+    protected function buildRequestBodyObjects(string $method) : array
+    {
         $json_objects = array();
         foreach ($this->getValues() as $qpart) {
             // Ignore values, that do not belong to attributes
@@ -68,31 +127,46 @@ class JsonUrlBuilder extends AbstractUrlBuilder
                         $json_objects[$row] = new \stdClass();
                     }
                     if (! is_null($val) && $val !== '') {
-                        $json_objects[$row]->$json_attr = $val;
+                        $json_objects[$row]->$json_attr = $this->prepareValue($qpart, $val);
                     }
                 }
             }
         }
         
+        return $json_objects;
+    }
+    
+    /**
+     * 
+     * @param QueryPartValue $qpart
+     * @param mixed $value
+     * @return string
+     */
+    protected function prepareValue(QueryPartValue $qpart, $value) : string
+    {
+        return $value;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::update()
+     */
+    public function update(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
+    {
+        // Create the request URI
+        $method = 'PUT';
+        
+        // Create JSON objects from value query parts
+        $json_objects = $this->buildRequestBodyObjects($method);
+        
         $insert_ids = array();
         $uidAlias = $this->getMainObject()->getUidAttributeAlias();
+        $data_path = $this->getMainObject()->getDataAddressProperty('update_request_data_path');
         foreach ($json_objects as $obj) {
-            $json = new \stdClass();
-            if ($data_path = $this->getMainObject()->getDataAddressProperty('create_request_data_path')) {
-                $level = & $json;
-                foreach ($this->dataPathSplit($data_path) as $step) {
-                    $level->$step = new \stdClass();
-                    $level = & $level->$step;
-                }
-                $level = $obj;
-            } else {
-                $json = $obj;
-            }
+            $request = $this->buildRequestPutOrPost($method, $obj, $data_path);
+            $query = new Psr7DataQuery($request);
             
-            $query = new Psr7DataQuery(new Request($method, $uri, array(
-                'Content-Type' => 'application/json'
-            ), json_encode($json)));
-                        
             $result = $this->parseResponse($data_connection->query($query));
             if (is_array($result)) {
                 $result_data = $this->findRowData($result, $data_path);
@@ -241,16 +315,6 @@ class JsonUrlBuilder extends AbstractUrlBuilder
             }
         }
         return $val;
-    }
-
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::update()
-     */
-    public function update(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
-    {
-        throw new NotImplementedError('Update requests currently not implemented in "' . get_class($this) . '"!');
     }
 
     /**

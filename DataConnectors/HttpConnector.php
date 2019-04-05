@@ -169,7 +169,9 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
                     $uri = $query->getRequest()->getUri();
                     $query->setRequest($query->getRequest()->withUri($uri->withQuery($uri->getQuery() . $this->getFixedUrlParams())));
                 }
-                $query->setResponse($this->getClient()->send($query->getRequest()));
+                $request = $query->getRequest();
+                $response = $this->getClient()->send($request);
+                $query->setResponse($response);
                 // Default Headers zur Request hinzufuegen, um sie im Tracer anzuzeigen.
                 $this->addDefaultHeadersToQuery($query);
             } catch (RequestException $re) {
