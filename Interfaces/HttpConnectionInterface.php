@@ -105,13 +105,13 @@ interface HttpConnectionInterface extends UrlConnectionInterface
     /**
      * @return string
      */
-    public function getFixedUrlParams();
+    public function getFixedUrlParams() : string;
     
     /**
      * Adds specified params to every request: e.g. &format=json&ignoreETag=false.
      * 
      * @param string $fixed_params
      */
-    public function setFixedUrlParams($fixed_params);
+    public function setFixedUrlParams(string $fixed_params);
 }
 ?>

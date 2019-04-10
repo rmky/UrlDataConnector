@@ -5,7 +5,6 @@ use exface\Core\CommonLogic\DataQueries\AbstractDataQuery;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use GuzzleHttp\Psr7\Request;
-use GuzzleHttp\Psr7\Uri;
 use Psr\Http\Message\UriInterface;
 use Psr\Http\Message\StreamInterface;
 use exface\Core\Widgets\DebugMessage;
@@ -21,8 +20,6 @@ class Psr7DataQuery extends AbstractDataQuery
     private $response;
     
     private $fixedUrl = false;
-
-    const MIME_TYPE_JSON = 'application/json';
     
     /**
      * Returns a fully instantiated data query with a PSR-7 request.
@@ -152,7 +149,7 @@ HTML;
      * @return string
      */
     protected function generateRequestHeaders(Workbench $workbench) {
-        if (!is_null($this->getRequest())) {
+        if ($this->getRequest() !== null) {
             try {
                 $requestHeaders = $this->getRequest()->getMethod() . ' ' . $this->getRequest()->getRequestTarget() . ' HTTP/' . $this->getRequest()->getProtocolVersion();
                 $requestHeaders .= $this->generateMessageHeaders($workbench, $this->getRequest());
@@ -231,19 +228,26 @@ HTML;
                     // Groesse des Bodies unbekannt oder groesser 1Mb.
                     $messageBody = 'Message body is too big to display.';
                 } else {
-                    foreach ($message->getHeader('Content-Type') as $messageContentType) {
-                        switch (true) {
-                            case (stripos($messageContentType, $this::MIME_TYPE_JSON) !== false):
-                                $contentType = $this::MIME_TYPE_JSON;
-                        }
-                    }
+                    $contentType = $message->getHeader('Content-Type')[0];
                     
                     switch ($contentType) {
-                        case $this::MIME_TYPE_JSON:
+                        case 'application/json':
                             $messageBody = '<pre>' . $workbench->getDebugger()->printVariable(json_decode($message->getBody()->__toString()), true, 4) . '</pre>';
                             break;
+                        case 'application/xml':
+                        case 'text/xml':
+                            $domxml = new \DOMDocument();
+                            $domxml->preserveWhiteSpace = false;
+                            $domxml->formatOutput = true;
+                            $domxml->loadXML($message->getBody());
+                            $messageBody = '<pre>' . htmlentities($domxml->saveXML()) . '</pre>';
+                            break;
+                        case 'text/html':
+                            $indenter = new \Gajus\Dindent\Indenter();
+                            $messageBody = '<pre>' . htmlentities($indenter->indent($message->getBody())) . '</pre>';
+                            break;
                         default:
-                            $messageBody = urldecode(html_entity_decode(strip_tags($message->getBody())));
+                            $messageBody = '<pre>' . htmlentities($message->getBody()) . '</pre>';
                     }
                 }
             } catch (\Throwable $e) {
