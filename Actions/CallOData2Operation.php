@@ -124,6 +124,7 @@ class CallOData2Operation extends AbstractAction implements iCallService
         }
         
         $resultData->addRows($rows);
+        $resultData->setCounterForRowsInDataSource(count($rows));
         return $resultData;
     }
     
