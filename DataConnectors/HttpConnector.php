@@ -139,7 +139,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      * 
      * @return bool
      */
-    protected function isConnected() : bool
+    public function isConnected() : bool
     {
         return $this->client !== null;
     }
@@ -155,9 +155,13 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      */
     protected function performQuery(DataQueryInterface $query)
     {
-        if (! ($query instanceof Psr7DataQuery))
+        if (! ($query instanceof Psr7DataQuery)) {
             throw new DataConnectionQueryTypeError($this, 'Connector "' . $this->getAliasWithNamespace() . '" expects a Psr7DataQuery as input, "' . get_class($query) . '" given instead!');
+        }
         /* @var $query \exface\UrlDataConnector\Psr7DataQuery */
+        
+        // Default Headers zur Request hinzufuegen, um sie im Tracer anzuzeigen.
+        $this->addDefaultHeadersToQuery($query);
         if (! $query->getRequest()->getUri()->__toString()) {
             $query->setResponse(new Response());
         } else {
@@ -172,38 +176,34 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
                 $request = $query->getRequest();
                 $response = $this->getClient()->send($request);
                 $query->setResponse($response);
-                // Default Headers zur Request hinzufuegen, um sie im Tracer anzuzeigen.
-                $this->addDefaultHeadersToQuery($query);
             } catch (RequestException $re) {
-                $this->processConnectionError($re, $query);
+                if ($response = $re->getResponse()) {
+                    $query->setResponse($response);
+                } else {
+                    $response = null;
+                }
+                $query->setRequest($re->getRequest());
+                throw $this->createResponseException($query, $response, $re);
             }
         }
         return $query;
     }
     
     /**
-     * Processes an error occuring during a request.
      * 
-     * The Guzzle HTTP Client throws errors if a response contains an HTTP status code
-     * indicating an error (4xx or 5xx).
-     * 
-     * @param RequestException $re
-     * @throws HttpConnectorRequestError
+     * @param Psr7DataQuery $query
+     * @param ResponseInterface $response
+     * @param \Throwable $exceptionThrown
+     * @return \exface\UrlDataConnector\Exceptions\HttpConnectorRequestError
      */
-    protected function processConnectionError(RequestException $re, Psr7DataQuery $query) {
-        // Default Headers zur Request hinzufuegen, um sie im Fehler anzuzeigen.
-        $this->addDefaultHeadersToQuery($query);
-        
-        if ($response = $re->getResponse()) {
-            // Setzen der Antwort an der Query
-            $query->setResponse($response);
-            
-            throw new HttpConnectorRequestError($query, $response->getStatusCode(), $this->getErrorText($response), $re->getMessage(), null, $re);
+    protected function createResponseException(Psr7DataQuery $query, ResponseInterface $response = null, \Throwable $exceptionThrown = null)
+    {
+        if ($response !== null) {
+            return new HttpConnectorRequestError($query, $response->getStatusCode(), $response->getReasonPhrase(), $this->getResponseErrorText($response), null, $exceptionThrown);
         } else {
-            throw new HttpConnectorRequestError($query, 0, 'No Response from Server', $re->getMessage(), null, $re);
+            return new HttpConnectorRequestError($query, 0, 'No Response from Server', $exceptionThrown->getMessage(), null, $exceptionThrown);
         }
     }
-    
     
     /**
      * Adds the default headers, which are defined on the client, to the request
@@ -397,7 +397,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      * 
      * @return string
      */
-    public function getFixedUrlParams()
+    public function getFixedUrlParams() : string
     {
         return $this->fixed_params;
     }
@@ -411,7 +411,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      * @param string $fixed_params
      * @return HttpConnectionInterface
      */
-    public function setFixedUrlParams($fixed_params)
+    public function setFixedUrlParams(string $fixed_params)
     {
         $this->fixed_params = $fixed_params;
         return $this;
@@ -419,12 +419,18 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     
     /**
      * Extracts the message text from an error-response.
+     * 
+     * Override this method to get more error details from the response body or headers
+     * depending on the protocol used in a specific connector.
      *
      * @param ResponseInterface $response
      * @return string
      */
-    protected function getErrorText(ResponseInterface $response) : string
+    protected function getResponseErrorText(ResponseInterface $response, \Throwable $exceptionThrown = null) : string
     {
+        if ($exceptionThrown !== null) {
+            return $exceptionThrown->getMessage();
+        }
         return $response->getReasonPhrase();
     }
 

@@ -3,6 +3,8 @@ namespace exface\UrlDataConnector\Exceptions;
 
 use exface\Core\Exceptions\DataSources\DataQueryFailedError;
 use exface\Core\Interfaces\DataSources\DataQueryInterface;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Error which can be thrown when an HTTP client returns a HTTP status code indicating
@@ -152,5 +154,23 @@ class HttpConnectorRequestError extends DataQueryFailedError
     public function getDefaultAlias()
     {
         return array_key_exists($this->getHttpStatusCode(), $this->defaultAlias) ? $this->defaultAlias[$this->getHttpStatusCode()] : $this->defaultAlias['unknown'];
+    }
+    
+    /**
+     * 
+     * @return RequestInterface
+     */
+    public function getRequest() : RequestInterface
+    {
+        return $this->getQuery()->getRequest();
+    }
+    
+    /**
+     * 
+     * @return ResponseInterface|NULL
+     */
+    public function getResponse() : ?ResponseInterface
+    {
+        return $this->getQuery()->getResponse();
     }
 }
