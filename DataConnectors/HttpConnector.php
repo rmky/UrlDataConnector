@@ -139,7 +139,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      * 
      * @return bool
      */
-    protected function isConnected() : bool
+    public function isConnected() : bool
     {
         return $this->client !== null;
     }
