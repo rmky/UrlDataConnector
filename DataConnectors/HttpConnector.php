@@ -55,6 +55,9 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      */
     protected function getClient() : Client
     {
+        if ($this->client === null) {
+            $this->connect();
+        }
         return $this->client;
     }
     
