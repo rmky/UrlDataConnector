@@ -148,6 +148,9 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             foreach ($new_objects->getRows() as $row) {
                 $object = $app->getWorkbench()->model()->getObjectByAlias($row['ALIAS'], $app->getAliasWithNamespace());
                 $this->generateAttributes($object, $transaction);
+                
+                $functionImports = $this->findActionNodes($this->getEntityType($object));
+                $this->generateActions($object, $functionImports, $transaction);
             }
             // After all attributes are there, generate relations. It must be done after all new objects have
             // attributes as relations need attribute UIDs on both sides!
