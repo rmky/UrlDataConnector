@@ -231,10 +231,10 @@ HTML;
                     $contentType = $message->getHeader('Content-Type')[0];
                     
                     switch (true) {
-                        case strcasecmp($contentType, 'json') === 0:
+                        case stripos($contentType, 'json') !== false:
                             $messageBody = '<pre>' . $workbench->getDebugger()->printVariable(json_decode($message->getBody()->__toString()), true, 4) . '</pre>';
                             break;
-                        case strcasecmp($contentType, 'xml') === 0:
+                        case stripos($contentType, 'xml') !== false:
                             $domxml = new \DOMDocument();
                             $domxml->preserveWhiteSpace = false;
                             $domxml->formatOutput = true;

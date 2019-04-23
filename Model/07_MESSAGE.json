@@ -162,6 +162,20 @@
             "HINT": "Try to re-run the model builder for the objects at both ends of the association node",
             "TYPE": "ERROR",
             "DOCS": "exface\/UrlDataConnector\/Docs\/OData\/The_metamodel_for_OData_2.0.md"
+        },
+        {
+            "CREATED_ON": "2019-04-23 15:30:16",
+            "MODIFIED_ON": "2019-04-23 15:42:34",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11e965dc7ff50a18812a0205857feb80",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "CODE": "75C7YOQ",
+            "TITLE": "Missing parameter for remote function call",
+            "DESCRIPTION": "",
+            "HINT": "Please include a column named exactly as the parameter in the input data (e.g. by using an input_mapper)!",
+            "TYPE": "ERROR",
+            "DOCS": ""
         }
     ],
     "totals_rows": [],
