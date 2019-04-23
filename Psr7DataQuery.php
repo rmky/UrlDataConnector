@@ -230,12 +230,11 @@ HTML;
                 } else {
                     $contentType = $message->getHeader('Content-Type')[0];
                     
-                    switch ($contentType) {
-                        case 'application/json':
+                    switch (true) {
+                        case strcasecmp($contentType, 'json') === 0:
                             $messageBody = '<pre>' . $workbench->getDebugger()->printVariable(json_decode($message->getBody()->__toString()), true, 4) . '</pre>';
                             break;
-                        case 'application/xml':
-                        case 'text/xml':
+                        case strcasecmp($contentType, 'xml') === 0:
                             $domxml = new \DOMDocument();
                             $domxml->preserveWhiteSpace = false;
                             $domxml->formatOutput = true;
