@@ -27,6 +27,7 @@ use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
 use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Interfaces\DataTypes\DataTypeInterface;
 use exface\UrlDataConnector\Actions\CallOData2Operation;
+use exface\Core\Interfaces\Selectors\AliasSelectorInterface;
 
 /**
  * 
@@ -84,6 +85,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
     protected function generateAttributes(MetaObjectInterface $meta_object, DataTransactionInterface $transaction = null)
     {
         $created_ds = DataSheetFactory::createFromObjectIdOrAlias($meta_object->getWorkbench(), 'exface.Core.ATTRIBUTE');
+        $created_ds->setAutoCount(false);
         
         $entityName = $this->getEntityType($meta_object);
         $property_nodes = $this->getMetadata()->filterXPath($this->getXPathToProperties($entityName));
@@ -182,6 +184,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
     protected function generateActions(MetaObjectInterface $object, Crawler $functionImports, DataTransactionInterface $transaction) : DataSheetInterface
     {
         $newActions = DataSheetFactory::createFromObjectIdOrAlias($object->getWorkbench(), 'exface.Core.OBJECT_ACTION');
+        $newActions->setAutoCount(false);
         $skipped = 0;
         
         foreach ($functionImports as $node) {
@@ -197,6 +200,9 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                         'alias' => $pType->getAliasWithNamespace()
                     ]
                 ];
+                if (strcasecmp($node->getAttribute('Nullable'), 'true') !== 0) {
+                    $parameter['required'] = true;
+                }
                 $pTypeOptions = $this->getDataTypeConfig($pType, $paramNode);
                 if (! $pTypeOptions->isEmpty()) {
                     $parameter['data_type'] = array_merge($parameter['data_type'], $pTypeOptions->toArray());
@@ -214,17 +220,26 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             // If it does not exist, create it. Otherwise update the parameters only (because they really MUST match the metadata)
             if ($existingAction->isEmpty()) {
                 $prototype = str_replace('\\', '/', CallOData2Operation::class) . '.php';
+                
+                $actionConfig = new UxonObject([
+                    'function_import_name' => $node->getAttribute('Name'),
+                    'parameters' => $parameters
+                ]);
+                
+                $resultObjectAlias = $this->stripNamespace($node->getAttribute('ReturnType'));
+                if ($object->getAlias() !== $resultObjectAlias) {
+                    $actionConfig->setProperty('result_object_alias', $object->getNamespace() . AliasSelectorInterface::ALIAS_NAMESPACE_DELIMITER . $resultObjectAlias);
+                }
+                
                 $actionData = [
                     'ACTION_PROTOTYPE' => $prototype,
                     'ALIAS' => $node->getAttribute('Name'),
                     'APP' => $object->getApp()->getUid(),
                     'NAME' => $this->getActionName($node->getAttribute('Name')),
                     'OBJECT' => $object->getId(),
-                    'CONFIG_UXON' => (new UxonObject([
-                        'function_import_name' => $node->getAttribute('Name'),
-                        'parameters' => $parameters
-                    ]))->toJson()
+                    'CONFIG_UXON' => $actionConfig->toJson()
                 ]; 
+                
                 // Add relation data to the data sheet: just those fields, that will mark the attribute as a relation
                 $newActions->addRow($actionData);
             } else {
@@ -463,6 +478,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
     protected function getAttributeData(Crawler $property_nodes, MetaObjectInterface $object)
     {
         $sheet = DataSheetFactory::createFromObjectIdOrAlias($object->getWorkbench(), 'exface.Core.ATTRIBUTE');
+        $sheet->setAutoCount(false);
         $object_uid = $object->getId();
         
         // Find the primary key
