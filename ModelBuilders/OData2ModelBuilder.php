@@ -198,10 +198,13 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                     'name' => $paramNode->getAttribute('Name'),
                     'data_type' => [
                         'alias' => $pType->getAliasWithNamespace()
+                    ],
+                    'custom_properties' => [
+                        "odata_type" => $paramNode->getAttribute('Type')
                     ]
                 ];
                 if (strcasecmp($node->getAttribute('Nullable'), 'true') !== 0) {
-                    $parameter['required'] = true;
+                    $parameter = ['required' => true] + $parameter;
                 }
                 $pTypeOptions = $this->getDataTypeConfig($pType, $paramNode);
                 if (! $pTypeOptions->isEmpty()) {

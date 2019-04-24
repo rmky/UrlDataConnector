@@ -458,7 +458,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                     if ($this->getRequestSplitFilter() == $ph_filter && $ph_filter->getComparator() == EXF_COMPARATOR_IN) {
                         $ph_value = explode($ph_filter->getValueListDelimiter(), $ph_filter->getCompareValue())[0];
                     } else {
-                        $ph_value = $ph_filter->getCompareValue();
+                        $ph_value = $this->buildUrlFilterValue($ph_filter);
                     }
                     $url_string = str_replace('[#' . $ph . '#]', $ph_value, $url_string);
                 } else {
@@ -504,11 +504,22 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             if (is_array($qpart->getCompareValue())) {
                 $filter .= implode('+', $qpart->getCompareValue());
             } else {
-                $filter .= $qpart->getCompareValue();
+                $filter .= $this->buildUrlFilterValue($qpart);
             }
         }
         
         return $filter;
+    }
+    
+    /**
+     * Returns a string representing the query part's value, that is usable in a filter expression.
+     * 
+     * @param QueryPartFilter $qpart
+     * @return string
+     */
+    protected function buildUrlFilterValue(QueryPartFilter $qpart)
+    {
+        return $qpart->getCompareValue();
     }
     
     /**

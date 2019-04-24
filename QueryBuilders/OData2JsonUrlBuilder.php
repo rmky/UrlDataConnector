@@ -224,10 +224,9 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
                     $glue = ' or ';
                 }
                 $values = is_array($qpart->getCompareValue()) === true ? $qpart->getCompareValue() : explode($qpart->getAttribute()->getValueListDelimiter(), $qpart->getCompareValue());
-                $isString = $qpart->getDataType() instanceof StringDataType;
                 $ors = [];
                 foreach ($values as $val) {
-                    $ors[] = $property . ' ' . $op . ' ' . ($isString === true ? $this->buildUrlFilterValueEscapedString($qpart, $val) : $val);
+                    $ors[] = $property . ' ' . $op . ' ' . $this->buildUrlFilterValue($qpart, $val);
                 }
                 if (empty($ors) === false) {
                     return '(' . implode($glue, $ors) . ')';
@@ -380,7 +379,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
                     }
                     
                     $url = $object->getDataAddress();
-                    $url .= "('[#" . $object->getUidAttribute()->getAlias() . "#]')";
+                    $url .= "([#" . $object->getUidAttribute()->getAlias() . "#])";
                     return $url;
                 }
         }
