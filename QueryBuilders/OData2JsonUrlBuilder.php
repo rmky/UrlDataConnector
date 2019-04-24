@@ -13,6 +13,7 @@ use exface\Core\DataTypes\NumberDataType;
 use exface\Core\Interfaces\DataSources\DataConnectionInterface;
 use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
+use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
 
 /**
  * This is a query builder for JSON-based oData 2.0 APIs.
@@ -283,10 +284,15 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         }
         
         switch (true) {
+            case ($qpart->getAttribute()->getDataAddressProperty('odata_type') === 'Edm.Guid'):
+                $value = 'guid' . $this->buildUrlFilterValueEscapedString($qpart, $value);
+                break;
             // Wrap string data types in single quotes
             // Since spaces are used as delimiters in oData filter expression, they need to be
             // replaced by x0020.
-            case ($qpart->getDataType() instanceof StringDataType): $value = $this->buildUrlFilterValueEscapedString($qpart, $value); break; 
+            case ($qpart->getDataType() instanceof StringDataType): 
+                $value = $this->buildUrlFilterValueEscapedString($qpart, $value); 
+                break; 
         }
         
         return $value;

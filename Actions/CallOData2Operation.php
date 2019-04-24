@@ -103,6 +103,7 @@ class CallOData2Operation extends AbstractAction implements iCallService
             $val = $data->getCellValue($param->getName(), 0);
             $params .= '&' . $param->getName() . '=' . $this->prepareParamValue($param, $val);
         }
+        
         return $params;
     }
     
@@ -122,7 +123,13 @@ class CallOData2Operation extends AbstractAction implements iCallService
         
         $val = $parameter->getDataType()->parse($val);
         
-        return "'" . $val . "'";
+        switch (true) {
+            case ($parameter->getCustomProperty('odata_type') === 'Edm.Guid'):
+                return "guid'" . $val . "'";
+                break;
+            default:
+                return "'" . $val . "'";
+        }
     }
 
     protected function getUrlBuilder() : OData2JsonUrlBuilder
