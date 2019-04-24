@@ -19,6 +19,9 @@ use exface\Core\Interfaces\Model\MetaObjectInterface;
 use exface\Core\Exceptions\Actions\ActionLogicError;
 use exface\Core\CommonLogic\Actions\ServiceParameter;
 use exface\Core\Interfaces\Actions\ServiceParameterInterface;
+use exface\Core\Exceptions\DataSources\DataQueryFailedError;
+use exface\Core\Exceptions\UnexpectedValueException;
+use exface\Core\Exceptions\Actions\ActionInputMissingError;
 
 /**
  * Calls an OData service operation (FunctionImport).
@@ -40,6 +43,11 @@ class CallOData2Operation extends AbstractAction implements iCallService
         // TODO name, icon
     }
     
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\AbstractAction::perform()
+     */
     protected function perform(TaskInterface $task, DataTransactionInterface $transaction): ResultInterface
     {
         $input = $this->getInputDataSheet($task);
@@ -47,7 +55,11 @@ class CallOData2Operation extends AbstractAction implements iCallService
         $request = new Request($this->getHttpMethod(), $this->buildUrl($input));
         $query = new Psr7DataQuery($request);
         $response = $this->getDataConnection()->query($query)->getResponse();
-        $resultData = $this->parseResponse($response);
+        try {
+            $resultData = $this->parseResponse($response);
+        } catch (\Throwable $e) {
+            throw new DataQueryFailedError($query, $e->getMessage(), null, $e);
+        }
         
         return ResultFactory::createDataResult($task, $resultData, $this->getResultMessageText() ?? $this->getWorkbench()->getApp('exface.SapConnector')->getTranslator()->translate('ACTION.CALLODATA2OPERATION.SUCCESS'));
     }
@@ -65,12 +77,28 @@ class CallOData2Operation extends AbstractAction implements iCallService
             $url .= $this->buildUrlParams($data);
         }
         
-        return $url;
+        return $url . (strpos($url, '?') === false ? '?' : '') . '&$format=json';
     }
     
     protected function buildUrlParams(DataSheetInterface $data) : string
     {
         $params = '';
+        
+        foreach ($this->getParameters() as $param) {
+            if (! $data->getColumns()->get($param->getName())) {
+                if ($data->getMetaObject()->hasAttribute($param->getName()) === true) {
+                    if ($data->hasUidColumn(true) === true) {
+                        $attr = $data->getMetaObject()->getAttribute($param->getName());
+                        $data->getColumns()->addFromAttribute($attr);
+                    }
+                }
+            }
+        }
+        if ($data->isFresh() === false && $data->hasUidColumn(true)) {
+            $data->addFilterFromColumnValues($data->getUidColumn());
+            $data->dataRead();
+        }
+        
         foreach ($this->getParameters() as $param) {
             $val = $data->getCellValue($param->getName(), 0);
             $params .= '&' . $param->getName() . '=' . $this->prepareParamValue($param, $val);
@@ -82,6 +110,10 @@ class CallOData2Operation extends AbstractAction implements iCallService
     {
         if ($parameter->hasDefaultValue() === true && $val === null) {
             $val = $parameter->getDefaultValue();
+        }
+        
+        if ($parameter->isRequired() === true && ($val === '' || $val === null)) {
+            throw new ActionInputMissingError($this, 'Value of required parameter "' . $parameter->getName() . '" not set! Please include the corresponding column in the input data or use an input_mapper!', '75C7YOQ');
         }
         
         if ($val === null) {
@@ -108,11 +140,7 @@ class CallOData2Operation extends AbstractAction implements iCallService
         }
         
         $body = $response->getBody()->__toString();
-        return $this->parseBody($body, $ds);
-    }
-    
-    protected function parseBody(string $body, DataSheetInterface $resultData) : DataSheetInterface
-    {
+        
         $json = json_decode($body);
         $result = $json->d;
         if ($result instanceof \stdClass) {
@@ -120,12 +148,13 @@ class CallOData2Operation extends AbstractAction implements iCallService
         } elseif (is_array($result)) {
             $rows = json_decode($body, true)['d'];
         } else {
-            throw new ActionLogicError($this, 'Invalid result data of type ' . gettype($result) . ': JSON object or array expected!');
+            throw new \RuntimeException('Invalid result data of type ' . gettype($result) . ': JSON object or array expected!');
         }
         
-        $resultData->addRows($rows);
-        $resultData->setCounterForRowsInDataSource(count($rows));
-        return $resultData;
+        $ds->addRows($rows);
+        $ds->setCounterForRowsInDataSource(count($rows));
+        
+        return $ds;
     }
     
     protected function getResultObject() : MetaObjectInterface
