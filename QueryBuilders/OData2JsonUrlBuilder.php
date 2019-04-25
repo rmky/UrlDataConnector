@@ -15,6 +15,7 @@ use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
+use exface\Core\DataTypes\ComparatorDataType;
 
 /**
  * This is a query builder for JSON-based oData 2.0 APIs.
@@ -371,6 +372,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         switch (strtoupper($method)) {
             case 'PUT':
             case 'PATCH':
+            case 'DELETE':
                 if (! $object->getDataAddressProperty('update_request_data_address')) {
                     if ($object->hasUidAttribute() === false) {
                         throw new QueryBuilderException('Cannot update object "' . $object->getName() . '" (' . $object->getAliasWithNamespace() . ') via OData: there is no UID attribute defined for this object!');
@@ -382,6 +384,47 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
                 }
         }
         return parent::buildDataAddressForObject($object, $method);
+    }
+    
+    public function delete(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
+    {
+        $method = 'DELETE';
+        if ($this->getMainObject()->hasUidAttribute() === true) {
+            $uidAttr = $this->getMainObject()->getUidAttribute();
+        } else {
+            throw new QueryBuilderException('Cannot delete data from an OData source without a UID column in the data!');
+        }
+        
+        $uidFilterCallback = function(QueryPartFilter $filter) use ($uidAttr) {
+            return $filter->getAttribute()->getDataAddress() === $uidAttr->getDataAddress();
+        };
+        $uidFilters = $this->getFilters()->getFilters($uidFilterCallback);
+        
+        if (count($uidFilters) === 1) {
+            $uidFilter = $uidFilters[0];
+            if ($uidFilter->getComparator() !== ComparatorDataType::IN && $uidFilter->getComparator() !== ComparatorDataType::IS && $uidFilter->getComparator() !== ComparatorDataType::EQUALS) {
+                throw new QueryBuilderException('Cannot delete from an OData source with a filter "' . $uidFilter->getCondition()->toString() . '"');
+            }
+            
+            if (is_array($uidFilter->getCompareValue())) {
+                $uids = $uidFilter->getCompareValue();
+            } else {
+                $uids = explode($uidAttr->getValueListDelimiter(), $uidFilter->getCompareValue());
+            }
+        } else {
+            throw new QueryBuilderException('Cannot delete from OData if multiple filters combined by the logical operator AND are used!');
+        }
+        
+        if (count($uids) === 1) {
+            $url = $this->replacePlaceholdersInUrl($this->buildDataAddressForObject($this->getMainObject(), $method));
+            $request = new Request($method, $url);
+            $data_connection->query(new Psr7DataQuery($request));
+            $cnt = 1;
+        } else {
+            throw new QueryBuilderException('Deleting multiple items from OData sources at once not implemented yet');
+        }
+        
+        return new DataQueryResultData([], $cnt, true, $cnt);
     }
     
     /**

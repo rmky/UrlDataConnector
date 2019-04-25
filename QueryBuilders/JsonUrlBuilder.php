@@ -7,7 +7,6 @@ use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
 use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
 use exface\Core\Exceptions\NotImplementedError;
-use exface\Core\Interfaces\Model\MetaObjectInterface;
 use exface\Core\Interfaces\DataSources\DataConnectionInterface;
 use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
@@ -54,7 +53,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         $uidAlias = $this->getMainObject()->getUidAttributeAlias();
         $data_path = $this->getMainObject()->getDataAddressProperty('create_request_data_path');
         foreach ($json_objects as $obj) {
-            $request = $this->buildRequestPutOrPost($method, $obj, $data_path);
+            $request = $this->buildRequestPutPostDelete($method, $obj, $data_path);
             $query = new Psr7DataQuery($request);
                         
             $result = $this->parseResponse($data_connection->query($query));
@@ -67,7 +66,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         return new DataQueryResultData($insert_ids, count($insert_ids), false);
     }
     
-    protected function buildRequestPutOrPost($method, $jsonObject, string $dataPath = null) : RequestInterface
+    protected function buildRequestPutPostDelete($method, $jsonObject, string $dataPath = null) : RequestInterface
     {
         $uri = $this->buildDataAddressForObject($this->getMainObject(), $method);
         $uri = $this->replacePlaceholdersInUrl($uri);
@@ -164,7 +163,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         $uidAlias = $this->getMainObject()->getUidAttributeAlias();
         $data_path = $this->getMainObject()->getDataAddressProperty('update_request_data_path');
         foreach ($json_objects as $obj) {
-            $request = $this->buildRequestPutOrPost($method, $obj, $data_path);
+            $request = $this->buildRequestPutPostDelete($method, $obj, $data_path);
             $query = new Psr7DataQuery($request);
             
             $result = $this->parseResponse($data_connection->query($query));
@@ -324,7 +323,27 @@ class JsonUrlBuilder extends AbstractUrlBuilder
      */
     public function delete(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
-        throw new NotImplementedError('Delete requests currently not implemented in "' . get_class($this) . '"!');
+        // Create the request URI
+        $method = 'DELETE';
+        
+        // Create JSON objects from value query parts
+        $json_objects = $this->buildRequestBodyObjects($method);
+        
+        $insert_ids = array();
+        $uidAlias = $this->getMainObject()->getUidAttributeAlias();
+        $data_path = $this->getMainObject()->getDataAddressProperty('delete_request_data_path');
+        foreach ($json_objects as $obj) {
+            $request = $this->buildRequestPutPostDelete($method, $obj, $data_path);
+            $query = new Psr7DataQuery($request);
+            
+            $result = $this->parseResponse($data_connection->query($query));
+            if (is_array($result)) {
+                $result_data = $this->findRowData($result, $data_path);
+            }
+            $insert_ids[] = [$uidAlias => $this->findFieldInData($this->buildDataAddressForAttribute($this->getMainObject()->getUidAttribute()), $result_data)];
+        }
+        
+        return new DataQueryResultData($insert_ids, count($insert_ids), false);
     }
 
     /**
