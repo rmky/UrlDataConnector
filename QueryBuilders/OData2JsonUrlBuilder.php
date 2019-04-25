@@ -14,6 +14,7 @@ use exface\Core\Interfaces\DataSources\DataConnectionInterface;
 use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
+use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
 
 /**
  * This is a query builder for JSON-based oData 2.0 APIs.
@@ -283,9 +284,6 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         }
         
         switch (true) {
-            case ($qpart->getAttribute()->getDataAddressProperty('odata_type') === 'Edm.Guid'):
-                $value = 'guid' . $this->buildUrlFilterValueEscapedString($qpart, $value);
-                break;
             // Wrap string data types in single quotes
             // Since spaces are used as delimiters in oData filter expression, they need to be
             // replaced by x0020.
@@ -294,7 +292,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
                 break; 
         }
         
-        return $value;
+        return $this->buildODataValue($qpart, $value);
     }
     
     /**
@@ -384,5 +382,45 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
                 }
         }
         return parent::buildDataAddressForObject($object, $method);
+    }
+    
+    /**
+     * Takes care of special OData type formatting like "date'2019-01-31'" or "guid'xxx'"
+     * 
+     * @param QueryPartAttribute $qpart
+     * @param mixed $preformattedValue
+     * @return string
+     */
+    protected function buildODataValue(QueryPartAttribute $qpart, $preformattedValue = null)
+    {
+        switch ($qpart->getAttribute()->getDataAddressProperty('odata_type')) {
+            case 'Edm.Guid':
+                $value = 'guid' . $preformattedValue;
+                break;
+            case 'Edm.DateTime':
+                $date = new \DateTime(str_replace("'", '', $preformattedValue));
+                $value = "datetime'" . $date->format('Y-m-d\TH:i:s') . "'";
+                break;
+            case 'Edm.Binary':
+                $value = 'binary' . $preformattedValue;
+                break;
+            case 'Edm.Time':
+                $date = new \DateTime(str_replace("'", '', $preformattedValue));
+                $value = 'PT' . $date->format('H\Ti\M');
+                break;
+            default:
+                $value = $preformattedValue;
+        }
+        return $value;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\JsonUrlBuilder::buildRequestBodyValue()
+     */
+    protected function buildRequestBodyValue(QueryPartValue $qpart, $value) : string
+    {
+        return $this->buildODataValue($qpart, $value);
     }
 }
