@@ -127,7 +127,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
                         $json_objects[$row] = new \stdClass();
                     }
                     if (! is_null($val) && $val !== '') {
-                        $json_objects[$row]->$json_attr = $this->prepareValue($qpart, $val);
+                        $json_objects[$row]->$json_attr = $this->buildRequestBodyValue($qpart, $val);
                     }
                 }
             }
@@ -142,7 +142,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
      * @param mixed $value
      * @return string
      */
-    protected function prepareValue(QueryPartValue $qpart, $value) : string
+    protected function buildRequestBodyValue(QueryPartValue $qpart, $value) : string
     {
         return $value;
     }
