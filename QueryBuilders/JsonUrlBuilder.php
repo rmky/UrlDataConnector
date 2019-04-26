@@ -154,7 +154,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     public function update(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
         // Create the request URI
-        $method = 'PUT';
+        $method = 'PATCH';
         
         // Create JSON objects from value query parts
         $json_objects = $this->buildRequestBodyObjects($method);
