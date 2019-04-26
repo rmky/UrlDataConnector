@@ -519,11 +519,12 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      * Returns a string representing the query part's value, that is usable in a filter expression.
      * 
      * @param QueryPartFilter $qpart
+     * @param string $preformattedValue
      * @return string
      */
-    protected function buildUrlFilterValue(QueryPartFilter $qpart)
+    protected function buildUrlFilterValue(QueryPartFilter $qpart, string $preformattedValue = null)
     {
-        return $qpart->getCompareValue();
+        return $preformattedValue ?? $qpart->getCompareValue();
     }
     
     /**

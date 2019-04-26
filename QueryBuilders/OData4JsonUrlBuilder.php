@@ -79,9 +79,9 @@ class OData4JsonUrlBuilder extends OData2JsonUrlBuilder
      * {@inheritDoc}
      * @see \exface\UrlDataConnector\QueryBuilders\OData2JsonUrlBuilder::buildUrlFilterValue()
      */
-    protected function buildUrlFilterValue(QueryPartFilter $qpart)
+    protected function buildUrlFilterValue(QueryPartFilter $qpart, string $preformattedValue = null)
     {
-        $value = $qpart->getCompareValue();
+        $value = $preformattedValue ?? $qpart->getCompareValue();
         $comparator = $qpart->getComparator();
         
         if ($comparator === EXF_COMPARATOR_IN || $comparator === EXF_COMPARATOR_NOT_IN) {
