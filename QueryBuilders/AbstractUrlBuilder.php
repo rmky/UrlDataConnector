@@ -6,7 +6,6 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartSorter;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
-use GuzzleHttp\Psr7\Response;
 use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\Interfaces\Model\MetaAttributeInterface;
 use exface\Core\Interfaces\Model\MetaObjectInterface;
@@ -40,11 +39,16 @@ use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
  * - `response_group_by_attribute_alias` - result rows will get resorted and 
  * grouped by values of the given attribute
  * 
- * - `response_group_use_only_first` - set to TRUE to return only the first 
+ * - `response_group_use_only_first` - set to `true` to return only the first 
  * group ignoring all rows with other values of the group attribute than the 
  * first row.
  * 
- * - `request_remote_pagination` - set to false to disable remote pagination
+ * - `request_remote_pagination` - set to `false` to disable remote pagination.
+ * If not set or set to `true`, `request_offset_parameter` and `request_limit_parameter`
+ * must be set in the data source configuration to make pagination work. Some
+ * query builder like the `OData2UrlBuilder` can generate these parameters automatically,
+ * so you don't need to specify them manually. In this case, `request_remote_pagination`
+ * simply turns pagination on or off.
  * 
  * - `request_offset_parameter` - name of the URL parameter containing the 
  * page offset for pagination
@@ -790,10 +794,19 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         return $result_rows;
     }
 
-    protected function isRemotePaginationConfigured()
+    /**
+     * Returns TRUE if remote pagination for the main object is enabled and the
+     * request parameters for limit and offset are set - FALSE otherwise.
+     * 
+     * @return boolean
+     */
+    protected function isRemotePaginationConfigured() : bool
     {
-        if (BooleanDataType::cast($this->getMainObject()->getDataAddressProperty('request_remote_pagination')) && $this->buildUrlParamOffset($this->getMainObject())) {
-            return true;
+        $dsOption = $this->getMainObject()->getDataAddressProperty('request_remote_pagination');
+        if ($dsOption === null) {
+            return $this->buildUrlParamLimit($this->getMainObject()) ? true : false;
+        } else {
+            return BooleanDataType::cast($dsOption) && $this->buildUrlParamLimit($this->getMainObject());
         }
         return false;
     }
