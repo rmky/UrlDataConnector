@@ -52,14 +52,22 @@ class CallOData2Operation extends AbstractAction implements iCallService
     {
         $input = $this->getInputDataSheet($task);
         
-        $request = new Request($this->getHttpMethod(), $this->buildUrl($input));
-        $query = new Psr7DataQuery($request);
-        $response = $this->getDataConnection()->query($query)->getResponse();
-        try {
-            $resultData = $this->parseResponse($response);
-        } catch (\Throwable $e) {
-            throw new DataQueryFailedError($query, $e->getMessage(), null, $e);
+        $resultData = DataSheetFactory::createFromObject($this->getResultObject());
+        $resultData->setAutoCount(false);
+        
+        $rowCnt = $input->countRows();
+        for ($i = 0; $i < $rowCnt; $i++) {
+            $request = new Request($this->getHttpMethod(), $this->buildUrl($input, $i));
+            $query = new Psr7DataQuery($request);
+            $response = $this->getDataConnection()->query($query)->getResponse();
+            try {
+                $resultData = $this->parseResponse($response, $resultData);
+            } catch (\Throwable $e) {
+                throw new DataQueryFailedError($query, $e->getMessage(), null, $e);
+            }
         }
+        
+        $resultData->setCounterForRowsInDataSource($resultData->countRows());
         
         return ResultFactory::createDataResult($task, $resultData, $this->getResultMessageText() ?? $this->getWorkbench()->getApp('exface.SapConnector')->getTranslator()->translate('ACTION.CALLODATA2OPERATION.SUCCESS'));
     }
@@ -69,18 +77,18 @@ class CallOData2Operation extends AbstractAction implements iCallService
         return $this->getMetaObject()->getDataConnection();
     }
     
-    protected function buildUrl(DataSheetInterface $data) : string
+    protected function buildUrl(DataSheetInterface $data, int $rowNr) : string
     {
         $url = $this->getFunctionImportName() . '?';
         
         if ($this->getHttpMethod() === 'GET') {
-            $url .= $this->buildUrlParams($data);
+            $url .= $this->buildUrlParams($data, $rowNr);
         }
         
         return $url . (strpos($url, '?') === false ? '?' : '') . '&$format=json';
     }
     
-    protected function buildUrlParams(DataSheetInterface $data) : string
+    protected function buildUrlParams(DataSheetInterface $data, int $rowNr) : string
     {
         $params = '';
         
@@ -100,7 +108,7 @@ class CallOData2Operation extends AbstractAction implements iCallService
         }
         
         foreach ($this->getParameters() as $param) {
-            $val = $data->getCellValue($param->getName(), 0);
+            $val = $data->getCellValue($param->getName(), $rowNr);
             $params .= '&' . $param->getName() . '=' . $this->prepareParamValue($param, $val);
         }
         
@@ -137,13 +145,10 @@ class CallOData2Operation extends AbstractAction implements iCallService
         return $this->getInputObjectExpected()->getQueryBuilder();
     }
     
-    protected function parseResponse(ResponseInterface $response) : DataSheetInterface
+    protected function parseResponse(ResponseInterface $response, DataSheetInterface $resultData) : DataSheetInterface
     {
-        $ds = DataSheetFactory::createFromObject($this->getResultObject());
-        $ds->setAutoCount(false);
-        
         if ($response->getStatusCode() != 200) {
-            return $ds->setFresh(true);
+            return $resultData->setFresh(true);
         }
         
         $body = $response->getBody()->__toString();
@@ -158,10 +163,9 @@ class CallOData2Operation extends AbstractAction implements iCallService
             throw new \RuntimeException('Invalid result data of type ' . gettype($result) . ': JSON object or array expected!');
         }
         
-        $ds->addRows($rows);
-        $ds->setCounterForRowsInDataSource(count($rows));
+        $resultData->addRows($rows);
         
-        return $ds;
+        return $resultData;
     }
     
     protected function getResultObject() : MetaObjectInterface
