@@ -22,6 +22,7 @@ use exface\Core\Interfaces\Model\MetaObjectInterface;
 use exface\Core\Interfaces\DataSources\DataSourceInterface;
 use exface\Core\Factories\DataSourceFactory;
 use exface\Core\DataTypes\StringDataType;
+use exface\Core\Exceptions\Actions\ActionInputMissingError;
 
 /**
  * Calls a generic web service using parameters to fill placeholders in the URL and body.
@@ -33,6 +34,8 @@ class CallWebService extends AbstractAction implements iCallService
 {
     
     private $parameters = [];
+    
+    private $parametersGeneratedFromPlaceholders = false;
     
     private $url = null;
     
@@ -325,7 +328,7 @@ class CallWebService extends AbstractAction implements iCallService
      */
     protected function prepareParamValue(ServiceParameterInterface $parameter, $val) : string
     {
-        return $val;
+        return $parameter->getDataType()->parse($val);
     }
     
     /**
@@ -334,6 +337,20 @@ class CallWebService extends AbstractAction implements iCallService
      */
     public function getParameters() : array
     {
+        if ($this->parametersGeneratedFromPlaceholders === false) {
+            $phs = array_merge(StringDataType::findPlaceholders($this->getUrl()), StringDataType::findPlaceholders($this->getBody()));
+            foreach ($phs as $ph) {
+                try {
+                    $this->getParameter($ph);
+                } catch (ActionInputMissingError $e) {
+                    $this->parameters[] = new ServiceParameter($this, new UxonObject([
+                        "name" => $ph,
+                        "required" => true
+                    ]));
+                }
+            }
+            $this->parametersGeneratedFromPlaceholders = true;
+        }
         return $this->parameters;
     }
     
@@ -367,6 +384,7 @@ class CallWebService extends AbstractAction implements iCallService
                 return $arg;
             }
         }
+        throw new ActionInputMissingError($this, 'Parameter "' . $name . '" not found in action "' . $this->getAliasWithNamespace() . '"!');
     }
     
     /**
