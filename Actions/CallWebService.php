@@ -1,30 +1,40 @@
 <?php
 namespace exface\UrlDataConnector\Actions;
 
-use exface\Core\Interfaces\Model\MetaObjectInterface;
 use exface\Core\CommonLogic\AbstractAction;
 use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Exceptions\Actions\ActionConfigurationError;
 use GuzzleHttp\Psr7\Request;
-use GuzzleHttp\Psr7\Uri;
-use Psr\Http\Message\UriInterface;
 use exface\UrlDataConnector\Interfaces\HttpConnectionInterface;
 use exface\UrlDataConnector\Psr7DataQuery;
-use Psr\Http\Message\RequestInterface;
-use exface\Core\DataTypes\StringDataType;
 use exface\Core\Interfaces\Tasks\TaskInterface;
 use exface\Core\Interfaces\DataSources\DataTransactionInterface;
 use exface\Core\Interfaces\Tasks\ResultInterface;
 use exface\Core\Factories\ResultFactory;
+use exface\Core\Interfaces\Actions\iCallService;
+use exface\Core\CommonLogic\Actions\ServiceParameter;
+use exface\Core\Interfaces\Actions\ServiceParameterInterface;
+use exface\Core\Interfaces\DataSheets\DataSheetInterface;
+use exface\Core\Exceptions\DataSources\DataQueryFailedError;
+use exface\Core\Factories\DataSheetFactory;
+use Psr\Http\Message\ResponseInterface;
+use exface\Core\Interfaces\Model\MetaObjectInterface;
+use exface\Core\Interfaces\DataSources\DataSourceInterface;
+use exface\Core\Factories\DataSourceFactory;
+use exface\Core\DataTypes\StringDataType;
 
-class CallWebService extends AbstractAction {
-    private $outputObject = null;
+/**
+ * Calls a generic web service using parameters to fill placeholders in the URL and body.
+ * 
+ * @author Andrej Kabachnik
+ *
+ */
+class CallWebService extends AbstractAction implements iCallService 
+{
     
-    private $outputObjectAlias = null;
+    private $parameters = [];
     
     private $url = null;
-    
-    private $url_params = [];
     
     private $method = null;
     
@@ -32,59 +42,27 @@ class CallWebService extends AbstractAction {
     
     private $body = null;
     
-    /**
-     * 
-     * @return MetaObjectInterface
-     */
-    public function getOutputObject()
-    {
-        if (is_null($this->outputObject)) {
-            if (! is_null($this->outputObjectAlias)) {
-                return $this->getWorkbench()->model()->getObject($this->outputObjectAlias);
-            } else {
-                return $this->getInputDataPreset()->getMetaObject();
-            }
-        }
-        return $this->outputObject;
-    }
-
-    /**
-     * 
-     * @param MetaObjectInterface $object
-     * @return CallWebService
-     */
-    public function setOutputObject(MetaObjectInterface $object)
-    {
-        $this->outputObject = $object;
-        return $this;
-    }
+    private $serviceName = null;
     
-    /**
-     * @uxon-property method
-     * @uxon-type string
-     * 
-     * @param string $aliasWithNamespace
-     * @return CallWebService
-     */
-    public function setOutputObjectAlias($aliasWithNamespace)
-    {
-        $this->outputObjectAlias = $aliasWithNamespace;
-        return $this;
-    }
+    private $dataSource = null;
 
     /**
      * 
-     * @return string
+     * @return string|NULL
      */
-    public function getUrl()
+    protected function getUrl() : ?string
     {
         return $this->url;
     }
 
     /**
+     * The URL to call: absolute or relative to the data source.
      * 
-     * @uxon-property method
-     * @uxon-type string
+     * If the data source is not specified directly via `data_source_alias`, the data source
+     * of the action's meta object will be used.
+     * 
+     * @uxon-property url
+     * @uxon-type url
      * 
      * @param string $url
      * @return CallWebService
@@ -97,69 +75,47 @@ class CallWebService extends AbstractAction {
 
     /**
      * 
-     * @return array
-     */
-    public function getUrlParams()
-    {
-        return $this->url_params;
-    }
-
-    /**
-     * 
-     * @uxon-property method
-     * @uxon-type array
-     * 
-     * @param UxonObject|array
-     */
-    public function setUrlParams($uxon_or_array)
-    {
-        if ($uxon_or_array instanceof UxonObject) {
-            $this->url_params = $uxon_or_array->toArray();
-        } elseif (is_array($uxon_or_array)) {
-            $this->url_params = $uxon_or_array;
-        } else {
-            throw new ActionConfigurationError($this, 'Invalid format for url_params property of action ' . $this->getAliasWithNamespace() . ': expecting UXON or PHP array, ' . gettype($uxon_or_array) . ' received.');
-        }
-        return $this;
-    }
-
-    /**
      * @return string
      */
-    public function getMethod()
+    protected function getMethod($default = 'GET') : string
     {
-        return $this->method;
+        return $this->method ?? $default;
     }
 
     /**
+     * The HTTP method: GET, POST, etc.
      * 
      * @uxon-property method
-     * @uxon-type string
+     * @uxon-type [GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD,TRACE]
+     * @uxon-default GET
      * 
      * @param string
      */
-    public function setMethod($method)
+    public function setMethod(string $method) : string
     {
         $this->method = $method;
         return $this;
     }
 
     /**
+     * 
      * @return array
      */
-    public function getHeaders()
+    public function getHeaders() : array
     {
         return $this->headers;
     }
 
     /**
+     * Special HTTP headers to be sent: these headers will override the defaults of the data source.
      * 
-     * @uxon-property method
-     * @uxon-type string
+     * @uxon-property headers
+     * @uxon-type object
+     * @uxon-template {"Content-Type": ""}
      * 
      * @param UxonObject|array $uxon_or_array
      */
-    public function setHeaders($uxon_or_array)
+    public function setHeaders($uxon_or_array) : CallWebService
     {
         if ($uxon_or_array instanceof UxonObject) {
             $this->headers = $uxon_or_array->toArray();
@@ -170,101 +126,279 @@ class CallWebService extends AbstractAction {
         }
         return $this;
     }
-
+    
     /**
+     * Replaces body placeholders with parameter values from the given data sheet row.
+     * 
+     * @param DataSheetInterface $data
+     * @param int $rowNr
      * @return string
      */
-    public function getBody()
+    protected function buildBody(DataSheetInterface $data, int $rowNr) : string
+    {
+        $body = $this->getBody();
+        
+        if ($body === null) {
+            return '';
+        }
+        
+        $placeholders = StringDataType::findPlaceholders($body);
+        if (empty($placeholders) === true) {
+            return $body;
+        }
+        
+        $requiredParams = [];
+        foreach ($placeholders as $ph) {
+            $requiredParams[] = $this->getParameter($ph);
+        }
+        $data = $this->getDataWithParams($data, $requiredParams);
+        
+        $phValues = [];
+        foreach ($requiredParams as $param) {
+            $name = $param->getName();
+            $val = $data->getCellValue($name, $rowNr);
+            $val = $this->prepareParamValue($param, $val);
+            $phValues[$name] = $val;
+        }
+        
+        return StringDataType::replacePlaceholders($body, $phValues);
+    }
+
+    /**
+     * 
+     * @return string
+     */
+    protected function getBody() : ?string
     {
         return $this->body;
     }
 
     /**
-     * @uxon-property method
+     * The body of the HTTP request; [#placeholders#] are supported.
+     * 
+     * @uxon-property body
      * @uxon-type string
      * 
      * @param string $body
      * @return $this;
      */
-    public function setBody($body)
+    public function setBody($body) : CallWebService
     {
         $this->body = $body;
         return $this;
     }
     
     /**
-     * 
-     * @return UriInterface
+     *
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\AbstractAction::perform()
      */
-    protected function getUri()
+    protected function perform(TaskInterface $task, DataTransactionInterface $transaction): ResultInterface
     {
-        $uri = new Uri($this->getUrl());
-        return $uri;
+        $input = $this->getInputDataSheet($task);
+        
+        $resultData = DataSheetFactory::createFromObject($this->getResultObject());
+        $resultData->setAutoCount(false);
+        
+        $rowCnt = $input->countRows();
+        for ($i = 0; $i < $rowCnt; $i++) {
+            $request = new Request($this->getMethod(), $this->buildUrl($input, $i));
+            $query = new Psr7DataQuery($request);
+            $response = $this->getDataConnection()->query($query)->getResponse();
+            try {
+                $resultData = $this->parseResponse($response, $resultData);
+            } catch (\Throwable $e) {
+                throw new DataQueryFailedError($query, $e->getMessage(), null, $e);
+            }
+        }
+        
+        $resultData->setCounterForRowsInDataSource($resultData->countRows());
+        
+        return ResultFactory::createDataResult($task, $resultData, $this->getResultMessageText() ?? $this->getWorkbench()->getApp('exface.SapConnector')->getTranslator()->translate('ACTION.CALLODATA2OPERATION.SUCCESS'));
     }
     
-    protected function perform(TaskInterface $task, DataTransactionInterface $transaction) : ResultInterface
+    /**
+     * 
+     * @return HttpConnectionInterface
+     */
+    protected function getDataConnection() : HttpConnectionInterface
     {
-        $input_data = $this->getInputDataSheet($task);
-        $uri = $this->getUri();
+        if ($this->dataSource !== null) {
+            if (! $this->dataSource instanceof DataSourceInterface) {
+                $this->dataSource = DataSourceFactory::createFromModel($this->getWorkbench(), $this->dataSource);
+            }
+            return $this->dataSource;
+        }
+        return $this->getMetaObject()->getDataConnection();
+    }
+    
+    /**
+     * Use this the connector of this data source to call the web service.
+     * 
+     * @uxon-property data_source_alias
+     * @uxon-type metamodel:datasource
+     * 
+     * @param string $idOrAlias
+     * @return CallWebService
+     */
+    public function setDataSourceAlias(string $idOrAlias) : CallWebService
+    {
+        $this->dataSource = $idOrAlias;
+        return $this;
+    }
+    
+    /**
+     * 
+     * @param DataSheetInterface $data
+     * @param int $rowNr
+     * @return string
+     */
+    protected function buildUrl(DataSheetInterface $data, int $rowNr) : string
+    {
+        $url = $this->getUrl();
         
-        $static_params = '';
-        $row_params = [];
-        foreach ($this->getUrlParams() as $param => $value) {
-            $is_static = true;
-            foreach (StringDataType::findPlaceholders($value) as $ph) {
-                $is_static = false;
-                if ($col = $input_data->getColumns()->get($ph)) {
-                    foreach ($col->getValues(false) as $row => $ph_val) {
-                        if (! array_key_exists($row, $row_params)) {
-                            $row_params[$row] = [];
-                        }
-                        if (! array_key_exists($param, $row_params[$row])) {
-                            $row_params[$row][$param] = $value;
-                        }
-                        $row_params[$row][$param] = str_replace('[#' . $ph . '#]', $ph_val, $row_params[$row][$param]);
+        if ($this->getMethod() === 'GET') {
+            $url = $this->buildUrlParams($url, $data, $rowNr);
+        }
+        
+        return $url;
+    }
+    
+    /**
+     * 
+     * @param DataSheetInterface $data
+     * @return DataSheetInterface
+     */
+    protected function getDataWithParams(DataSheetInterface $data, array $parameters) : DataSheetInterface
+    {
+        foreach ($parameters as $param) {
+            if (! $data->getColumns()->get($param->getName())) {
+                if ($data->getMetaObject()->hasAttribute($param->getName()) === true) {
+                    if ($data->hasUidColumn(true) === true) {
+                        $attr = $data->getMetaObject()->getAttribute($param->getName());
+                        $data->getColumns()->addFromAttribute($attr);
                     }
                 }
             }
-            
-            if ($is_static) {
-                $static_params[$param] = $value;
-            }
         }
-        
-        $queries = [];
-        $errors = [];
-        if (! empty($row_params)) {
-            foreach ($row_params as $row => $params) {
-                $queries[$row] = array_merge($params, $static_params);
-            }
-        } else {
-            $queries[] = $static_params;
+        if ($data->isFresh() === false && $data->hasUidColumn(true)) {
+            $data->addFilterFromColumnValues($data->getUidColumn());
+            $data->dataRead();
         }
-        
-        foreach ($queries as $query) {
-            $query_string = '';
-            foreach ($query as $param => $value) {
-                $query_string .= ($query_string ? '&' : '') . urlencode($param) . '=' . urlencode($value);
-            }
-            $uri = $uri->withQuery($query_string);
-            $request = new Request($this->getMethod(), $uri);
-            $conn = $input_data->getMetaObject()->getDataConnection();
-            if (! ($conn instanceof HttpConnectionInterface)) {
-                throw new ActionConfigurationError($this, 'Cannot use data connection "' . $conn->getAliasWithNamespace() . '" with action ' . $this->getAliasWithNamespace() . ': only connectors implementing the HttpConnectionInterface allowed!');
-            }
-            try {
-                $result = $this->send($conn, $request);
-            } catch (\Throwable $e) {
-                $errors[$e];
-            }
-        }
-        
-        return ResultFactory::createMessageResult($task, (count($queries)-count($errors)) . ' requests completed successfully.' . (! empty($errors) ? count($errors) . ' errors' : ''));
+        return $data;
     }
     
-    protected function send(HttpConnectionInterface $connection, RequestInterface $request)
+    /**
+     * 
+     * @param DataSheetInterface $data
+     * @param int $rowNr
+     * @return string
+     */
+    protected function buildUrlParams(string $url, DataSheetInterface $data, int $rowNr) : string
     {
-        return $connection->query(new Psr7DataQuery($request));
+        $params = '';
+        $urlPlaceholders = StringDataType::findPlaceholders($url);
+        $data = $this->getDataWithParams($data, $this->getParameters());        
+        
+        $urlPhValues = [];
+        foreach ($this->getParameters() as $param) {
+            $name = $param->getName();
+            $val = $data->getCellValue($name, $rowNr);
+            $val = $this->prepareParamValue($param, $val);
+            if (in_array($param->getName(), $urlPlaceholders) === true) {
+                $urlPhValues[$name] = $val;
+            }
+            $params .= '&' . $name . '=' . $val;
+        }
+        if (empty($urlPhValues) === false) {
+            $url = StringDataType::replacePlaceholders($url, $urlPhValues);
+        }
+        
+        return $url . (strpos($url, '?') === false ? '?' : '') . $params;
     }
-
+    
+    /**
+     * 
+     * @param ServiceParameterInterface $parameter
+     * @param mixed $val
+     * @return string
+     */
+    protected function prepareParamValue(ServiceParameterInterface $parameter, $val) : string
+    {
+        return $val;
+    }
+    
+    /**
+     *
+     * @return ServiceParameterInterface[]
+     */
+    public function getParameters() : array
+    {
+        return $this->parameters;
+    }
+    
+    /**
+     * Defines parameters supported by the service.
+     *
+     * @uxon-property parameters
+     * @uxon-type \exface\Core\CommonLogic\Actions\ServiceParameter[]
+     * @uxon-template [{"name": ""}]
+     *
+     * @param UxonObject $value
+     * @return CallWebService
+     */
+    public function setParameters(UxonObject $uxon) : CallWebService
+    {
+        foreach ($uxon as $paramUxon) {
+            $this->parameters[] = new ServiceParameter($this, $paramUxon);
+        }
+        return $this;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Actions\iCallService::getParameter()
+     */
+    public function getParameter(string $name) : ServiceParameterInterface
+    {
+        foreach ($this->getParameters() as $arg) {
+            if ($arg->getName() === $name) {
+                return $arg;
+            }
+        }
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\Actions\iCallService::getServiceName()
+     */
+    public function getServiceName() : string
+    {
+        return $this->getUrl();
+    }
+    
+    /**
+     * 
+     * @param ResponseInterface $response
+     * @param DataSheetInterface $resultData
+     * @return DataSheetInterface
+     */
+    protected function parseResponse(ResponseInterface $response, DataSheetInterface $resultData) : DataSheetInterface
+    {
+        return $resultData;
+    }
+    
+    /**
+     * 
+     * @return MetaObjectInterface
+     */
+    protected function getResultObject() : MetaObjectInterface
+    {
+        if ($this->hasResultObjectRestriction()) {
+            return $this->getResultObjectExpected();
+        }
+        return $this->getMetaObject();
+    }
 }

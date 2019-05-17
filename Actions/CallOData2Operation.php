@@ -1,41 +1,24 @@
 <?php
 namespace exface\UrlDataConnector\Actions;
 
-use exface\Core\CommonLogic\AbstractAction;
-use exface\Core\Interfaces\DataSources\DataTransactionInterface;
-use exface\Core\Interfaces\Tasks\ResultInterface;
-use exface\Core\Interfaces\Tasks\TaskInterface;
-use exface\Core\Interfaces\Actions\iCallService;
-use exface\UrlDataConnector\QueryBuilders\OData2JsonUrlBuilder;
-use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Interfaces\DataSheets\DataSheetInterface;
-use GuzzleHttp\Psr7\Request;
-use exface\UrlDataConnector\Interfaces\HttpConnectionInterface;
-use exface\UrlDataConnector\Psr7DataQuery;
 use Psr\Http\Message\ResponseInterface;
 use exface\Core\Factories\ResultFactory;
 use exface\Core\Factories\DataSheetFactory;
-use exface\Core\Interfaces\Model\MetaObjectInterface;
-use exface\Core\Exceptions\Actions\ActionLogicError;
-use exface\Core\CommonLogic\Actions\ServiceParameter;
 use exface\Core\Interfaces\Actions\ServiceParameterInterface;
-use exface\Core\Exceptions\DataSources\DataQueryFailedError;
-use exface\Core\Exceptions\UnexpectedValueException;
 use exface\Core\Exceptions\Actions\ActionInputMissingError;
 
 /**
  * Calls an OData service operation (FunctionImport).
  * 
+ * 
+ * 
  * @author Andrej Kabachnik
  *
  */
-class CallOData2Operation extends AbstractAction implements iCallService 
+class CallOData2Operation extends CallWebService 
 {
     private $serviceName = null;
-    
-    private $httpMethod = 'GET';
-    
-    private $parameters = [];
     
     protected function init()
     {
@@ -46,75 +29,19 @@ class CallOData2Operation extends AbstractAction implements iCallService
     /**
      * 
      * {@inheritDoc}
-     * @see \exface\Core\CommonLogic\AbstractAction::perform()
+     * @see \exface\UrlDataConnector\Actions\CallWebService::buildUrl()
      */
-    protected function perform(TaskInterface $task, DataTransactionInterface $transaction): ResultInterface
-    {
-        $input = $this->getInputDataSheet($task);
-        
-        $resultData = DataSheetFactory::createFromObject($this->getResultObject());
-        $resultData->setAutoCount(false);
-        
-        $rowCnt = $input->countRows();
-        for ($i = 0; $i < $rowCnt; $i++) {
-            $request = new Request($this->getHttpMethod(), $this->buildUrl($input, $i));
-            $query = new Psr7DataQuery($request);
-            $response = $this->getDataConnection()->query($query)->getResponse();
-            try {
-                $resultData = $this->parseResponse($response, $resultData);
-            } catch (\Throwable $e) {
-                throw new DataQueryFailedError($query, $e->getMessage(), null, $e);
-            }
-        }
-        
-        $resultData->setCounterForRowsInDataSource($resultData->countRows());
-        
-        return ResultFactory::createDataResult($task, $resultData, $this->getResultMessageText() ?? $this->getWorkbench()->getApp('exface.SapConnector')->getTranslator()->translate('ACTION.CALLODATA2OPERATION.SUCCESS'));
-    }
-    
-    protected function getDataConnection() : HttpConnectionInterface
-    {
-        return $this->getMetaObject()->getDataConnection();
-    }
-    
     protected function buildUrl(DataSheetInterface $data, int $rowNr) : string
     {
-        $url = $this->getFunctionImportName() . '?';
-        
-        if ($this->getHttpMethod() === 'GET') {
-            $url .= $this->buildUrlParams($data, $rowNr);
-        }
-        
+        $url = parent::buildUrl($data, $rowNr);
         return $url . (strpos($url, '?') === false ? '?' : '') . '&$format=json';
     }
     
-    protected function buildUrlParams(DataSheetInterface $data, int $rowNr) : string
-    {
-        $params = '';
-        
-        foreach ($this->getParameters() as $param) {
-            if (! $data->getColumns()->get($param->getName())) {
-                if ($data->getMetaObject()->hasAttribute($param->getName()) === true) {
-                    if ($data->hasUidColumn(true) === true) {
-                        $attr = $data->getMetaObject()->getAttribute($param->getName());
-                        $data->getColumns()->addFromAttribute($attr);
-                    }
-                }
-            }
-        }
-        if ($data->isFresh() === false && $data->hasUidColumn(true)) {
-            $data->addFilterFromColumnValues($data->getUidColumn());
-            $data->dataRead();
-        }
-        
-        foreach ($this->getParameters() as $param) {
-            $val = $data->getCellValue($param->getName(), $rowNr);
-            $params .= '&' . $param->getName() . '=' . $this->prepareParamValue($param, $val);
-        }
-        
-        return $params;
-    }
-    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Actions\CallWebService::prepareParamValue()
+     */
     protected function prepareParamValue(ServiceParameterInterface $parameter, $val) : string
     {
         if ($parameter->hasDefaultValue() === true && $val === null) {
@@ -139,12 +66,12 @@ class CallOData2Operation extends AbstractAction implements iCallService
                 return "'" . $val . "'";
         }
     }
-
-    protected function getUrlBuilder() : OData2JsonUrlBuilder
-    {
-        return $this->getInputObjectExpected()->getQueryBuilder();
-    }
     
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Actions\CallWebService::parseResponse()
+     */
     protected function parseResponse(ResponseInterface $response, DataSheetInterface $resultData) : DataSheetInterface
     {
         if ($response->getStatusCode() != 200) {
@@ -168,26 +95,13 @@ class CallOData2Operation extends AbstractAction implements iCallService
         return $resultData;
     }
     
-    protected function getResultObject() : MetaObjectInterface
-    {
-        if ($this->hasResultObjectRestriction()) {
-            return $this->getResultObjectExpected();
-        }
-        return $this->getMetaObject();
-    }
-    
-    public function getServiceName() : string
-    {
-        return $this->getFunctionImportName();
-    }
-    
     /**
      *
      * @return string
      */
-    public function getFunctionImportName() : string
+    protected function getFunctionImportName() : string
     {
-        return $this->serviceName;
+        return $this->getUrl();
     }
     
     /**
@@ -201,63 +115,16 @@ class CallOData2Operation extends AbstractAction implements iCallService
      */
     public function setFunctionImportName(string $value) : CallOData2Operation
     {
-        $this->serviceName = $value;
-        return $this;
-    }
-    
-    /**
-     *
-     * @return string
-     */
-    public function getHttpMethod() : string
-    {
-        return $this->httpMethod;
+        return $this->setUrl($value);
     }
     
     /**
      * 
-     * @param string $value
-     * @return CallOData2Operation
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Actions\CallWebService::getMethod()
      */
-    public function setHttpMethod(string $value) : CallOData2Operation
+    protected function getMethod() : string
     {
-        $this->httpMethod = $value;
-        return $this;
-    }
-    
-    /**
-     *
-     * @return UxonObject
-     */
-    public function getParameters() : array
-    {
-        return $this->parameters;
-    }
-    
-    /**
-     * Defines parameters supported by the service.
-     * 
-     * @uxon-property parameters
-     * @uxon-type \exface\Core\CommonLogic\Actions\ServiceParameter[]
-     * @uxon-template [{"name": ""}]
-     * 
-     * @param UxonObject $value
-     * @return CallOData2Operation
-     */
-    public function setParameters(UxonObject $uxon) : CallOData2Operation
-    {
-        foreach ($uxon as $paramUxon) {
-            $this->parameters[] = new ServiceParameter($this, $paramUxon);
-        }
-        return $this;
-    }
-    
-    public function getParameter(string $name) : ServiceParameterInterface
-    {
-        foreach ($this->getParameters() as $arg) {
-            if ($arg->getName() === $name) {
-                return $arg;
-            }
-        }
+        return parent::getMethod('GET');
     }
 }
