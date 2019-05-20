@@ -67,9 +67,9 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
  * ```
  * 
  * - `title` will populate it's column with book titles (e.g. "Harray Potter and the Order of the Phoenix" in the first row.
- * - `publisher.address.country_code` will put "UK" in the first row
- * - `authors[1].name` will get the name of the first author
- * - `scancodes[type=ean8].code` will get code value from the scancode with type "ean8".
+ * - `publisher/address/country_code` will put "UK" in the first row
+ * - `authors[1]/name` will get the name of the first author
+ * - `scancodes[type=ean8]/code` will get code value from the scancode with type "ean8".
  *
  * @see AbstractUrlBuilder for basic configuration
  * @see HtmlUrlBuilder for a generic HTML-parser
