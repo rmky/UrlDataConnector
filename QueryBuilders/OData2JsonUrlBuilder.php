@@ -98,7 +98,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      */
     protected function buildPathToTotalRowCounter(MetaObjectInterface $object)
     {
-        return '@odata.count';
+        return 'd/__count';
     }
     
     /**
@@ -121,6 +121,20 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
     {
         $custom_param = parent::buildUrlParamLimit($object);
         return $custom_param ? $custom_param : '$top';
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlPagination()
+     */
+    protected function buildUrlPagination() : string
+    {
+        $params = parent::buildUrlPagination();
+        if ($params !== '') {
+            $params .= '&$inlinecount=allpages';
+        }
+        return $params;
     }
     
     /**
@@ -352,7 +366,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         
         // OData v2 uses a strange return format: {d: {...}} for single values and {d: {results: [...]}} for collections.
         if (StringDataType::startsWith($this->getODataVersion(), '2')) {
-            if ($data['results'] !== null && count($data) === 1) {
+            if ($data['results'] !== null) {
                 return $data['results'];
             }
             

@@ -38,6 +38,16 @@ class OData4JsonUrlBuilder extends OData2JsonUrlBuilder
     }
     
     /**
+     *
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildPathToTotalRowCounter()
+     */
+    protected function buildPathToTotalRowCounter(MetaObjectInterface $object)
+    {
+        return '@odata.count';
+    }
+    
+    /**
      * 
      * {@inheritDoc}
      * @see \exface\UrlDataConnector\QueryBuilders\OData2JsonUrlBuilder::buildUrlFilterPredicate()

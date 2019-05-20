@@ -895,7 +895,14 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         return $object->getDataAddressProperty('response_total_count_path');
     }
     
-    protected function buildUrlPagination()
+    /**
+     * Returns URL parameters needed for remote pagination.
+     * 
+     * Returns an empty string if remote pagination is not used.
+     * 
+     * @return string
+     */
+    protected function buildUrlPagination() : string
     {
         $params = '';
         if ($this->isRemotePaginationConfigured() === false) {
