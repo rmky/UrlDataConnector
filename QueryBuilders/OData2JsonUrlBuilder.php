@@ -21,6 +21,12 @@ use exface\Core\DataTypes\ComparatorDataType;
  * This is a query builder for JSON-based oData 2.0 APIs.
  * 
  * See the AbstractUrlBuilder for information about available data address properties.
+ * In addition, this query builder provides the following options
+ * 
+ * ## On object level
+ * 
+ * - `odata_$inlinecount` - controls the inlinecount feature of OData. Set to `allpages`
+ * to request an inlinecount from the server.
  *
  * @see AbstractUrlBuilder for data source specific parameters
  * 
@@ -131,8 +137,8 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
     protected function buildUrlPagination() : string
     {
         $params = parent::buildUrlPagination();
-        if ($params !== '') {
-            $params .= '&$inlinecount=allpages';
+        if ($params !== '' && $inlinecount = $this->getMainObject()->getDataAddressProperty('odata_$inlinecount')) {
+            $params .= '&$inlinecount=' . $inlinecount;
         }
         return $params;
     }
