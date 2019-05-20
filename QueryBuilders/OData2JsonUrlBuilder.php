@@ -115,7 +115,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
     protected function buildUrlParamOffset(MetaObjectInterface $object)
     {
         $custom_param = parent::buildUrlParamOffset($object);
-        return $custom_param ? $custom_param : '$skiptoken';
+        return $custom_param ? $custom_param : '$skip';
     }
     
     /**
