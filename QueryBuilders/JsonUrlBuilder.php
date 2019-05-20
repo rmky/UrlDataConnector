@@ -6,7 +6,6 @@ use exface\Core\CommonLogic\DataSheets\DataColumn;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
 use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
-use exface\Core\Exceptions\NotImplementedError;
 use exface\Core\Interfaces\DataSources\DataConnectionInterface;
 use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
@@ -21,13 +20,59 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
  * 
  * # Syntax of data addresses
  * 
- * - **my_field** will get the value from {"my_field": "value"}
- * - **address.street** will get the value from {"address": {"street": "value"}}
- * - **authors[1].name** will get the value from {"authors": [{...}, {"name: "value", ...}, {...}]}
- * - **barcodes[type=ean8].code** will get the value from {"barcodes": [{...}, {"type": "ean8", "code": "value"}]}
+ * Concider the following example result structure of a library web service:
+ * 
+ * ```
+ * [
+ *  {
+ *      "title": "Harray Potter and the Order of the Phoenix",
+ *      "authors": [
+ *          {
+ *              "name": "J.K. Rowling"
+ *          }
+ *      ],
+ *      "publisher": {
+ *          "address": {
+ *              "country_code": "UK"
+ *          }
+ *      },
+ *      "scancodes": [
+ *          {
+ *              "type": "ean8",
+ *              "code": "123456789213"
+ *          }
+ *      ]
+ *  },
+ *  {
+ *      "title": "Harray Potter and the Prisoner of Azkaban",
+ *      "authors": [
+ *          {
+ *              "name": "J.K. Rowling"
+ *          }
+ *      ],
+ *      "publisher": {
+ *          "address": {
+ *              "country_code": "UK"
+ *          }
+ *      },
+ *      "scancodes": [
+ *          {
+ *              "type": "ean8",
+ *              "code": "123456789245"
+ *          }
+ *      ]
+ *  }
+ * ]
+ * 
+ * ```
+ * 
+ * - `title` will populate it's column with book titles (e.g. "Harray Potter and the Order of the Phoenix" in the first row.
+ * - `publisher.address.country_code` will put "UK" in the first row
+ * - `authors[1].name` will get the name of the first author
+ * - `scancodes[type=ean8].code` will get code value from the scancode with type "ean8".
  *
  * @see AbstractUrlBuilder for basic configuration
- * @see HtmlUrlBuilder for an HTML-parser
+ * @see HtmlUrlBuilder for a generic HTML-parser
  * @see XmlUrlBuilder for XML-based APIs
  * 
  * @author Andrej Kabachnik

@@ -19,8 +19,9 @@ use exface\Core\DataTypes\ComparatorDataType;
 
 /**
  * This is a query builder for JSON-based oData 2.0 APIs.
+ * 
+ * See the AbstractUrlBuilder for information about available data address properties.
  *
- * @see JsonUrlBuilder for data address syntax
  * @see AbstractUrlBuilder for data source specific parameters
  * 
  * @author Andrej Kabachnik
