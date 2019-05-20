@@ -48,6 +48,8 @@ class CallWebService extends AbstractAction implements iCallService
     private $serviceName = null;
     
     private $dataSource = null;
+    
+    private $resultMessagePattern = null;
 
     /**
      * 
@@ -94,7 +96,7 @@ class CallWebService extends AbstractAction implements iCallService
      * 
      * @param string
      */
-    public function setMethod(string $method) : string
+    public function setMethod(string $method) : CallWebService
     {
         $this->method = $method;
         return $this;
@@ -104,9 +106,18 @@ class CallWebService extends AbstractAction implements iCallService
      * 
      * @return array
      */
-    public function getHeaders() : array
+    protected function getHeaders() : array
     {
         return $this->headers;
+    }
+    
+    /**
+     * 
+     * @return array
+     */
+    protected function buildHeaders() : array
+    {
+        return $this->getHeaders();
     }
 
     /**
@@ -205,7 +216,7 @@ class CallWebService extends AbstractAction implements iCallService
         
         $rowCnt = $input->countRows();
         for ($i = 0; $i < $rowCnt; $i++) {
-            $request = new Request($this->getMethod(), $this->buildUrl($input, $i));
+            $request = new Request($this->getMethod(), $this->buildUrl($input, $i), $this->buildHeaders(), $this->buildBody($input, $i));
             $query = new Psr7DataQuery($request);
             $response = $this->getDataConnection()->query($query)->getResponse();
             try {
@@ -216,8 +227,9 @@ class CallWebService extends AbstractAction implements iCallService
         }
         
         $resultData->setCounterForRowsInDataSource($resultData->countRows());
+        $message = $this->getMessageFromResponse($response) ?? $this->getResultMessageText() ?? $this->getWorkbench()->getApp('exface.SapConnector')->getTranslator()->translate('ACTION.CALLODATA2OPERATION.SUCCESS');
         
-        return ResultFactory::createDataResult($task, $resultData, $this->getResultMessageText() ?? $this->getWorkbench()->getApp('exface.SapConnector')->getTranslator()->translate('ACTION.CALLODATA2OPERATION.SUCCESS'));
+        return ResultFactory::createDataResult($task, $resultData, $message);
     }
     
     /**
@@ -338,6 +350,7 @@ class CallWebService extends AbstractAction implements iCallService
     public function getParameters() : array
     {
         if ($this->parametersGeneratedFromPlaceholders === false) {
+            $this->parametersGeneratedFromPlaceholders = true;
             $phs = array_merge(StringDataType::findPlaceholders($this->getUrl()), StringDataType::findPlaceholders($this->getBody()));
             foreach ($phs as $ph) {
                 try {
@@ -349,7 +362,6 @@ class CallWebService extends AbstractAction implements iCallService
                     ]));
                 }
             }
-            $this->parametersGeneratedFromPlaceholders = true;
         }
         return $this->parameters;
     }
@@ -419,4 +431,52 @@ class CallWebService extends AbstractAction implements iCallService
         }
         return $this->getMetaObject();
     }
+    
+    /**
+     *
+     * @return string|NULL
+     */
+    protected function getResultMessagePattern() : ?string
+    {
+        return $this->resultMessagePattern;
+    }
+    
+    /**
+     * A regular expression to retrieve the result message from the body.
+     * 
+     * Extracts a result message from the response body.
+     * 
+     * For example, if the web service would return the following JSON
+     * `{"result": "Everything OK"}`, you could use this regex to get the
+     * message: `/"result":"(?<message>[^"]*)"/`.
+     * 
+     * @uxon-property result_message_pattern
+     * @uxon-type string
+     * 
+     * @param string $value
+     * @return CallWebService
+     */
+    public function setResultMessagePattern(string $value) : CallWebService
+    {
+        $this->resultMessagePattern = $value;
+        return $this;
+    }
+    
+    protected function getMessageFromResponse(ResponseInterface $response) : ?string
+    {
+        if ($this->getResultMessagePattern() === null) {
+            return null;
+        }
+        
+        $body = $response->getBody()->__toString();
+        $matches = [];
+        preg_match($this->getResultMessagePattern(), $body, $matches);
+        
+        if (empty($matches)) {
+            return null;
+        }
+        
+        return $matches['message'] ?? $matches[1];
+    }
+    
 }
