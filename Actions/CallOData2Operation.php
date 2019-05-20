@@ -123,7 +123,7 @@ class CallOData2Operation extends CallWebService
      * {@inheritDoc}
      * @see \exface\UrlDataConnector\Actions\CallWebService::getMethod()
      */
-    protected function getMethod() : string
+    protected function getMethod($default = 'GET') : string
     {
         return parent::getMethod('GET');
     }
