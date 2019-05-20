@@ -648,8 +648,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     protected abstract function findFieldInData($data_address, $data);
 
     /**
-     * Parse the response data into an array of the following form: [ 1 => ["field1" => "value1", "field2" => "value 2"], 2 => [...], ...
-     * ]
+     * Parse the response data into an array of the following form: 
+     * [ 0 => ["field1" => "value1", "field2" => "value 2"], 1 => [...], ... ]
      *
      * @param mixed $data            
      * @return array
@@ -672,9 +672,13 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         
         // Increase limit by one to check if there are more rows
-        $originalLimit = $this->getLimit();
-        if ($originalLimit > 0) {
-            $this->setLimit($originalLimit+1, $this->getOffset());
+        $usingExtraRowForPagination = false;
+        if ($this->isRemotePaginationConfigured() === true) {
+            $originalLimit = $this->getLimit();
+            if ($originalLimit > 0) {
+                $usingExtraRowForPagination = true;
+                $this->setLimit($originalLimit+1, $this->getOffset());
+            }
         }
         
         $query = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
@@ -683,6 +687,17 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             $totalCnt = $this->findRowCounter($data, $query);
             // Find data rows within the response and do the postprocessing
             $result_rows = $this->buildResultRows($data, $query);
+            
+            // If we increased the limit artificially, pop off the last result row as it
+            // would not be there normally.
+            if ($usingExtraRowForPagination === true && count($result_rows) === ($originalLimit+1)) {
+                $hasMoreRows = true;
+                array_pop($result_rows);
+            } else {
+                $hasMoreRows = false;
+            }
+            
+            // Apply postprocessing options like `response_group_by_attribute_alias`
             $result_rows = $this->applyPostprocessing($result_rows);
             
             // See if the query has an IN-filter, that is set to split requests. This is quite common for URLs like mydomain.com/get_something/id=XXX.
@@ -710,23 +725,18 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 $this->getRequestSplitFilter()->setCompareValue(implode($this->getRequestSplitFilter()->getValueListDelimiter(), $split_values));
             }
             
-            // Apply live filters, sorters and pagination
+            // Apply local filters
             $cnt_before_local_filters = count($result_rows);
-            
-            if ($originalLimit > 0 && $cnt_before_local_filters === $originalLimit + 1) {
-                $hasMoreRows = true;
-                array_pop($result_rows);
-            } else {
-                $hasMoreRows = false;
-            }
-            
             $result_rows = $this->applyFilters($result_rows);
             $cnt_after_local_filters = count($result_rows);
             if ($cnt_before_local_filters !== $cnt_after_local_filters) {
                 $totalCnt = $cnt_after_local_filters;
             }
+            
+            // Apply local sorting
             $result_rows = $this->applySorting($result_rows);
             
+            // Apply local pagination
             if (! $this->isRemotePaginationConfigured()) {
                 if (! $totalCnt) {
                     $totalCnt = count($result_rows);
@@ -737,7 +747,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             $hasMoreRows = false;
         }
         
-        if (! $totalCnt) {
+        if ($hasMoreRows === false && ! $totalCnt) {
             $totalCnt = count($result_rows);
         }
         
@@ -774,7 +784,12 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         return $this;
     }
 
-    protected function applyPostprocessing($result_rows)
+    /**
+     * 
+     * @param array $result_rows
+     * @return array
+     */
+    protected function applyPostprocessing(array $result_rows) : array
     {
         if ($group_attribute_alias = $this->getMainObject()->getDataAddressProperty('response_group_by_attribute_alias')) {
             if ($this->getMainObject()->getDataAddressProperty('response_group_use_only_first')) {
