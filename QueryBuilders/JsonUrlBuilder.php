@@ -235,7 +235,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         $has_uid_column = $this->getAttribute($this->getMainObject()->getUidAttributeAlias()) ? true : false;
         if (! empty($rows)) {
             if (is_array($rows)) {
-                foreach ($rows as $nr => $row) {
+                foreach ($rows as $row) {
                     $result_row = array();
                     /* @var $qpart \exface\Core\CommonLogic\QueryBuilder\QueryPartSelect */
                     foreach ($this->getAttributes() as $qpart) {
