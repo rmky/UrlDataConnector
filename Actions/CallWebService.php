@@ -27,28 +27,155 @@ use exface\Core\Exceptions\Actions\ActionInputMissingError;
 /**
  * Calls a generic web service using parameters to fill placeholders in the URL and body.
  * 
+ * This action can fill placeholders in the URL and request body to call a web service.
+ * The placeholders are replaced values from the action's input data: the placeholder's
+ * name must match one of the data column names of the input data.
+ * 
+ * ## Examples
+ * 
+ * ### A simple GET-webservice with a required parameter 
+ * 
+ * The service returns the following JSON if successfull: `{"result": "Everything OK"}`.
+ * 
+ * ```
+ * {
+ *  "url": "http://url.toyouservice.com/service?param1=[#param1_data_column#]",
+ *  "result_message_pattern": "\"result":"(?<message>[^"]*)\""
+ * 
+ * }
+ * 
+ * ```
+ * 
+ * The placeholder `[#param1_attribute_alias#]` in the URL will be automatically
+ * transformed into a required service parameter, so we don't need to define any
+ * `parameters` manually. When the action is performed, the system will look for
+ * a data column named `param1_data_column` and use it's values to replace the
+ * placeholder. If no such column is there, an error will be raised. 
+ * 
+ * The `result_message_pattern` will be used to extract the success message from 
+ * the response body (i.e. "Everything OK"), that will be shown to the user once 
+ * the service responds.
+ * 
+ * ### A GET-Service with typed and optional parameters
+ * 
+ * If you need optional URL parameters or require type checking, you can use the
+ * `parameters` property of the action to add detailed information about each
+ * parameter: in particular, it's data type.
+ * 
+ * Compared to the first example, the URL here does not have any placeholders.
+ * Instead, there is the parameter `param1`, which will produce `&param1=...`
+ * in the URL. The value will be expected in the input data column named `param1`.
+ * You can use an `input_mapper` in the action's configuration to map a column
+ * with a different name to `param1`.
+ * 
+ * The second parameter is optional and will only be appended to the URL if
+ * the input data contains a matching column with non-empty values.
+ * 
+ * ```
+ * {
+ *  "url": "http://url.toyouservice.com/service",
+ *  "result_message_pattern": "\"result":"(?<message>[^"]*)\"",
+ *  "parameters": [
+ *      {
+ *          "name": "param1",
+ *          "required": true,
+ *          "data_type": {
+ *              "alias": "exface.Core.Integer"
+ *          }
+ *      },
+ *      {
+ *          "name": "mode",
+ *          "data_type": {
+ *              "alias": "exface.Core.GenericStringEnum",
+ *              "values": {
+ *                  "mode1": "Mode 1",
+ *                  "mode2": "Mode 2"
+ *              }
+ *          }
+ *      }
+ *  ]
+ * }
+ * 
+ * ```
+ * 
+ * You can mix placeholders and explicitly defined parameters. In this case, if no parameter
+ * name matches a placeholder's name, a new simple string parameter will be generated
+ * automatically.
+ * 
+ * ### A POST-service with a body-template
+ * 
+ * Similarly to URLs in GET-services, placeholders can be used in the body of the request
+ * to a POST-service. Since the generic `CallWebService` only supports plain text body
+ * templates, placeholders must be used for every parameter! In contrast to the URL parameter,
+ * body parameter cannot be added automatically and, thus, cannot be optional.
+ * 
+ * The following code shows a POST-version of the first GET-example above.
+ * 
+ * ```
+ * {
+ *  "url": "http://url.toyouservice.com/service",
+ *  "result_message_pattern": "\"result":"(?<message>[^"]*)\"",
+ *  "method": "POST",
+ *  "body": "{\"param1\": \"[#param1_data_column#]\"}",
+ *  "headers": {
+ *      "Content-Type": "application/json"
+ *  }
+ * }
+ * 
+ * ```
+ * 
+ * Note the extra `Content-Type` header: most web services will require such a header, so it is
+ * a good idea to set it in the action's configuration - in this case, the body is a JSON, so
+ * we use the default JSON content type.
+ * 
+ * You can also used the detailed `parameters` definition with POST requests - just make sure,
+ * the placeholder name matches the parameter name. Placeholders, that are not in the `parameters`
+ * list will be automatically treated as additional string parameters.
+ * 
  * @author Andrej Kabachnik
  *
  */
 class CallWebService extends AbstractAction implements iCallService 
 {
     
+    /**
+     * @var ServiceParameterInterface[]
+     */
     private $parameters = [];
     
+    /**
+     * @var bool
+     */
     private $parametersGeneratedFromPlaceholders = false;
     
+    /**
+     * @var string|NULL
+     */
     private $url = null;
     
+    /**
+     * @var string|NULL
+     */
     private $method = null;
     
+    /**
+     * @var string[]
+     */
     private $headers = [];
     
+    /**
+     * @var string|NULL
+     */
     private $body = null;
     
-    private $serviceName = null;
-    
+    /**
+     * @var string|DataSourceInterface|NULL
+     */
     private $dataSource = null;
-    
+
+    /**
+     * @var string|NULL
+     */
     private $resultMessagePattern = null;
 
     /**
@@ -462,6 +589,11 @@ class CallWebService extends AbstractAction implements iCallService
         return $this;
     }
     
+    /**
+     * 
+     * @param ResponseInterface $response
+     * @return string|NULL
+     */
     protected function getMessageFromResponse(ResponseInterface $response) : ?string
     {
         if ($this->getResultMessagePattern() === null) {
@@ -478,5 +610,4 @@ class CallWebService extends AbstractAction implements iCallService
         
         return $matches['message'] ?? $matches[1];
     }
-    
 }
