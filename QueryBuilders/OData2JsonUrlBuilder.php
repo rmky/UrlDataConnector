@@ -94,7 +94,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
             $this->getWorkbench()->getLogger()->logException($e, LoggerInterface::WARNING);
         }
         
-        return new DataQueryResultData([], $count, false, $count);
+        return new DataQueryResultData([], ($count ?? 0), false, $count);
     }
     
     /**
