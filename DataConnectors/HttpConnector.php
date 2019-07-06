@@ -18,6 +18,8 @@ use function GuzzleHttp\Psr7\_caseless_remove;
 use function GuzzleHttp\Psr7\modify_request;
 use exface\UrlDataConnector\Interfaces\HttpConnectionInterface;
 use Psr\Http\Message\ResponseInterface;
+use exface\Core\DataTypes\StringDataType;
+use GuzzleHttp\Psr7\Uri;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -165,7 +167,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         
         // Default Headers zur Request hinzufuegen, um sie im Tracer anzuzeigen.
         $this->addDefaultHeadersToQuery($query);
-        if (! $query->getRequest()->getUri()->__toString()) {
+        if ($this->willIgnore($query) === true) {
             $query->setResponse(new Response());
         } else {
             if ($this->isConnected() === false) {
@@ -177,6 +179,12 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
                     $query->setRequest($query->getRequest()->withUri($uri->withQuery($uri->getQuery() . $this->getFixedUrlParams())));
                 }
                 $request = $query->getRequest();
+                if ($request->getUri()->__toString() === '') {
+                    $baseUrl = $this->getUrl();
+                    if ($endpoint = StringDataType::substringAfter($baseUrl, '/', '', false, true)) {
+                        $request = $request->withUri(new Uri($endpoint));
+                    }
+                }
                 $response = $this->getClient()->send($request);
                 $query->setResponse($response);
             } catch (RequestException $re) {
@@ -436,5 +444,14 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         }
         return $response->getReasonPhrase();
     }
-
+    
+    /**
+     * 
+     * @param Psr7DataQuery $query
+     * @return bool
+     */
+    protected function willIgnore(Psr7DataQuery $query) : bool
+    {
+        return $query->getRequest()->getUri()->__toString() ? false : true;
+    }
 }
