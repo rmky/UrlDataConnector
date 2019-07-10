@@ -415,7 +415,7 @@ class CallWebService extends AbstractAction implements iCallService
             $url = $this->buildUrlParams($url, $data, $rowNr);
         }
         
-        return $url;
+        return $url ?? '';
     }
     
     /**

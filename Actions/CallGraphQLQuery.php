@@ -18,24 +18,7 @@ use exface\Core\Exceptions\Actions\ActionInputMissingError;
  */
 class CallGraphQLQuery extends CallWebService 
 {
-    private $serviceName = null;
-    
-    protected function init()
-    {
-        parent::init();
-        // TODO name, icon
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\Actions\CallWebService::buildUrl()
-     */
-    protected function buildUrl(DataSheetInterface $data, int $rowNr) : string
-    {
-        $url = parent::buildUrl($data, $rowNr);
-        return $url . (strpos($url, '?') === false ? '?' : '') . '&$format=json';
-    }
+    private $queryName = null;
     
     /**
      * 
@@ -52,19 +35,7 @@ class CallGraphQLQuery extends CallWebService
             throw new ActionInputMissingError($this, 'Value of required parameter "' . $parameter->getName() . '" not set! Please include the corresponding column in the input data or use an input_mapper!', '75C7YOQ');
         }
         
-        if ($val === null) {
-            return "''";
-        }
-        
-        $val = $parameter->getDataType()->parse($val);
-        
-        switch (true) {
-            case ($parameter->getCustomProperty('odata_type') === 'Edm.Guid'):
-                return "guid'" . $val . "'";
-                break;
-            default:
-                return "'" . $val . "'";
-        }
+        return '"' . $val . '"';
     }
     
     /**
@@ -79,18 +50,8 @@ class CallGraphQLQuery extends CallWebService
         }
         
         $body = $response->getBody()->__toString();
-        
-        $json = json_decode($body);
-        $result = $json->d;
-        if ($result instanceof \stdClass) {
-            $rows = [(array) $result];
-        } elseif (is_array($result)) {
-            $rows = json_decode($body, true)['d'];
-        } else {
-            throw new \RuntimeException('Invalid result data of type ' . gettype($result) . ': JSON object or array expected!');
-        }
-        
-        $resultData->addRows($rows);
+        $json = json_decode($body, true);        
+        $resultData->addRows($json['data']);
         
         return $resultData;
     }
@@ -99,23 +60,24 @@ class CallGraphQLQuery extends CallWebService
      *
      * @return string
      */
-    protected function getFunctionImportName() : string
+    protected function getQueryName() : string
     {
-        return $this->getUrl();
+        return $this->queryName;
     }
     
     /**
-     * The URL endpoint of the opertation (name property of the FunctionImport).
+     * Name of the GraphQL query to execute.
      * 
-     * @uxon-property function_import_name
+     * @uxon-property query_name
      * @uxon-type string
      * 
      * @param string $value
-     * @return CallOData2Operation
+     * @return CallGraphQLQuery
      */
-    public function setFunctionImportName(string $value) : CallOData2Operation
+    public function setQueryName(string $value) : CallGraphQLQuery
     {
-        return $this->setUrl($value);
+        $this->queryName = $value;
+        return $this;
     }
     
     /**
@@ -123,8 +85,40 @@ class CallGraphQLQuery extends CallWebService
      * {@inheritDoc}
      * @see \exface\UrlDataConnector\Actions\CallWebService::getMethod()
      */
-    protected function getMethod($default = 'GET') : string
+    protected function getMethod($default = 'POST') : string
     {
-        return parent::getMethod('GET');
+        return parent::getMethod('POST');
+    }
+    
+    protected function buildBody(DataSheetInterface $data, int $rowNr) : string
+    {
+        $body = parent::buildBody($data, $rowNr);
+        if ($body === '') {
+            $body = $this->buildGqlBody($data, $rowNr);
+        }
+        
+        return $body;
+    }
+    
+    protected function buildGqlBody(DataSheetInterface $data, int $rowNr) : string
+    {
+        return <<<GraphQL
+
+query {
+    {$this->getQueryName()} {
+        {$this->buildGqlFields($data, $rowNr)}
+    }
+} 
+
+GraphQL;
+    }
+        
+    protected function buildGqlFields(DataSheetInterface $data, int $rowNr) : string
+    {
+        $fields = '';
+        foreach ($this->getParameters() as $parameter) {
+            $fields .= "        {$parameter->getName()}: {$this->prepareParamValue($parameter, $rowNr[$parameter->getName()])}\r\n";
+        }
+        return trim($fields);
     }
 }
