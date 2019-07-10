@@ -5,6 +5,8 @@ use function GuzzleHttp\Psr7\_caseless_remove;
 use function GuzzleHttp\Psr7\modify_request;
 use exface\UrlDataConnector\ModelBuilders\GraphQLModelBuilder;
 use exface\UrlDataConnector\Psr7DataQuery;
+use exface\Core\Interfaces\DataSources\DataQueryInterface;
+use exface\Core\Exceptions\DataSources\DataQueryFailedError;
 
 /**
  * Connector for GraphQL web services
@@ -16,6 +18,20 @@ use exface\UrlDataConnector\Psr7DataQuery;
  */
 class GraphQLConnector extends HttpConnector
 {
+    public function performQuery(DataQueryInterface $query)
+    {
+        $query = parent::performQuery($query);
+        
+        $arr = json_decode($query->getResponse()->getBody(), true);
+        if ($arr['errors'] !== null) {
+            $err = $arr['errors'][0];
+            $error = 'GraphQL error "' . $err['message'] . '" (path: ' . $err['path'] . ', locations: ' . json_encode($err['locations']) . ')';
+            throw new DataQueryFailedError($query, $error);
+        }
+        
+        return $query;
+    }
+    
     /**
      * 
      * {@inheritDoc}

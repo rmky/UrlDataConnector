@@ -1,501 +1,578 @@
 <?php
 namespace exface\UrlDataConnector\QueryBuilders;
 
-use exface\Core\Exceptions\QueryBuilderException;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
-use exface\Core\Interfaces\Model\MetaObjectInterface;
-use exface\Core\Interfaces\Log\LoggerInterface;
+use exface\Core\Interfaces\Model\MetaAttributeInterface;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
-use exface\Core\DataTypes\StringDataType;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup;
-use exface\Core\DataTypes\NumberDataType;
 use exface\Core\Interfaces\DataSources\DataConnectionInterface;
 use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
-use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
+use exface\Core\CommonLogic\QueryBuilder\QueryPartSorter;
+use exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder;
+use exface\Core\CommonLogic\Model\Condition;
+use exface\Core\CommonLogic\Model\ConditionGroup;
+use exface\Core\Interfaces\Model\MetaObjectInterface;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
-use exface\Core\DataTypes\ComparatorDataType;
+use exface\Core\Exceptions\QueryBuilderException;
+use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
+use Psr\Http\Message\RequestInterface;
+use exface\Core\DataTypes\BooleanDataType;
 
 /**
- * This is a query builder for JSON-based oData 2.0 APIs.
+ * This is a query builder for GraphQL.
  * 
- * See the AbstractUrlBuilder for information about available data address properties.
- * In addition, this query builder provides the following options
+ * NOTE: this query builder is an early beta and has many limitations:
+ * 
+ * - no remote filtering
+ * - no remote sorting
+ * - no remote pagination
+ * - cannot create/update with relations (nested data)
+ * - cannot read related attibutes (nested data)
+ * 
+ * # Data source options
  * 
  * ## On object level
  * 
- * - `odata_$inlinecount` - controls the inlinecount feature of OData. Set to `allpages`
- * to request an inlinecount from the server.
- *
- * @see AbstractUrlBuilder for data source specific parameters
+ * - `graphql_type`
+ * 
+ * - `graphql_read_query`
+ * 
+ * - `graphql_count_query`
+ * 
+ * - `graphql_create_mutation`
+ * 
+ * - `graphql_update_mutation`
+ * 
+ * - `graphql_delete_mutation`
+ * 
+ * - `graphql_remote_pagination` - set to `false` to disable remote pagination.
+ * If not set or set to `true`, `request_offset_parameter` and `request_limit_parameter`
+ * must be set in the data source configuration to make pagination work.
+ * 
+ * - `graphql_offset_argument` - name of the query argument containing the 
+ * page offset for pagination
+ * 
+ * - `graphql_limit_argument` - name of the query argument holding the 
+ * maximum number of returned items
+ * 
+ * ## On attribute level
+ * 
+ * - `filter_remote` - set to 1 to enable remote filtering (0 by default)
+ * 
+ * - `filter_remote_url` - used to set a custom URL to be used if there is a 
+ * filter over this attribute. The URL accepts the placeholder [#~value#] which
+ * will be replaced by the. Note, that if the URL does not have the placeholder,
+ * it will be always the same - regardles of what the filter is actually set to. 
+ * 
+ * - `filter_remote_argument` - used for filtering instead of the attributes 
+ * data address: e.g. &[filter_remote_argument]=VALUE instead of 
+ * &[data_address]=VALUE
+ * 
+ * - `filter_remote_prefix` - prefix for the value in a filter query: e.g. 
+ * &[data_address]=[filter_remote_prefix]VALUE. Can be used to pass default 
+ * operators etc.
+ * 
+ * - `filter_locally` - set to 1 to filter in ExFace after reading the data
+ * (e.g. if the data source does not support filtering over this attribute) or
+ * set to 0 to take the data as it is. If not set, the data will be filtered
+ * locally automatically if no remote filtering is configured.
+ * 
+ * - `sort_remote` - set to 1 to enable remote sorting (0 by default)
+ * 
+ * - `sort_remote_argument` - used for sorting instead of the attributes 
+ * data address: e.g. &[sort_remote_argument]=VALUE instead of 
+ * &[data_address]=VALUE
+ * 
+ * - `sort_locally` - set to 1 to sort in ExFace after reading the data (if 
+ * the data source does not support filtering over this attribute).
+ * 
+ * - `create_data_address` - GraphQL field to use in the `graphql_create_mutation`.
+ * If not set, the data address will be used.
+ * 
+ * - `read_data_address` - GraphQL field to use in the `graphql_read_mutation`.
+ * If not set, the data address will be used.
+ * 
+ * - `update_data_address` - GraphQL field to use in the `graphql_update_mutation`.
+ * If not set, the data address will be used.
+ * 
  * 
  * @author Andrej Kabachnik
  *        
  */
-class GraphQLBuilder extends JsonUrlBuilder
-{
-    /**
-     * 
-     * @return string
-     */
-    protected function getODataVersion() : string
+class GraphQLBuilder extends AbstractQueryBuilder
+{   
+    const CRUD_ACTION_READ = 'read';
+    const CRUD_ACTION_UPDATE = 'update';
+    const CRUD_ACTION_CREATE = 'create';
+    const CRUD_ACTION_DELETE = 'delete';
+    
+    protected function buildGqlQueryRead() : string
     {
-        return '2';
+        $query = $this->buildGqlReadQueryName($this->getMainObject());
+        $fields = $this->buildGqlQueryFields($this->getAttributes());
+        return $this->buildGqlQuery($query, $fields);
     }
     
     /**
      * 
+     * @param QueryPartAttribute[] $qparts
+     * @throws QueryBuilderException
      * @return string
      */
-    protected function getDefaultPathToResponseRows() : string
+    protected function buildGqlQueryFields(array $qparts) : string
     {
-        return 'd';
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\JsonUrlBuilder::buildPathToResponseRows()
-     */
-    protected function buildPathToResponseRows(Psr7DataQuery $query)
-    {
-        $path = parent::buildPathToResponseRows($query);
-        
-        if (is_null($path)) {
-            $path = $this->getDefaultPathToResponseRows();
+        $fields = [];
+        foreach ($qparts as $qpart) {
+            if (count($qpart->getUsedRelations()) > 0) {
+                throw new QueryBuilderException('GraphQL queries with relations not yet supported!');
+            }
+            $fields[] = $this->buildGqlField($qpart, self::CRUD_ACTION_READ);
         }
+        $fields = array_unique(array_filter($fields));
+        return implode("\r\n        ", $fields);
+    }
+    
+    protected function buildGqlQuery(string $queryName, string $fields) : string
+    {
+        return <<<GraphQL
+
+query {
+    {$queryName} {
+        {$fields}
+    }
+} 
+
+GraphQL;
+    }
         
-        return $path;
+    protected function buildGqlReadQueryName(MetaObjectInterface $object) : string 
+    {
+        return $object->getDataAddress();
+    }
+    
+    protected function buildGqlField(QueryPartAttribute $qpart, string $crudAction = self::CRUD_ACTION_READ) : string
+    {
+        switch ($crudAction) {
+            case self::CRUD_ACTION_CREATE: $addr = $qpart->getDataAddressProperty('create_data_address'); break;
+            case self::CRUD_ACTION_READ: $addr = $qpart->getDataAddressProperty('read_data_address'); break;
+            case self::CRUD_ACTION_UPDATE: $addr = $qpart->getDataAddressProperty('update_data_address'); break;
+        }
+        return $addr ?? $qpart->getAttribute()->getDataAddress();
     }
     
     /**
      *
      * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::count()
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::parseResponse()
      */
-    public function count(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
+    protected function parseResponse(Psr7DataQuery $query)
     {
-        $uri = $this->buildRequestGet()->getUri();
-        $count_uri = $uri->withPath($uri->getPath() . '/$count');
-        
-        $count_url_params = $uri->getQuery();
-        $count_url_params = preg_replace('/\&?' . preg_quote($this->buildUrlParamLimit($this->getMainObject())) . '=\d*/', "", $count_url_params);
-        $count_url_params = preg_replace('/\&?' . preg_quote($this->buildUrlParamOffset($this->getMainObject())) . '=\d*/', "", $count_url_params);
-        $count_url_params = preg_replace('/\&?\$format=.*/', "", $count_url_params);
-        $count_uri = $count_uri->withQuery($count_url_params);
-        $count_query = new Psr7DataQuery(new Request('GET', $count_uri));
-        $count_query->setUriFixed(true);
-        
-        try {
-            $count_query = $this->getMainObject()->getDataConnection()->query($count_query);
-            $count = (string) $count_query->getResponse()->getBody();
-        } catch (\Throwable $e) {
-            $this->getWorkbench()->getLogger()->logException($e, LoggerInterface::WARNING);
+        return json_decode($query->getResponse()->getBody(), true);
+    }
+    
+    protected function readResultRows(array $data, string $operation) : array
+    {
+        $data = $data['data'][$operation] ?? [];
+        $rows = [];
+        foreach ($data as $dataRow) {
+            $row = [];
+            foreach ($this->getAttributes() as $qpart) {
+                if ($field = $qpart->getDataAddress()) {
+                    $row[$qpart->getColumnKey()] = $dataRow[$field];
+                }
+            }
+            $rows[] = $row;
         }
+        return $rows;
+    }
+    
+    protected function buildGqlRequest(string $body) : RequestInterface
+    {
+        return new Request('POST', '', ['Content-Type' => 'application/graphql'], $body);
+    }
+    
+    /**
+     *
+     * {@inheritdoc}
+     *
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::read()
+     */
+    public function read(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
+    {
+        $result_rows = array();
+        $totalCnt = null;
         
-        return new DataQueryResultData([], ($count ?? 0), false, $count);
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildPathToTotalRowCounter()
-     */
-    protected function buildPathToTotalRowCounter(MetaObjectInterface $object)
-    {
-        return 'd/__count';
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlParamOffset()
-     */
-    protected function buildUrlParamOffset(MetaObjectInterface $object)
-    {
-        $custom_param = parent::buildUrlParamOffset($object);
-        return $custom_param ? $custom_param : '$skip';
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlParamLimit()
-     */
-    protected function buildUrlParamLimit(MetaObjectInterface $object)
-    {
-        $custom_param = parent::buildUrlParamLimit($object);
-        return $custom_param ? $custom_param : '$top';
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlPagination()
-     */
-    protected function buildUrlPagination() : string
-    {
-        $params = parent::buildUrlPagination();
-        if ($params !== '' && $inlinecount = $this->getMainObject()->getDataAddressProperty('odata_$inlinecount')) {
-            $params .= '&$inlinecount=' . $inlinecount;
-        }
-        return $params;
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlFilterGroup()
-     */
-    protected function buildUrlFilterGroup(QueryPartFilterGroup $qpart, bool $isNested = false)
-    {
-        $query = '';
-        
-        // If the filter group is just a wrapper, ignore it and build only the contents: e.g.
-        // AND(AND(expr1=val1, expr2=val2)) -> AND(expr1=val1, expr2=val2)
-        if (! $qpart->hasFilters() && count($qpart->getNestedGroups()) === 1) {
-            return $this->buildUrlFilterGroup($qpart->getNestedGroups()[0]);
-        }
-        
-        $op = ' ' . $this->buildUrlFilterGroupOperator($qpart->getOperator()) . ' ';
-        
-        foreach ($qpart->getFilters() as $filter) {
-            if ($stmt = $this->buildUrlFilter($filter)) {
-                $query .= ($query ? $op : '') . $stmt;
+        // Increase limit by one to check if there are more rows
+        $usingExtraRowForPagination = false;
+        if ($this->isRemotePaginationConfigured() === true) {
+            $originalLimit = $this->getLimit();
+            if ($originalLimit > 0) {
+                $usingExtraRowForPagination = true;
+                $this->setLimit($originalLimit+1, $this->getOffset());
             }
         }
         
-        foreach ($qpart->getNestedGroups() as $group) {
-            if ($stmt = $this->buildUrlFilterGroup($group, true)) {
-                $query .= ($query ? $op.' ' : '') . '(' . $stmt . ')';
-            }
-        }
-        
-        if ($query !== '' && $isNested === false) {
-            $query = '$filter=' . $query;
-        }
-        
-        return $query;
-    }
-    
-    protected function buildUrlFilterGroupOperator(string $logicalOperator) : string
-    {
-        switch (strtoupper($logicalOperator)) {
-            case EXF_LOGICAL_XOR:
-            case EXF_LOGICAL_NULL:
-                throw new QueryBuilderException('Logical operator "' . $logicalOperator . '" not supported by query builder "' . get_class($this) . '"!');
-            default:
-                return strtolower($logicalOperator);
-        }
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlFilter()
-     */
-    protected function buildUrlFilter(QueryPartFilter $qpart)
-    {
-        $param = $this->buildUrlParamFilter($qpart);
-        
-        if (! $param) {
-            return '';
-        }
-        
-        $value = $this->buildUrlFilterValue($qpart);
-        
-        // Add a prefix to the value if needed
-        if ($prefix = $qpart->getDataAddressProperty('filter_remote_prefix')) {
-            $value = $prefix . $value;
-        }
-        
-        return $this->buildUrlFilterPredicate($qpart, $param, $value);
-    }
-    
-    /**
-     * Returns a filter predicate to be used in $filter (e.g. "Price le 100").
-     * 
-     * This method is separated from buildUrlFilter() in order be able to override just the
-     * predicate generation in other OData builders, leaving common checks and enrichment
-     * in buildUrlFilter().
-     * 
-     * @param QueryPartFilter $qpart
-     * @param string $property
-     * @param string $escapedValue
-     * @return string
-     */
-    protected function buildUrlFilterPredicate(QueryPartFilter $qpart, string $property, string $escapedValue) : string
-    {
-        $comp = $qpart->getComparator();
-        switch ($comp) {
-            case EXF_COMPARATOR_IS:
-            case EXF_COMPARATOR_IS_NOT:
-                if ($qpart->getDataType() instanceof NumberDataType) {
-                    $op = ($comp === EXF_COMPARATOR_IS_NOT ? 'ne' : 'eq');
-                    return "{$property} {$op} {$escapedValue}";
-                } else {
-                    return "substringof({$escapedValue}, {$property})" . ($comp === EXF_COMPARATOR_IS_NOT ? ' ne' : ' eq') . ' true';
-                }
-            case EXF_COMPARATOR_IN:
-            case EXF_COMPARATOR_NOT_IN:
-                if ($comp === EXF_COMPARATOR_NOT_IN) {
-                    $op = 'ne';
-                    $glue = ' and ';
-                } else {
-                    $op = 'eq';
-                    $glue = ' or ';
-                }
-                $values = is_array($qpart->getCompareValue()) === true ? $qpart->getCompareValue() : explode($qpart->getAttribute()->getValueListDelimiter(), $qpart->getCompareValue());
-                $ors = [];
-                foreach ($values as $val) {
-                    $ors[] = $property . ' ' . $op . ' ' . $this->buildUrlFilterValue($qpart, $val);
-                }
-                if (empty($ors) === false) {
-                    return '(' . implode($glue, $ors) . ')';
-                } else {
-                    return '';
-                }
-            default:
-                $operatior = $this->buildUrlFilterComparator($qpart);
-                return "{$property} {$operatior} {$escapedValue}";
-        }
-    }
-    
-    /**
-     * Returns the oData filter operator to use for the given filter query part.
-     * 
-     * @link http://www.odata.org/documentation/odata-version-2-0/uri-conventions/
-     * 
-     * @param QueryPartFilter $qpart
-     * @throws QueryBuilderException
-     * 
-     * @return string
-     */
-    protected function buildUrlFilterComparator(QueryPartFilter $qpart)
-    {
-        switch ($qpart->getComparator()) {
-            case EXF_COMPARATOR_EQUALS:
-                $comp = 'eq';
-                break;
-            case EXF_COMPARATOR_EQUALS_NOT:
-                $comp = 'ne';
-                break;
-            case EXF_COMPARATOR_GREATER_THAN: $comp = 'gt'; break;
-            case EXF_COMPARATOR_GREATER_THAN_OR_EQUALS: $comp = 'ge'; break;
-            case EXF_COMPARATOR_LESS_THAN: $comp = 'lt'; break;
-            case EXF_COMPARATOR_LESS_THAN_OR_EQUALS: $comp = 'le'; break;
-            default:
-                throw new QueryBuilderException('Comparator "' . $qpart->getComparator() . '" not supported in oData URL filters');
-        }
-        return $comp;
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlFilterValue()
-     */
-    protected function buildUrlFilterValue(QueryPartFilter $qpart, string $preformattedValue = null)
-    {
-        $value = $preformattedValue ?? $qpart->getCompareValue();
-        
-        if (is_array($value)) {
-            $value = implode($qpart->getAttribute()->getValueListDelimiter(), $value);
-        }
-        
-        switch (true) {
-            // Wrap string data types in single quotes
-            // Since spaces are used as delimiters in oData filter expression, they need to be
-            // replaced by x0020.
-            case ($qpart->getDataType() instanceof StringDataType): 
-                $value = $this->buildUrlFilterValueEscapedString($qpart, $value); 
-                break; 
-        }
-        
-        return $this->buildODataValue($qpart, $value);
-    }
-    
-    /**
-     * Escapes a string value to be safe to use within a filter predicate.
-     * 
-     * @param QueryPartFilter $qpart
-     * @param string $value
-     * @return string
-     */
-    protected function buildUrlFilterValueEscapedString(QueryPartFilter $qpart, string $value) : string
-    {
-        return "'" . str_replace(' ', 'x0020', $value) . "'";
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlSorters()
-     */
-    protected function buildUrlSorters()
-    {
-        $url = '';
-        $sort = [];
-        $order = [];
-        
-        foreach ($this->getSorters() as $qpart) {
-            if ($sortParam = $this->buildUrlParamSorter($qpart)) {
-                $sort[] = $sortParam;
-                $order[] = $qpart->getOrder();
-            }
-        }
-        
-        if (! empty($sort)) {
-            $url = '$orderby=' . implode(',', $sort);
-        }
-        
-        if (! empty($order)) {
-            $url .= ' ' . implode(',', $order);
-        }
-        
-        return $url;
-    }
-    
-    /**
-     * 
-     */
-    protected function findRowData($parsed_data, $path)
-    {
-        if ($path) {
-            $data = $this->findFieldInData($path, $parsed_data);
-        }
-        
-        if ($data === null) {
-            return [];
-        }
-        
-        // OData v2 uses a strange return format: {d: {...}} for single values and {d: {results: [...]}} for collections.
-        if (StringDataType::startsWith($this->getODataVersion(), '2')) {
-            if ($data['results'] !== null) {
-                return $data['results'];
-            }
+        $query = $data_connection->query(
+            new Psr7DataQuery(
+                $this->buildGqlRequest($this->buildGqlQueryRead())
+            )
+        );
+        if ($data = $this->parseResponse($query)) {
+            // Find the total row counter within the response
+            //$totalCnt = $this->findRowCounter($data, $query);
+            // Find data rows within the response and do the postprocessing
+            $result_rows = $this->readResultRows($data, $this->buildGqlReadQueryName($this->getMainObject()));
             
-            return [$data];
-        }
-        
-        return $data;
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildDataAddressForObject()
-     */
-    protected function buildDataAddressForObject(MetaObjectInterface $object, $method = 'GET')
-    {
-        switch (strtoupper($method)) {
-            case 'PUT':
-            case 'PATCH':
-            case 'DELETE':
-                if (! $object->getDataAddressProperty('update_request_data_address')) {
-                    if ($object->hasUidAttribute() === false) {
-                        throw new QueryBuilderException('Cannot update object "' . $object->getName() . '" (' . $object->getAliasWithNamespace() . ') via OData: there is no UID attribute defined for this object!');
-                    }
-                    
-                    $url = $object->getDataAddress();
-                    $url .= "([#" . $object->getUidAttribute()->getAlias() . "#])";
-                    return $url;
-                }
-        }
-        return parent::buildDataAddressForObject($object, $method);
-    }
-    
-    public function delete(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
-    {
-        $method = 'DELETE';
-        $errorPrefix = 'Cannot delete "' . $this->getMainObject()->getName() . '" (' . $this->getMainObject()->getAliasWithNamespace() . '): ';
-        if ($this->getMainObject()->hasUidAttribute() === true) {
-            $uidAttr = $this->getMainObject()->getUidAttribute();
-        } else {
-            throw new QueryBuilderException($errorPrefix . 'Cannot delete objects without UID attributes from an OData source!');
-        }
-        
-        $uidFilterCallback = function(QueryPartFilter $filter) use ($uidAttr) {
-            return $filter->getAttribute()->getDataAddress() === $uidAttr->getDataAddress();
-        };
-        $uidFilters = $this->getFilters()->getFilters($uidFilterCallback);
-        
-        if (empty($uidFilters) === true) {
-            throw new QueryBuilderException($errorPrefix . 'Deletes are only possible when filtering over UID attributes!');
-        }
-        
-        $cnt = 0;
-        if (count($uidFilters) === 1) {
-            $uidFilter = $uidFilters[0];
-            if ($uidFilter->getComparator() !== ComparatorDataType::IN && $uidFilter->getComparator() !== ComparatorDataType::IS && $uidFilter->getComparator() !== ComparatorDataType::EQUALS) {
-                throw new QueryBuilderException($errorPrefix . 'Cannot delete from an OData source with a filter "' . $uidFilter->getCondition()->toString() . '"');
-            }
-            
-            if (is_array($uidFilter->getCompareValue())) {
-                $uids = $uidFilter->getCompareValue();
+            // If we increased the limit artificially, pop off the last result row as it
+            // would not be there normally.
+            if ($usingExtraRowForPagination === true && count($result_rows) === ($originalLimit+1)) {
+                $hasMoreRows = true;
+                array_pop($result_rows);
             } else {
-                $uids = explode($uidAttr->getValueListDelimiter(), $uidFilter->getCompareValue());
+                $hasMoreRows = false;
             }
             
-            $urlTpl = $this->buildDataAddressForObject($this->getMainObject(), $method);
-            if (count($uids) === 1) {
-                $url = $this->replacePlaceholdersInUrl($urlTpl);
-                $request = new Request($method, $url);
-                $data_connection->query(new Psr7DataQuery($request));
-                $cnt++;
-            } else {
-                foreach ($uids as $uid) {
-                    $url = StringDataType::replacePlaceholders($urlTpl, [$uidFilter->getAlias() => $this->buildUrlFilterValue($uidFilter, $uid)]);
-                    $request = new Request($method, $url);
-                    $data_connection->query(new Psr7DataQuery($request));
-                    $cnt++;
+            // Apply local filters
+            $cnt_before_local_filters = count($result_rows);
+            $result_rows = $this->applyFilters($result_rows);
+            $cnt_after_local_filters = count($result_rows);
+            if ($cnt_before_local_filters !== $cnt_after_local_filters) {
+                $totalCnt = $cnt_after_local_filters;
+            }
+            
+            // Apply local sorting
+            $result_rows = $this->applySorting($result_rows);
+            
+            // Apply local pagination
+            if (! $this->isRemotePaginationConfigured()) {
+                if (! $totalCnt) {
+                    $totalCnt = count($result_rows);
                 }
+                $result_rows = $this->applyPagination($result_rows);
             }
         } else {
-            throw new QueryBuilderException($errorPrefix . 'Cannot delete from OData source if multiple filters over the UID attribute are used!');
+            $hasMoreRows = false;
         }
         
-        return new DataQueryResultData([], $cnt, true, $cnt);
-    }
-    
-    /**
-     * Takes care of special OData type formatting like "date'2019-01-31'" or "guid'xxx'"
-     * 
-     * @param QueryPartAttribute $qpart
-     * @param mixed $preformattedValue
-     * @return string
-     */
-    protected function buildODataValue(QueryPartAttribute $qpart, $preformattedValue = null)
-    {
-        switch ($qpart->getAttribute()->getDataAddressProperty('odata_type')) {
-            case 'Edm.Guid':
-                $value = 'guid' . $preformattedValue;
-                break;
-            case 'Edm.DateTime':
-                $date = new \DateTime(str_replace("'", '', $preformattedValue));
-                $value = "datetime'" . $date->format('Y-m-d\TH:i:s') . "'";
-                break;
-            case 'Edm.Binary':
-                $value = 'binary' . $preformattedValue;
-                break;
-            case 'Edm.Time':
-                $date = new \DateTime(str_replace("'", '', $preformattedValue));
-                $value = 'PT' . $date->format('H\Ti\M');
-                break;
-            default:
-                $value = $preformattedValue;
+        if ($hasMoreRows === false && ! $totalCnt) {
+            $totalCnt = count($result_rows);
         }
-        return $value;
+        
+        $rows = array_values($result_rows);
+        
+        return new DataQueryResultData($rows, count($result_rows), $hasMoreRows, $totalCnt);
     }
     
     /**
-     * 
+     * Generally UrlBuilders can only handle attributes of one objects - no relations (JOINs) supported!
+     *
      * {@inheritDoc}
-     * @see \exface\UrlDataConnector\QueryBuilders\JsonUrlBuilder::buildRequestBodyValue()
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::canReadAttribute()
      */
-    protected function buildRequestBodyValue(QueryPartValue $qpart, $value) : string
+    public function canReadAttribute(MetaAttributeInterface $attribute) : bool
     {
-        return $this->buildODataValue($qpart, $value);
+        return $attribute->getRelationPath()->isEmpty();
     }
+    
+    
+    /**
+     *
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addFilter()
+     */
+    protected function addFilter(QueryPartFilter $filter)
+    {
+        $result = parent::addFilter($filter);
+        $this->prepareFilter($filter);
+        return $result;
+    }
+    
+    /**
+     *
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addFilterCondition()
+     */
+    public function addFilterCondition(Condition $condition)
+    {
+        $qpart = parent::addFilterCondition($condition);
+        $this->prepareFilter($qpart);
+        return $qpart;
+    }
+    
+    /**
+     *
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addFilterGroup()
+     */
+    protected function addFilterGroup(QueryPartFilterGroup $filter_group)
+    {
+        $result = parent::addFilterGroup($filter_group);
+        $this->prepareFilterGroup($filter_group);
+        return $result;
+    }
+    
+    /**
+     *
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addFilterConditionGroup()
+     */
+    public function addFilterConditionGroup(ConditionGroup $condition_group)
+    {
+        $qpart = parent::addFilterConditionGroup($condition_group);
+        $this->prepareFilterGroup($qpart);
+        return $qpart;
+    }
+    
+    /**
+     *
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::setFiltersConditionGroup()
+     */
+    public function setFiltersConditionGroup(ConditionGroup $condition_group)
+    {
+        $result = parent::setFiltersConditionGroup($condition_group);
+        $this->prepareFilterGroup($this->getFilters());
+        return $result;
+    }
+    
+    /**
+     *
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::setFilters()
+     */
+    protected function setFilters(QueryPartFilterGroup $filter_group)
+    {
+        $result = parent::setFilters($filter_group);
+        $this->prepareFilterGroup($filter_group);
+        return $result;
+    }
+    
+    /**
+     *
+     * @param QueryPartFilterGroup $group
+     * @return \exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup
+     */
+    protected function prepareFilterGroup(QueryPartFilterGroup $group)
+    {
+        foreach ($group->getFilters() as $qpart) {
+            $this->prepareFilter($qpart);
+        }
+        
+        foreach ($group->getNestedGroups() as $qpart) {
+            $this->prepareFilterGroup($qpart);
+        }
+        
+        return $group;
+    }
+    
+    /**
+     * Checks the custom filter configuration of a query part for consistency.
+     *
+     * @param QueryPartFilter $qpart
+     * @return \exface\Core\CommonLogic\QueryBuilder\QueryPartFilter
+     */
+    protected function prepareFilter(QueryPartFilter $qpart)
+    {
+        // TODO If there are options for remote filtering set and the filter_remote address property is not explicitly off, enable it
+        /*if ($qpart->getDataAddressProperty('filter_remote_url') || $qpart->getDataAddressProperty('filter_remote_argument') || $qpart->getDataAddressProperty('filter_remote_prefix')) {
+            if ($qpart->getDataAddressProperty('filter_remote') === '' || is_null($qpart->getDataAddressProperty('filter_remote'))) {
+                $qpart->setDataAddressProperty('filter_remote', 1);
+            }
+        }*/
+        
+        // Enable local filtering if remote filters are not enabled and local filtering is not explicitly off
+        if (! $qpart->getDataAddressProperty('filter_remote') && (is_null($qpart->getDataAddressProperty('filter_locally')) || $qpart->getDataAddressProperty('filter_locally') === '')) {
+            $qpart->setDataAddressProperty('filter_locally', 1);
+        }
+        
+        // If a local filter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always
+        // in the result - otherwise there will be nothing to filter over ;)
+        if ($qpart->getDataAddressProperty('filter_locally')) {
+            $qpart->setApplyAfterReading(true);
+            if ($qpart->getAttribute()) {
+                $this->addAttribute($qpart->getAlias());
+            }
+        }
+        return $qpart;
+    }
+    
+    /**
+    *
+    * {@inheritDoc}
+    * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addSorter()
+    */
+    public function addSorter($sort_by, $order = 'ASC') {
+        $qpart = parent::addSorter($sort_by, $order);
+        $this->prepareSorter($qpart);
+        return $qpart;
+    }
+    
+    /**
+     * Checks the custom sorting configuration of a query part for consistency.
+     *
+     * @param QueryPartSorter $qpart
+     * @return \exface\Core\CommonLogic\QueryBuilder\QueryPartSorter
+     */
+    protected function prepareSorter(QueryPartSorter $qpart)
+    {
+        // If there are options for remote sorting set and the sort_remote address property is not explicitly off, enable it
+        if ($qpart->getDataAddressProperty('sort_remote_graphql_field')) {
+            if ($qpart->getDataAddressProperty('sort_remote') === '' || is_null($qpart->getDataAddressProperty('sort_remote'))) {
+                $qpart->setDataAddressProperty('sort_remote', 1);
+            }
+        }
+        
+        // Enable local sorting if remote sort is not enabled and local sorting is not explicitly off
+        if (! $qpart->getDataAddressProperty('sort_remote') && (is_null($qpart->getDataAddressProperty('sort_locally')) || $qpart->getDataAddressProperty('sort_locally') === '')) {
+            $qpart->setDataAddressProperty('sort_locally', 1);
+        }
+        
+        // If a local sorter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always
+        // in the result - otherwise there will be nothing to sort over ;)
+        if ($qpart->getDataAddressProperty('sort_locally')) {
+            $qpart->setApplyAfterReading(true);
+            if ($qpart->getAttribute()) {
+                $this->addAttribute($qpart->getAlias());
+            }
+        }
+        
+        return $qpart;
+    }
+    
+    /**
+     * Returns TRUE if remote pagination for the main object is enabled and the
+     * request parameters for limit and offset are set - FALSE otherwise.
+     *
+     * @return boolean
+     */
+    protected function isRemotePaginationConfigured() : bool
+    {
+        return false;
+        
+        $dsOption = $this->getMainObject()->getDataAddressProperty('request_remote_pagination');
+        if ($dsOption === null) {
+            // TODO
+            // return $this->buildUrlParamLimit($this->getMainObject()) ? true : false;
+        } else {
+            // TODO
+            // return BooleanDataType::cast($dsOption) && $this->buildUrlParamLimit($this->getMainObject());
+        }
+        return false;
+    }
+    
+    protected function buildGqlMutation(string $mutationName, array $argFieldsValues, array $returnFields) : string
+    {
+        $arguments = '';
+        $returns = '';
+        foreach ($argFieldsValues as $field => $value) {
+            $arguments .= "        {$field}: {$value}\r\n";
+        }
+        $arguments = trim($arguments);
+        foreach ($returnFields as $field) {
+            $returns .= "        {$field}\r\n";
+        }
+        $returns = trim($returns);
+        return <<<GraphQL
+
+mutation {
+    {$this->buildGqlMutationCreateName($this->getMainObject())} (
+        {$arguments}
+    ) {
+        {$returns}
+    }
+} 
+
+GraphQL;
+    }
+    
+    protected function buildGqlValue(QueryPartValue $qpart, $value) : string
+    {
+        return '"' . str_replace('"', '\"', $value) . '"';
+    }
+    
+    protected function buildGqlMutationCreateName(MetaObjectInterface $object) : string
+    {
+        if (! $name = $object->getDataAddressProperty('graphql_create_mutation')) {
+            throw new QueryBuilderException('Cannot create object "' . $object->getName() . '" [' . $object->getAliasWithNamespace() . '] via GraphQL: no graphql_create_mutation data address property defined!', '76G66CL');
+        }
+        return $name;
+    }
+    
+    protected function buildGqlMutationUpdateName(MetaObjectInterface $object) : string
+    {
+        if (! $name = $object->getDataAddressProperty('graphql_update_mutation')) {
+            throw new QueryBuilderException('Cannot update object "' . $object->getName() . '" [' . $object->getAliasWithNamespace() . '] via GraphQL: no graphql_create_mutation data address property defined!', '76G66CL');
+        }
+        return $name;
+    }
+    
+    protected function buildGqlMutationDeleteName(MetaObjectInterface $object) : string
+    {
+        if (! $name = $object->getDataAddressProperty('graphql_delete_mutation')) {
+            throw new QueryBuilderException('Cannot delete object "' . $object->getName() . '" [' . $object->getAliasWithNamespace() . '] via GraphQL: no graphql_create_mutation data address property defined!', '76G66CL');
+        }
+        return $name;
+    }
+    
+    public function create(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
+    {
+        $resultIds = array();
+        
+        $object = $this->getMainObject();
+        $mutationName = $this->buildGqlMutationCreateName($object);
+        if ($object->hasUidAttribute() === true) {
+            $uidField = $object->getUidAttribute()->getDataAddress();
+            $uidAlias = $object->getUidAttributeAlias();
+        }
+        
+        foreach ($this->buildGqlMutationRows(self::CRUD_ACTION_CREATE) as $row) {
+            $mutation = $this->buildGqlMutation($mutationName, $row, [$uidField]);
+            $query = new Psr7DataQuery($this->buildGqlRequest($mutation));
+            $result = $this->parseResponse($data_connection->query($query));
+            $resultIds[] = [$uidAlias => $result['data'][$mutationName][$uidField]];
+        }
+        
+        return new DataQueryResultData($resultIds, count($resultIds), false);
+    }
+    
+    public function update(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
+    {
+        $resultIds = array();
+        
+        $object = $this->getMainObject();
+        $mutationName = $this->buildGqlMutationDeleteName($object);
+        if ($object->hasUidAttribute() === true) {
+            $uidField = $object->getUidAttribute()->getDataAddress();
+            $uidAlias = $object->getUidAttributeAlias();
+        }
+        
+        foreach ($this->buildGqlMutationRows(self::CRUD_ACTION_UPDATE) as $row) {
+            $mutation = $this->buildGqlMutation($mutationName, $row, [$uidField]);
+            $query = new Psr7DataQuery($this->buildGqlRequest($mutation));
+            $result = $this->parseResponse($data_connection->query($query));
+            $resultIds[] = [$uidAlias => $result['data'][$mutationName][$uidField]];
+        }
+        
+        return new DataQueryResultData([], count($resultIds), false);
+    }
+    
+    protected function buildGqlMutationRows($createOrUpdate = self::CRUD_ACTION_CREATE) : array
+    {
+        $rows = [];
+        
+        foreach ($this->getValues() as $qpart) {
+            $field = $this->buildGqlField($qpart, $createOrUpdate);
+            foreach ($qpart->getValues() as $rowNr => $val) {
+                if (count($qpart->getUsedRelations()) > 0) {
+                    throw new QueryBuilderException('GraphQL mutations with relations not yet supported!');
+                }
+                $rows[$rowNr][$field] = $this->buildGqlValue($qpart, $val);
+            }
+        }
+        
+        return $rows;
+    }
+    
 }
