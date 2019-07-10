@@ -218,7 +218,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
             $insert_ids[] = [$uidAlias => $this->findFieldInData($this->buildDataAddressForAttribute($this->getMainObject()->getUidAttribute()), $result_data)];
         }
         
-        return new DataQueryResultData($insert_ids, count($insert_ids), false);
+        return new DataQueryResultData([], count($insert_ids), false);
     }
 
     /**
