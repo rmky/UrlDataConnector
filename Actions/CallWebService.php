@@ -23,6 +23,7 @@ use exface\Core\Interfaces\DataSources\DataSourceInterface;
 use exface\Core\Factories\DataSourceFactory;
 use exface\Core\DataTypes\StringDataType;
 use exface\Core\Exceptions\Actions\ActionInputMissingError;
+use exface\Core\CommonLogic\Constants\Icons;
 
 /**
  * Calls a generic web service using parameters to fill placeholders in the URL and body.
@@ -177,6 +178,17 @@ class CallWebService extends AbstractAction implements iCallService
      * @var string|NULL
      */
     private $resultMessagePattern = null;
+    
+    /**
+     *
+     * {@inheritDoc}
+     * @see \exface\Core\Actions\ShowWidget::init()
+     */
+    protected function init()
+    {
+        parent::init();
+        $this->setIcon(Icons::COGS);
+    }
 
     /**
      * 
