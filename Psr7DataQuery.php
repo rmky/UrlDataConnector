@@ -228,7 +228,7 @@ HTML;
                     // Groesse des Bodies unbekannt oder groesser 1Mb.
                     $messageBody = 'Message body is too big to display.';
                 } else {
-                    $contentType = $message->getHeader('Content-Type')[0];
+                    $contentType = mb_strtolower($message->getHeader('Content-Type')[0]);
                     
                     switch (true) {
                         case stripos($contentType, 'json') !== false:
@@ -241,12 +241,12 @@ HTML;
                             $domxml->loadXML($message->getBody());
                             $messageBody = '<pre>' . htmlentities($domxml->saveXML()) . '</pre>';
                             break;
-                        case 'text/html':
+                        case stripos($contentType, 'html') !== false:
                             $indenter = new \Gajus\Dindent\Indenter();
                             $messageBody = '<pre>' . htmlentities($indenter->indent($message->getBody())) . '</pre>';
                             break;
                         default:
-                            $messageBody = '<pre>' . htmlentities($message->getBody()) . '</pre>';
+                            $messageBody = '<pre>' . htmlentities($message->getBody()->__toString()) . '</pre>';
                     }
                 }
             } catch (\Throwable $e) {
