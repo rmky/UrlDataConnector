@@ -116,8 +116,9 @@ GraphQL;
     protected function buildGqlFields(DataSheetInterface $data, int $rowNr) : string
     {
         $fields = '';
+        $row = $data->getRow($rowNr);
         foreach ($this->getParameters() as $parameter) {
-            $fields .= "        {$parameter->getName()}: {$this->prepareParamValue($parameter, $rowNr[$parameter->getName()])}\r\n";
+            $fields .= "        {$parameter->getName()}: {$this->prepareParamValue($parameter, $row[$parameter->getName()])}\r\n";
         }
         return trim($fields);
     }
