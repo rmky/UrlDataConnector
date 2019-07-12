@@ -176,6 +176,20 @@
             "HINT": "Please include a column named exactly as the parameter in the input data (e.g. by using an input_mapper)!",
             "TYPE": "ERROR",
             "DOCS": ""
+        },
+        {
+            "CREATED_ON": "2019-07-10 07:25:42",
+            "MODIFIED_ON": "2019-07-10 07:25:42",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11e9a2e3eb77995fac8e0205857feb80",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "CODE": "76G66CL",
+            "TITLE": "Invalid GraphQL mutation configuration",
+            "DESCRIPTION": "This error indicates, that a generic modifying action (create, update or delete) is performed upon an object from a GraphQL data source, but the configuration of that object does not include the mutation name for that action. \n\nThe GraphQL query builder needs to know, which mutations to perform for these generic actions. The corresponding mutation names must be defined in the meta object's data address properties to make these actions work:\n\n- graphql_create_mutation\n- graphql_update_mutation\n- graphql_delete_mutation",
+            "HINT": "",
+            "TYPE": "ERROR",
+            "DOCS": ""
         }
     ],
     "totals_rows": [],
