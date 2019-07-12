@@ -11,7 +11,54 @@ use exface\Core\Exceptions\Actions\ActionInputMissingError;
 /**
  * Calls an OData service operation (FunctionImport).
  * 
+ * This is a version of the `CallWebService` action, which is specialized on
+ * GraphQL web services. While all parameters of `CallWebService` can be used
+ * too, `CallGraphQLQuery` and `CallGraphQLMutation` can create GraphQL from
+ * their parameters automatically, making it very easy to integrate GraphQL
+ * services.
  * 
+ * Of course, the generic `CallWebService` can be used too if you configure
+ * the required `headers` and give it a `body` with placeholders for all 
+ * parameters, but it's simply much more work to do!
+ * 
+ * ## Examples
+ * 
+ * ```
+ * {
+ *   "query_name": "deliveries",
+ *   "parameters": [
+ *     {
+ *       "required": true,
+ *       "name": "limit",
+ *       "data_type": {
+ *         "alias": "exface.Core.Integer"
+ *       }
+ *     },
+ *     {
+ *       "required": true,
+ *       "name": "offset",
+ *       "data_type": {
+ *         "alias": "exface.Core.Integer"
+ *       }
+ *     }
+ *   ]
+ * }
+ * 
+ * ```
+ * 
+ * This action metamodell would allow to call the following GraphQL query:
+ * 
+ * ```
+ * type Query {
+ *   deliveries(
+ *      limit: Int = 20, 
+ *      offset: Int = 0
+ *   ): [Delivery!]!
+ * }
+ * 
+ * ```
+ * 
+ * Refer to the description of `CallWebService` for more generic examples.
  * 
  * @author Andrej Kabachnik
  *
