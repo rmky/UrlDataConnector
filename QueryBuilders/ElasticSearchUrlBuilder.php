@@ -4,21 +4,22 @@ namespace exface\UrlDataConnector\QueryBuilders;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
 use exface\Core\Interfaces\Model\MetaAttributeInterface;
-use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
-use exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup;
 use exface\Core\Interfaces\DataSources\DataConnectionInterface;
 use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
-use exface\Core\CommonLogic\QueryBuilder\QueryPartSorter;
 use exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder;
-use exface\Core\CommonLogic\Model\Condition;
-use exface\Core\CommonLogic\Model\ConditionGroup;
+use Psr\Http\Message\RequestInterface;
+use Elastica\Client;
+use Elastica\Search;
+use Elastica\Query;
+use exface\UrlDataConnector\Interfaces\HttpConnectionInterface;
+use GuzzleHttp\Psr7\Uri;
 use exface\Core\Interfaces\Model\MetaObjectInterface;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
-use exface\Core\Exceptions\QueryBuilderException;
-use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
-use Psr\Http\Message\RequestInterface;
-use exface\Core\DataTypes\BooleanDataType;
+use Elastica\ResultSet;
+use Elastica\QueryBuilder;
+use exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup;
+use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
 
 /**
  * This is a query builder for GraphQL.
@@ -40,60 +41,95 @@ use exface\Core\DataTypes\BooleanDataType;
  * @author Andrej Kabachnik
  *        
  */
-class GraphQLBuilder extends AbstractQueryBuilder
+class ElasticSearchUrlBuilder extends AbstractQueryBuilder
 {   
-    protected function buildGqlQueryRead() : string
+    
+    protected function getElaticaClient(HttpConnectionInterface $dataConnection) : Client
     {
-        $query = $this->buildGqlReadQueryName($this->getMainObject());
-        $fields = $this->buildGqlQueryFields($this->getAttributes());
-        return $this->buildGqlQuery($query, $fields);
+        $url = new Uri($dataConnection->getUrl());
+        $port = $url->getPort();
+        $host = $url->getHost();
+        return new Client([
+            'host' => $host,
+            'port' => $port
+        ]);
     }
     
-    /**
-     * 
-     * @param QueryPartAttribute[] $qparts
-     * @throws QueryBuilderException
-     * @return string
-     */
-    protected function buildGqlQueryFields(array $qparts) : string
+    protected function buildElasticQuerySearch(Client $client) : Search
+    {
+        $search = new Search($client);
+        $search->addindex($this->buildElasticIndexName($this->getMainObject()));
+        
+        // Filtering
+        $filters = $this->buildElasticFilters($this->getFilters());
+        $query = new Query($filters === null ? null : ["query" => $filters]);
+        
+        // Sorting
+        $query->setSort($this->buildElasticSorters());
+        
+        // Limit/Offset
+        $query->setFrom($this->getOffset())->setSize($this->getLimit());
+        
+        $search->setQuery($query);
+        return $search;
+    }
+    
+    protected function buildElasticSorters() : array
+    {
+        $sorters = [];
+        foreach ($this->getSorters() as $qpart) {
+            $sorters[$qpart->getDataAddress()] = strtolower($qpart->getOrder());
+        }
+        return $sorters;
+    }
+    
+    protected function buildElasticFilters(QueryPartFilterGroup $qpart) : ?array
+    {
+        $filters = [];
+        foreach ($qpart->getFilters() as $qpartFilter) {
+            $filters = array_merge($filters, $this->buildElasticFilter($qpartFilter));
+        }
+        if (empty($filters)) {
+            return null;
+        }
+        return [
+            "bool" => [
+                "must" => [
+                    [
+                        "match" => $filters
+                    ]
+                ]
+            ]
+        ];
+    }
+    
+    protected function buildElasticFilter(QueryPartFilter $qpart) : array
+    {
+        return [
+            $qpart->getDataAddress() => [
+                "query" => $qpart->getCompareValue(),
+                "type" => "phrase"
+            ]
+        ];
+    }
+    
+    protected function buildElasticSearchFields() : array
     {
         $fields = [];
-        foreach ($qparts as $qpart) {
-            if (count($qpart->getUsedRelations()) > 0) {
-                throw new QueryBuilderException('GraphQL queries with relations not yet supported!');
-            }
-            $fields[] = $this->buildGqlField($qpart, self::CRUD_ACTION_READ);
+        foreach ($this->getAttributes() as $qpart) {
+            $fields[] = $this->buildElasticSearchField($qpart);
         }
-        $fields = array_unique(array_filter($fields));
-        return implode("\r\n        ", $fields);
+        return $fields;
     }
     
-    protected function buildGqlQuery(string $queryName, string $fields) : string
+    protected function buildElasticSearchField(QueryPartAttribute $qpart) : string
     {
-        return <<<GraphQL
-
-query {
-    {$queryName} {
-        {$fields}
+        return $qpart->getDataAddress();
     }
-} 
-
-GraphQL;
-    }
-        
-    protected function buildGqlReadQueryName(MetaObjectInterface $object) : string 
+    
+    protected function buildElasticIndexName(MetaObjectInterface $object) : string
     {
         return $object->getDataAddress();
-    }
-    
-    protected function buildGqlField(QueryPartAttribute $qpart, string $crudAction = self::CRUD_ACTION_READ) : string
-    {
-        switch ($crudAction) {
-            case self::CRUD_ACTION_CREATE: $addr = $qpart->getDataAddressProperty('create_data_address'); break;
-            case self::CRUD_ACTION_READ: $addr = $qpart->getDataAddressProperty('read_data_address'); break;
-            case self::CRUD_ACTION_UPDATE: $addr = $qpart->getDataAddressProperty('update_data_address'); break;
-        }
-        return $addr ?? $qpart->getAttribute()->getDataAddress();
     }
     
     /**
@@ -106,25 +142,19 @@ GraphQL;
         return json_decode($query->getResponse()->getBody(), true);
     }
     
-    protected function readResultRows(array $data, string $operation) : array
+    protected function readResultRows(ResultSet $resultSet) : array
     {
-        $data = $data['data'][$operation] ?? [];
         $rows = [];
-        foreach ($data as $dataRow) {
+        foreach ($resultSet->getResults() as $result) {
             $row = [];
+            $data = $result->getData();
             foreach ($this->getAttributes() as $qpart) {
-                if ($field = $qpart->getDataAddress()) {
-                    $row[$qpart->getColumnKey()] = $dataRow[$field];
-                }
+                $row[$qpart->getColumnKey()] = $data[$qpart->getDataAddress()];
             }
             $rows[] = $row;
         }
+        
         return $rows;
-    }
-    
-    protected function buildGqlRequest(string $body) : RequestInterface
-    {
-        return new Request('POST', '', ['Content-Type' => 'application/graphql'], $body);
     }
     
     /**
@@ -135,68 +165,20 @@ GraphQL;
      */
     public function read(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
-        $result_rows = array();
-        $totalCnt = null;
-        
-        // Increase limit by one to check if there are more rows
-        $usingExtraRowForPagination = false;
-        if ($this->isRemotePaginationConfigured() === true) {
-            $originalLimit = $this->getLimit();
-            if ($originalLimit > 0) {
-                $usingExtraRowForPagination = true;
-                $this->setLimit($originalLimit+1, $this->getOffset());
-            }
-        }
-        
+        /* TODO query through the data connector
         $query = $data_connection->query(
             new Psr7DataQuery(
                 $this->buildGqlRequest($this->buildGqlQueryRead())
             )
-        );
-        if ($data = $this->parseResponse($query)) {
-            // Find the total row counter within the response
-            //$totalCnt = $this->findRowCounter($data, $query);
-            // Find data rows within the response and do the postprocessing
-            $result_rows = $this->readResultRows($data, $this->buildGqlReadQueryName($this->getMainObject()));
-            
-            // If we increased the limit artificially, pop off the last result row as it
-            // would not be there normally.
-            if ($usingExtraRowForPagination === true && count($result_rows) === ($originalLimit+1)) {
-                $hasMoreRows = true;
-                array_pop($result_rows);
-            } else {
-                $hasMoreRows = false;
-            }
-            
-            // Apply local filters
-            $cnt_before_local_filters = count($result_rows);
-            $result_rows = $this->applyFilters($result_rows);
-            $cnt_after_local_filters = count($result_rows);
-            if ($cnt_before_local_filters !== $cnt_after_local_filters) {
-                $totalCnt = $cnt_after_local_filters;
-            }
-            
-            // Apply local sorting
-            $result_rows = $this->applySorting($result_rows);
-            
-            // Apply local pagination
-            if (! $this->isRemotePaginationConfigured()) {
-                if (! $totalCnt) {
-                    $totalCnt = count($result_rows);
-                }
-                $result_rows = $this->applyPagination($result_rows);
-            }
-        } else {
-            $hasMoreRows = false;
-        }
+        );*/
+        $client = $this->getElaticaClient($data_connection);
+        $search = $this->buildElasticQuerySearch($client);
+        $resultSet = $search->search();
         
-        if ($hasMoreRows === false && ! $totalCnt) {
-            $totalCnt = count($result_rows);
-        }
-        
-        $rows = array_values($result_rows);
-        
-        return new DataQueryResultData($rows, count($result_rows), $hasMoreRows, $totalCnt);
+        $rows = $this->readResultRows($resultSet);        
+        $cnt = $resultSet->count();
+        $cntTotal = $resultSet->getTotalHits();
+        return new DataQueryResultData($rows, $cnt, ($cntTotal > $cnt), $cntTotal);
     }
     
     /**
@@ -209,304 +191,4 @@ GraphQL;
     {
         return $attribute->getRelationPath()->isEmpty();
     }
-    
-    
-    /**
-     *
-     * {@inheritDoc}
-     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addFilter()
-     */
-    protected function addFilter(QueryPartFilter $filter)
-    {
-        $result = parent::addFilter($filter);
-        $this->prepareFilter($filter);
-        return $result;
-    }
-    
-    /**
-     *
-     * {@inheritDoc}
-     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addFilterCondition()
-     */
-    public function addFilterCondition(Condition $condition)
-    {
-        $qpart = parent::addFilterCondition($condition);
-        $this->prepareFilter($qpart);
-        return $qpart;
-    }
-    
-    /**
-     *
-     * {@inheritDoc}
-     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addFilterGroup()
-     */
-    protected function addFilterGroup(QueryPartFilterGroup $filter_group)
-    {
-        $result = parent::addFilterGroup($filter_group);
-        $this->prepareFilterGroup($filter_group);
-        return $result;
-    }
-    
-    /**
-     *
-     * {@inheritDoc}
-     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addFilterConditionGroup()
-     */
-    public function addFilterConditionGroup(ConditionGroup $condition_group)
-    {
-        $qpart = parent::addFilterConditionGroup($condition_group);
-        $this->prepareFilterGroup($qpart);
-        return $qpart;
-    }
-    
-    /**
-     *
-     * {@inheritDoc}
-     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::setFiltersConditionGroup()
-     */
-    public function setFiltersConditionGroup(ConditionGroup $condition_group)
-    {
-        $result = parent::setFiltersConditionGroup($condition_group);
-        $this->prepareFilterGroup($this->getFilters());
-        return $result;
-    }
-    
-    /**
-     *
-     * {@inheritDoc}
-     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::setFilters()
-     */
-    protected function setFilters(QueryPartFilterGroup $filter_group)
-    {
-        $result = parent::setFilters($filter_group);
-        $this->prepareFilterGroup($filter_group);
-        return $result;
-    }
-    
-    /**
-     *
-     * @param QueryPartFilterGroup $group
-     * @return \exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup
-     */
-    protected function prepareFilterGroup(QueryPartFilterGroup $group)
-    {
-        foreach ($group->getFilters() as $qpart) {
-            $this->prepareFilter($qpart);
-        }
-        
-        foreach ($group->getNestedGroups() as $qpart) {
-            $this->prepareFilterGroup($qpart);
-        }
-        
-        return $group;
-    }
-    
-    /**
-     * Checks the custom filter configuration of a query part for consistency.
-     *
-     * @param QueryPartFilter $qpart
-     * @return \exface\Core\CommonLogic\QueryBuilder\QueryPartFilter
-     */
-    protected function prepareFilter(QueryPartFilter $qpart)
-    {
-        // TODO If there are options for remote filtering set and the filter_remote address property is not explicitly off, enable it
-        /*if ($qpart->getDataAddressProperty('filter_remote_url') || $qpart->getDataAddressProperty('filter_remote_argument') || $qpart->getDataAddressProperty('filter_remote_prefix')) {
-            if ($qpart->getDataAddressProperty('filter_remote') === '' || is_null($qpart->getDataAddressProperty('filter_remote'))) {
-                $qpart->setDataAddressProperty('filter_remote', 1);
-            }
-        }*/
-        
-        // Enable local filtering if remote filters are not enabled and local filtering is not explicitly off
-        if (! $qpart->getDataAddressProperty('filter_remote') && (is_null($qpart->getDataAddressProperty('filter_locally')) || $qpart->getDataAddressProperty('filter_locally') === '')) {
-            $qpart->setDataAddressProperty('filter_locally', 1);
-        }
-        
-        // If a local filter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always
-        // in the result - otherwise there will be nothing to filter over ;)
-        if ($qpart->getDataAddressProperty('filter_locally')) {
-            $qpart->setApplyAfterReading(true);
-            if ($qpart->getAttribute()) {
-                $this->addAttribute($qpart->getAlias());
-            }
-        }
-        return $qpart;
-    }
-    
-    /**
-    *
-    * {@inheritDoc}
-    * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::addSorter()
-    */
-    public function addSorter($sort_by, $order = 'ASC') {
-        $qpart = parent::addSorter($sort_by, $order);
-        $this->prepareSorter($qpart);
-        return $qpart;
-    }
-    
-    /**
-     * Checks the custom sorting configuration of a query part for consistency.
-     *
-     * @param QueryPartSorter $qpart
-     * @return \exface\Core\CommonLogic\QueryBuilder\QueryPartSorter
-     */
-    protected function prepareSorter(QueryPartSorter $qpart)
-    {
-        // If there are options for remote sorting set and the sort_remote address property is not explicitly off, enable it
-        if ($qpart->getDataAddressProperty('sort_remote_graphql_field')) {
-            if ($qpart->getDataAddressProperty('sort_remote') === '' || is_null($qpart->getDataAddressProperty('sort_remote'))) {
-                $qpart->setDataAddressProperty('sort_remote', 1);
-            }
-        }
-        
-        // Enable local sorting if remote sort is not enabled and local sorting is not explicitly off
-        if (! $qpart->getDataAddressProperty('sort_remote') && (is_null($qpart->getDataAddressProperty('sort_locally')) || $qpart->getDataAddressProperty('sort_locally') === '')) {
-            $qpart->setDataAddressProperty('sort_locally', 1);
-        }
-        
-        // If a local sorter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always
-        // in the result - otherwise there will be nothing to sort over ;)
-        if ($qpart->getDataAddressProperty('sort_locally')) {
-            $qpart->setApplyAfterReading(true);
-            if ($qpart->getAttribute()) {
-                $this->addAttribute($qpart->getAlias());
-            }
-        }
-        
-        return $qpart;
-    }
-    
-    /**
-     * Returns TRUE if remote pagination for the main object is enabled and the
-     * request parameters for limit and offset are set - FALSE otherwise.
-     *
-     * @return boolean
-     */
-    protected function isRemotePaginationConfigured() : bool
-    {
-        return false;
-        
-        $dsOption = $this->getMainObject()->getDataAddressProperty('request_remote_pagination');
-        if ($dsOption === null) {
-            // TODO
-            // return $this->buildUrlParamLimit($this->getMainObject()) ? true : false;
-        } else {
-            // TODO
-            // return BooleanDataType::cast($dsOption) && $this->buildUrlParamLimit($this->getMainObject());
-        }
-        return false;
-    }
-    
-    protected function buildGqlMutation(string $mutationName, array $argFieldsValues, array $returnFields) : string
-    {
-        $arguments = '';
-        $returns = '';
-        foreach ($argFieldsValues as $field => $value) {
-            $arguments .= "        {$field}: {$value}\r\n";
-        }
-        $arguments = trim($arguments);
-        foreach ($returnFields as $field) {
-            $returns .= "        {$field}\r\n";
-        }
-        $returns = trim($returns);
-        return <<<GraphQL
-
-mutation {
-    {$this->buildGqlMutationCreateName($this->getMainObject())} (
-        {$arguments}
-    ) {
-        {$returns}
-    }
-} 
-
-GraphQL;
-    }
-    
-    protected function buildGqlValue(QueryPartValue $qpart, $value) : string
-    {
-        return '"' . str_replace('"', '\"', $value) . '"';
-    }
-    
-    protected function buildGqlMutationCreateName(MetaObjectInterface $object) : string
-    {
-        if (! $name = $object->getDataAddressProperty('graphql_create_mutation')) {
-            throw new QueryBuilderException('Cannot create object "' . $object->getName() . '" [' . $object->getAliasWithNamespace() . '] via GraphQL: no graphql_create_mutation data address property defined!', '76G66CL');
-        }
-        return $name;
-    }
-    
-    protected function buildGqlMutationUpdateName(MetaObjectInterface $object) : string
-    {
-        if (! $name = $object->getDataAddressProperty('graphql_update_mutation')) {
-            throw new QueryBuilderException('Cannot update object "' . $object->getName() . '" [' . $object->getAliasWithNamespace() . '] via GraphQL: no graphql_create_mutation data address property defined!', '76G66CL');
-        }
-        return $name;
-    }
-    
-    protected function buildGqlMutationDeleteName(MetaObjectInterface $object) : string
-    {
-        if (! $name = $object->getDataAddressProperty('graphql_delete_mutation')) {
-            throw new QueryBuilderException('Cannot delete object "' . $object->getName() . '" [' . $object->getAliasWithNamespace() . '] via GraphQL: no graphql_create_mutation data address property defined!', '76G66CL');
-        }
-        return $name;
-    }
-    
-    public function create(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
-    {
-        $resultIds = array();
-        
-        $object = $this->getMainObject();
-        $mutationName = $this->buildGqlMutationCreateName($object);
-        if ($object->hasUidAttribute() === true) {
-            $uidField = $object->getUidAttribute()->getDataAddress();
-            $uidAlias = $object->getUidAttributeAlias();
-        }
-        
-        foreach ($this->buildGqlMutationRows(self::CRUD_ACTION_CREATE) as $row) {
-            $mutation = $this->buildGqlMutation($mutationName, $row, [$uidField]);
-            $query = new Psr7DataQuery($this->buildGqlRequest($mutation));
-            $result = $this->parseResponse($data_connection->query($query));
-            $resultIds[] = [$uidAlias => $result['data'][$mutationName][$uidField]];
-        }
-        
-        return new DataQueryResultData($resultIds, count($resultIds), false);
-    }
-    
-    public function update(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
-    {
-        $resultIds = array();
-        
-        $object = $this->getMainObject();
-        $mutationName = $this->buildGqlMutationDeleteName($object);
-        if ($object->hasUidAttribute() === true) {
-            $uidField = $object->getUidAttribute()->getDataAddress();
-            $uidAlias = $object->getUidAttributeAlias();
-        }
-        
-        foreach ($this->buildGqlMutationRows(self::CRUD_ACTION_UPDATE) as $row) {
-            $mutation = $this->buildGqlMutation($mutationName, $row, [$uidField]);
-            $query = new Psr7DataQuery($this->buildGqlRequest($mutation));
-            $result = $this->parseResponse($data_connection->query($query));
-            $resultIds[] = [$uidAlias => $result['data'][$mutationName][$uidField]];
-        }
-        
-        return new DataQueryResultData([], count($resultIds), false);
-    }
-    
-    protected function buildGqlMutationRows($createOrUpdate = self::CRUD_ACTION_CREATE) : array
-    {
-        $rows = [];
-        
-        foreach ($this->getValues() as $qpart) {
-            $field = $this->buildGqlField($qpart, $createOrUpdate);
-            foreach ($qpart->getValues() as $rowNr => $val) {
-                if (count($qpart->getUsedRelations()) > 0) {
-                    throw new QueryBuilderException('GraphQL mutations with relations not yet supported!');
-                }
-                $rows[$rowNr][$field] = $this->buildGqlValue($qpart, $val);
-            }
-        }
-        
-        return $rows;
-    }
-    
 }
