@@ -7,11 +7,14 @@ use exface\UrlDataConnector\ModelBuilders\GraphQLModelBuilder;
 use exface\UrlDataConnector\Psr7DataQuery;
 use exface\Core\Interfaces\DataSources\DataQueryInterface;
 use exface\Core\Exceptions\DataSources\DataQueryFailedError;
+use exface\UrlDataConnector\ModelBuilders\ElasticSearchModelBuilder;
 
 /**
- * Connector for GraphQL web services.
+ * Connector for ElasticSearch REST API
  * 
- * The only required parameter is the `url`, which should point to the GraphQL endpoint.
+ * The only required parameter is the `url`, which should point to the ElasticSearch API:
+ * i.e. `localhost:9200` for a local installation with the default port. Don't forget the
+ * port number in your URL!
  * 
  * For more options like authentification, etc. refer to the documentation of the generic 
  * `HttpConnector`. 
@@ -19,18 +22,18 @@ use exface\Core\Exceptions\DataSources\DataQueryFailedError;
  * @author Andrej Kabachnik
  *        
  */
-class GraphQLConnector extends HttpConnector
+class ElasticSearchConnector extends HttpConnector
 {
     public function performQuery(DataQueryInterface $query)
     {
         $query = parent::performQuery($query);
-        
+        /* TODO
         $arr = json_decode($query->getResponse()->getBody(), true);
         if ($arr['errors'] !== null) {
             $err = $arr['errors'][0];
             $error = 'GraphQL error "' . $err['message'] . '" (path: ' . $err['path'] . ', locations: ' . json_encode($err['locations']) . ')';
             throw new DataQueryFailedError($query, $error);
-        }
+        }*/
         
         return $query;
     }
@@ -42,16 +45,6 @@ class GraphQLConnector extends HttpConnector
      */
     public function getModelBuilder()
     {
-        return new GraphQLModelBuilder($this);
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\DataConnectors\HttpConnector::willIgnore()
-     */
-    protected function willIgnore(Psr7DataQuery $query) : bool
-    {
-        return false;
+        return new ElasticSearchModelBuilder($this);
     }
 }
