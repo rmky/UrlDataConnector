@@ -51,25 +51,15 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         
         $created_ds = $this->generateAttributes($meta_object, $transaction);
         
-        $entityType = $this->getEntityType($meta_object);
-        
-        $relationConstraints = $this->findRelationNodes($entityType);
-        $this->generateRelations($meta_object->getApp(), $relationConstraints, $transaction);
-        
-        $functionImports = $this->findActionNodes($entityType);
-        $this->generateActions($meta_object, $functionImports, $transaction);
+        $this->generateRelations($meta_object->getApp(), $meta_object, $transaction); 
+        $this->generateActions($meta_object, $transaction);
         
         $transaction->commit();
         
         return $created_ds;
     }
     
-    protected function findRelationNodes(string $entityType) : Crawler
-    {
-        return $this->getMetadata()->filterXPath($this->getXPathToProperties($entityType))->siblings()->filterXPath('default:NavigationProperty/default:ReferentialConstraint');
-    }
-    
-    protected function findActionNodes(string $entityType) : Crawler
+    protected function findFunctionImports(string $entityType) : Crawler
     {
         return $this->getMetadata()->filterXPath('default:FunctionImport[@ReturnType="' . $this->getNamespace($entityType) . '.' . $entityType . '"]');
     }
@@ -95,18 +85,18 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                 $created_ds->addRow($row);
             }
         }
-        $created_ds->setCounterForRowsInDataSource(count($imported_rows));
         
         if (! $created_ds->isEmpty()) {
             $created_ds->dataCreate(false, $transaction);
             // Reload object model and recreate the data sheet, so it is based on the refreshed object
             $refreshed_object = $meta_object->getWorkbench()->model()->reloadObject($meta_object);
             $uxon = $created_ds->exportUxonObject();
-            $created_ds = DataSheetFactory::createFromObject($refreshed_object);
-            $created_ds->importUxonObject($uxon);
+            $reloaded_ds = DataSheetFactory::createFromObject($refreshed_object);
+            $reloaded_ds->importUxonObject($uxon);
+            $reloaded_ds->setCounterForRowsInDataSource(count($imported_rows));
         }
         
-        return $created_ds;
+        return $reloaded_ds;
     }
     
     /**
@@ -122,6 +112,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         $existing_objects->dataRead();
         
         $new_objects = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.OBJECT');
+        $new_objects->setAutoCount(false);
         
         $transaction = $app->getWorkbench()->data()->startTransaction();
         
@@ -150,9 +141,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             foreach ($new_objects->getRows() as $row) {
                 $object = $app->getWorkbench()->model()->getObjectByAlias($row['ALIAS'], $app->getAliasWithNamespace());
                 $this->generateAttributes($object, $transaction);
-                
-                $functionImports = $this->findActionNodes($this->getEntityType($object));
-                $this->generateActions($object, $functionImports, $transaction);
+                $this->generateActions($object, $transaction);
             }
             // After all attributes are there, generate relations. It must be done after all new objects have
             // attributes as relations need attribute UIDs on both sides!
@@ -171,22 +160,23 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
      * Example $metadata:
      * 
      *  <FunctionImport Name="UnlockTaskItem" ReturnType="MY.NAMESPACE.TaskItem" EntitySet="TaskItemSet" m:HttpMethod="GET">
-            <Parameter Name="TaskId" Type="Edm.String" Mode="In" MaxLength="20"/>
-            <Parameter Name="TaskItemId" Type="Edm.String" Mode="In" MaxLength="20"/>
-            <Parameter Name="WarehouseNumber" Type="Edm.String" Mode="In" MaxLength="10"/>
-        </FunctionImport>
+     *      <Parameter Name="TaskId" Type="Edm.String" Mode="In" MaxLength="20"/>
+     *      <Parameter Name="TaskItemId" Type="Edm.String" Mode="In" MaxLength="20"/>
+     *      <Parameter Name="WarehouseNumber" Type="Edm.String" Mode="In" MaxLength="10"/>
+     *  </FunctionImport>
      * 
      * @param MetaObjectInterface $object
      * @param Crawler $functionImports
      * @param DataTransactionInterface $transaction
      * @return DataSheetInterface
      */
-    protected function generateActions(MetaObjectInterface $object, Crawler $functionImports, DataTransactionInterface $transaction) : DataSheetInterface
+    protected function generateActions(MetaObjectInterface $object, DataTransactionInterface $transaction) : DataSheetInterface
     {
         $newActions = DataSheetFactory::createFromObjectIdOrAlias($object->getWorkbench(), 'exface.Core.OBJECT_ACTION');
         $newActions->setAutoCount(false);
         $skipped = 0;
         
+        $functionImports = $this->findFunctionImports($this->getEntityType($object));
         foreach ($functionImports as $node) {
             
             // Read action parameters
@@ -268,109 +258,19 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         return ucwords(str_replace('_', ' ', StringDataType::convertCasePascalToUnderscore($alias)));
     }
     
-     /**
-     * Here is how an <Association> node looks like (provided, that each Delivery consists
-     * of 0 to many Tasks).
-     * 
-<Association Name="DeliveryToTasks" sap:content-version="1">
-    <End Type="Namespace.Delivery" Multiplicity="1" Role="FromRole_DeliveryToTasks"/>
-    <End Type="Namespace.Task" Multiplicity="*" Role="ToRole_DeliveryToTasks"/>
-    <ReferentialConstraint>
-        <Principal Role="FromRole_DeliveryToTasks">
-            <PropertyRef Name="DeliveryId"/>
-        </Principal>
-        <Dependent Role="ToRole_DeliveryToTasks">
-            <PropertyRef Name="DeliveryId"/>
-        </Dependent>
-    </ReferentialConstraint>
-</Association>
+    /**
      * 
      * @param AppInterface $app
      * @param Crawler $associations
      * @param DataTransactionInterface $transaction
      * @return \exface\Core\Interfaces\DataSheets\DataSheetInterface
      */
-    protected function generateRelations(AppInterface $app, Crawler $associations = null, DataTransactionInterface $transaction = null)
+    protected function generateRelations(AppInterface $app, MetaObjectInterface $object = null, DataTransactionInterface $transaction = null)
     {
-        // If no nodes specified, get all constraint nodes from the metadata
-        if (is_null($associations)) {
-            $associations = $this->getMetadata()->filterXPath('//default:Association');
-        }
-        
         $new_relations = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.ATTRIBUTE');
-        $skipped = 0;
+        $new_relations->setAutoCount(false);
+        $new_relations = $this->getRelationsData($app, $new_relations);
         
-        foreach ($associations as $node) {
-            // This array needs to be filled
-            $attributeData = [
-                'UID' => null,
-                'ALIAS' => null,
-                'NAME' => null,
-                'RELATED_OBJ' => null,
-                'RELATED_OBJ_ATTR' => null,
-                'DATA_ADDRESS_PROPS' => null,
-                'COPY_WITH_RELATED_OBJECT' => 0, // oData services are expected to take care of correct copying themselves
-                'DELETE_WITH_RELATED_OBJECT' => 0 // oData services are expected to take care of cascading deletes themselves
-            ];
-                
-            try {
-                
-                $ends = [];
-                foreach ($node->getElementsByTagName('End') as $endNode) {
-                    $ends[$endNode->getAttribute('Role')] = $endNode;
-                }
-                
-                $constraintNode = $node->getElementsByTagName('ReferentialConstraint')->item(0);
-                if ($constraintNode === null) {
-                    // If the association does not have <ReferentialConstraint>, we don't know the keys
-                    // for the relation, so we can't use it. This happens if Associations are generated
-                    // from CDS annotations for value help. In this case, a special section is generated
-                    // in <Annotations>.
-                    // TODO generate Relations from Annotations
-                    $err = new ModelBuilderRuntimeError($this, 'Cannot create meta relation for OData Association "' . $node->getAttribute('Name') . '" - no ReferentialConstraint found!');
-                    $app->getWorkbench()->getLogger()->logException($err);
-                    continue;
-                }
-                $principalNode = $constraintNode->getElementsByTagName('Principal')->item(0);
-                $dependentNode = $constraintNode->getElementsByTagName('Dependent')->item(0);
-                
-                $leftEndNode = $ends[$dependentNode->getAttribute('Role')];
-                $leftEntityType = $this->stripNamespace($leftEndNode->getAttribute('Type'));
-                $leftObject = $app->getWorkbench()->model()->getObjectByAlias($leftEntityType, $app->getAliasWithNamespace());
-                $leftAttributeAlias = $dependentNode->getElementsByTagName('PropertyRef')->item(0)->getAttribute('Name');
-                $leftAttribute = $leftObject->getAttribute($leftAttributeAlias);
-                
-                // Skip existing relations with the same alias
-                if ($leftAttribute->isRelation() === true) {
-                    $skipped++;
-                    continue;
-                }
-                
-                $rightEndNode = $ends[$principalNode->getAttribute('Role')];
-                $rightEntityType = $this->stripNamespace($rightEndNode->getAttribute('Type'));
-                $rightObject = $app->getWorkbench()->model()->getObjectByAlias($rightEntityType, $app->getAliasWithNamespace());
-                $rightAttributeAlias = $principalNode->getElementsByTagName('PropertyRef')->item(0)->getAttribute('Name');
-                $rightKeyAttribute = $rightObject->getAttribute($rightAttributeAlias);
-                
-                $attributeData['UID'] = $leftObject->getAttribute($leftAttributeAlias)->getId();
-                $attributeData['ALIAS'] = $leftAttributeAlias;
-                $attributeData['NAME'] = $rightObject->getName();
-                $attributeData['RELATED_OBJ'] = $rightObject->getId();
-                $attributeData['RELATED_OBJ_ATTR'] = $rightKeyAttribute->isUidForObject() === false ? $rightKeyAttribute->getId() : '';
-                $attributeData['DATA_ADDRESS_PROPS'] = $leftAttribute->getDataAddressProperties()->extend(new UxonObject(['odata_association' => $node->getAttribute('Name')]))->toJson();
-                
-            } catch (MetaObjectNotFoundError $eo) {
-                $app->getWorkbench()->getLogger()->logException(new ModelBuilderRuntimeError($this, 'Cannot find object for one of the ends of oData association ' . $node->getAttribute('Name') . ': Skipping association!', '73G87II', $eo), LoggerInterface::WARNING);
-                continue;
-            } catch (MetaAttributeNotFoundError $ea) {
-                throw new ModelBuilderRuntimeError($this, 'Cannot convert oData association "' . $node->getAttribute('Name') . '" to relation for object ' . $leftObject->getAliasWithNamespace() . ' automatically: one of the key attributes was not found - see details below.', '73G87II', $ea);
-            }
-                
-            // Add relation data to the data sheet: just those fields, that will mark the attribute as a relation
-            $new_relations->addRow($attributeData);
-        }
-        
-        $new_relations->setCounterForRowsInDataSource($new_relations->countRows() + $skipped);
         
         if (! $new_relations->isEmpty()) {
             // To update attributes with new relation data, we need to read the current system columns first
@@ -388,62 +288,116 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         return $new_relations;
     }
     
-    /**
-     * Here is how an <Association> node looks like (provided, that each Delivery consists
-     * of 0 to many Tasks).
-     * 
-<Association Name="DeliveryToTasks" sap:content-version="1">
-    <End Type="Namespace.Delivery" Multiplicity="1" Role="FromRole_DeliveryToTasks"/>
-    <End Type="Namespace.Task" Multiplicity="*" Role="ToRole_DeliveryToTasks"/>
-    <ReferentialConstraint>
-        <Principal Role="FromRole_DeliveryToTasks">
-            <PropertyRef Name="DeliveryId"/>
-        </Principal>
-        <Dependent Role="ToRole_DeliveryToTasks">
-            <PropertyRef Name="DeliveryId"/>
-        </Dependent>
-    </ReferentialConstraint>
-</Association>
-     * 
-     * @param \DOMElement $association
-     * @return array
-     */
-    private function getRelationDataFromAssociation(\DOMElement $association, AppInterface $app) : array
+    protected function getRelationsData(AppInterface $app, DataSheetInterface $dataSheet) : DataSheetInterface
+    {
+        $skipped = 0;
+        
+        $associations = $this->getMetadata()->filterXPath('//default:Association');
+        foreach ($associations as $node) {
+            // Add relation data to the data sheet - those fields, that will mark the attribute as a relation
+            if ($attributeData = $this->getRelationDataFromAssociation($node, $app)) {
+                $dataSheet->addRow($attributeData);
+            } else {
+                $skipped++;
+            }
+        }
+        
+        // TODO filter away relations, that do not start or end with the $object if that is specified
+        $dataSheet->setCounterForRowsInDataSource($dataSheet->countRows() + $skipped);
+        
+        return $dataSheet;
+    }
+    
+    protected function getRelationDataTemplate() : array
     {
         // This array needs to be filled
-        $attributeData = [
+        return [
             'UID' => null,
             'ALIAS' => null,
             'NAME' => null,
             'RELATED_OBJ' => null,
-            'RELATED_OBJ_ATTR' => null
+            'RELATED_OBJ_ATTR' => null,
+            'DATA_ADDRESS_PROPS' => null,
+            'COPY_WITH_RELATED_OBJECT' => 0, // oData services are expected to take care of correct copying themselves
+            'DELETE_WITH_RELATED_OBJECT' => 0 // oData services are expected to take care of cascading deletes themselves
         ];
+    }
+    
+    /**
+     * Here is how an <Association> node looks like (provided, that each Delivery consists
+     * of 0 to many Tasks).
+     * 
+     * <Association Name="DeliveryToTasks" sap:content-version="1">
+     *     <End Type="Namespace.Delivery" Multiplicity="1" Role="FromRole_DeliveryToTasks"/>
+     *     <End Type="Namespace.Task" Multiplicity="*" Role="ToRole_DeliveryToTasks"/>
+     *     <ReferentialConstraint>
+     *         <Principal Role="FromRole_DeliveryToTasks">
+     *             <PropertyRef Name="DeliveryId"/>
+     *         </Principal>
+     *         <Dependent Role="ToRole_DeliveryToTasks">
+     *             <PropertyRef Name="DeliveryId"/>
+     *         </Dependent>
+     *     </ReferentialConstraint>
+     * </Association>
+     * 
+     * @param \DOMElement $association
+     * @return array
+     */
+    private function getRelationDataFromAssociation(\DOMElement $node, AppInterface $app) : ?array
+    {
+        $attributeData = $this->getRelationDataTemplate();
         
-        $ends = [];
-        foreach ($association->getElementsByTagName('End') as $endNode) {
-            $ends[$endNode->getAttribute('Role')] = $endNode;
+        try {
+            
+            $ends = [];
+            foreach ($node->getElementsByTagName('End') as $endNode) {
+                $ends[$endNode->getAttribute('Role')] = $endNode;
+            }
+            
+            $constraintNode = $node->getElementsByTagName('ReferentialConstraint')->item(0);
+            if ($constraintNode === null) {
+                // If the association does not have <ReferentialConstraint>, we don't know the keys
+                // for the relation, so we can't use it. This happens if Associations are generated
+                // from CDS annotations for value help. In this case, a special section is generated
+                // in <Annotations>.
+                // TODO generate Relations from Annotations
+                $err = new ModelBuilderRuntimeError($this, 'Cannot create meta relation for OData Association "' . $node->getAttribute('Name') . '" - no ReferentialConstraint found!');
+                $app->getWorkbench()->getLogger()->logException($err);
+                return null;
+            }
+            $principalNode = $constraintNode->getElementsByTagName('Principal')->item(0);
+            $dependentNode = $constraintNode->getElementsByTagName('Dependent')->item(0);
+            
+            $leftEndNode = $ends[$dependentNode->getAttribute('Role')];
+            $leftEntityType = $this->stripNamespace($leftEndNode->getAttribute('Type'));
+            $leftObject = $app->getWorkbench()->model()->getObjectByAlias($leftEntityType, $app->getAliasWithNamespace());
+            $leftAttributeAlias = $dependentNode->getElementsByTagName('PropertyRef')->item(0)->getAttribute('Name');
+            $leftAttribute = $leftObject->getAttribute($leftAttributeAlias);
+            
+            // Skip existing relations with the same alias
+            if ($leftAttribute->isRelation() === true) {
+                return null;
+            }
+            
+            $rightEndNode = $ends[$principalNode->getAttribute('Role')];
+            $rightEntityType = $this->stripNamespace($rightEndNode->getAttribute('Type'));
+            $rightObject = $app->getWorkbench()->model()->getObjectByAlias($rightEntityType, $app->getAliasWithNamespace());
+            $rightAttributeAlias = $principalNode->getElementsByTagName('PropertyRef')->item(0)->getAttribute('Name');
+            $rightKeyAttribute = $rightObject->getAttribute($rightAttributeAlias);
+            
+            $attributeData['UID'] = $leftObject->getAttribute($leftAttributeAlias)->getId();
+            $attributeData['ALIAS'] = $leftAttributeAlias;
+            $attributeData['NAME'] = $rightObject->getName();
+            $attributeData['RELATED_OBJ'] = $rightObject->getId();
+            $attributeData['RELATED_OBJ_ATTR'] = $rightKeyAttribute->isUidForObject() === false ? $rightKeyAttribute->getId() : '';
+            $attributeData['DATA_ADDRESS_PROPS'] = $leftAttribute->getDataAddressProperties()->extend(new UxonObject(['odata_association' => $node->getAttribute('Name')]))->toJson();
+            
+        } catch (MetaObjectNotFoundError $eo) {
+            $app->getWorkbench()->getLogger()->logException(new ModelBuilderRuntimeError($this, 'Cannot find object for one of the ends of oData association ' . $node->getAttribute('Name') . ': Skipping association!', '73G87II', $eo), LoggerInterface::WARNING);
+            return null;
+        } catch (MetaAttributeNotFoundError $ea) {
+            throw new ModelBuilderRuntimeError($this, 'Cannot convert oData association "' . $node->getAttribute('Name') . '" to relation for object ' . $leftObject->getAliasWithNamespace() . ' automatically: one of the key attributes was not found - see details below.', '73G87II', $ea);
         }
-        
-        $constraintNode = $association->getElementsByTagName('ReferentialConstraint')->item(0);
-        $principalNode = $constraintNode->getElementsByTagName('Principal')->item(0);
-        $dependentNode = $constraintNode->getElementsByTagName('Dependent')->item(0);
-        
-        $leftEndNode = $ends[$dependentNode->getAttribute('Role')];
-        $leftEntityType = $this->stripNamespace($leftEndNode->getAttribute('Type'));
-        $leftObject = $app->getWorkbench()->model()->getObjectByAlias($leftEntityType, $app->getAliasWithNamespace());
-        $leftAttributeAlias = $dependentNode->getElementsByTagName('PropertyRef')->getAttribute('Name');
-        
-        $rightEndNode = $ends[$principalNode->getAttribute('Role')];
-        $rightEntityType = $this->stripNamespace($rightEndNode->getAttribute('Type'));
-        $rightObject = $app->getWorkbench()->model()->getObjectByAlias($rightEntityType, $app->getAliasWithNamespace());
-        $rightAttributeAlias = $principalNode->getElementsByTagName('PropertyRef')->getAttribute('Name');
-        
-        $attributeData['UID'] = $leftObject->getAttribute($leftAttributeAlias)->getId();
-        $attributeData['ALIAS'] = $leftAttributeAlias;
-        $attributeData['NAME'] = $rightObject->getName();
-        $attributeData['RELATED_OBJ'] = $rightObject->getId();
-        $rightKeyAttribute = $rightObject->getAttribute($rightAttributeAlias);
-        $attributeData['RELATED_OBJ_ATTR'] = $rightKeyAttribute->isUidForObject() === false ? $rightKeyAttribute->getId() : '';
         
         return $attributeData;
     }
@@ -475,6 +429,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
     protected function getObjectData(Crawler $entity_nodes, AppInterface $app, DataSourceInterface $data_source) 
     {
         $sheet = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.OBJECT');
+        $sheet->setAutoCount(false);
         $ds_uid = $data_source->getId();
         $app_uid = $app->getUid();
         foreach ($entity_nodes as $entity) {

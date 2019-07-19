@@ -8,6 +8,7 @@ use Symfony\Component\DomCrawler\Crawler;
 use exface\Core\Exceptions\Model\MetaObjectNotFoundError;
 use exface\Core\Exceptions\ModelBuilders\ModelBuilderRuntimeError;
 use exface\Core\Interfaces\Log\LoggerInterface;
+use exface\Core\Interfaces\Model\MetaObjectInterface;
 
 /**
  * 
@@ -23,11 +24,14 @@ class OData4ModelBuilder extends OData2ModelBuilder {
      * {@inheritDoc}
      * @see \exface\UrlDataConnector\ModelBuilders\OData2ModelBuilder::generateRelations()
      */
-    protected function generateRelations(AppInterface $app, Crawler $referentialConstraints = null, DataTransactionInterface $transaction = null)
+    protected function generateRelations(AppInterface $app, MetaObjectInterface $targetObject = null, DataTransactionInterface $transaction = null)
     {
         // If no nodes specified, get all constraint nodes from the metadata
-        if (is_null($referentialConstraints)) {
+        if ($targetObject === null) {
             $referentialConstraints = $this->getMetadata()->filterXPath('//default:EntityType/default:NavigationProperty/default:ReferentialConstraint');
+        } else {
+            $entityType = $this->getEntityType($targetObject);
+            $referentialConstraints = $this->findReferentialConstraints($entityType);
         }
         
         $new_relations = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.ATTRIBUTE');
@@ -93,9 +97,9 @@ class OData4ModelBuilder extends OData2ModelBuilder {
     /**
      * 
      * {@inheritDoc}
-     * @see \exface\UrlDataConnector\ModelBuilders\OData2ModelBuilder::findRelationNodes()
+     * @see \exface\UrlDataConnector\ModelBuilders\OData2ModelBuilder::findReferentialConstraints()
      */
-    protected function findRelationNodes(string $entityType) : Crawler
+    protected function findReferentialConstraints(string $entityType) : Crawler
     {
         return $this->getMetadata()->filterXPath($this->getXPathToProperties($entityType))->siblings()->filterXPath('default:NavigationProperty/default:ReferentialConstraint');
     }
