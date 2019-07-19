@@ -268,7 +268,22 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         return ucwords(str_replace('_', ' ', StringDataType::convertCasePascalToUnderscore($alias)));
     }
     
-    /**
+     /**
+     * Here is how an <Association> node looks like (provided, that each Delivery consists
+     * of 0 to many Tasks).
+     * 
+<Association Name="DeliveryToTasks" sap:content-version="1">
+    <End Type="Namespace.Delivery" Multiplicity="1" Role="FromRole_DeliveryToTasks"/>
+    <End Type="Namespace.Task" Multiplicity="*" Role="ToRole_DeliveryToTasks"/>
+    <ReferentialConstraint>
+        <Principal Role="FromRole_DeliveryToTasks">
+            <PropertyRef Name="DeliveryId"/>
+        </Principal>
+        <Dependent Role="ToRole_DeliveryToTasks">
+            <PropertyRef Name="DeliveryId"/>
+        </Dependent>
+    </ReferentialConstraint>
+</Association>
      * 
      * @param AppInterface $app
      * @param Crawler $associations
@@ -306,6 +321,16 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                 }
                 
                 $constraintNode = $node->getElementsByTagName('ReferentialConstraint')->item(0);
+                if ($constraintNode === null) {
+                    // If the association does not have <ReferentialConstraint>, we don't know the keys
+                    // for the relation, so we can't use it. This happens if Associations are generated
+                    // from CDS annotations for value help. In this case, a special section is generated
+                    // in <Annotations>.
+                    // TODO generate Relations from Annotations
+                    $err = new ModelBuilderRuntimeError($this, 'Cannot create meta relation for OData Association "' . $node->getAttribute('Name') . '" - no ReferentialConstraint found!');
+                    $app->getWorkbench()->getLogger()->logException($err);
+                    continue;
+                }
                 $principalNode = $constraintNode->getElementsByTagName('Principal')->item(0);
                 $dependentNode = $constraintNode->getElementsByTagName('Dependent')->item(0);
                 
