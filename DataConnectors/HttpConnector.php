@@ -20,6 +20,7 @@ use exface\UrlDataConnector\Interfaces\HttpConnectionInterface;
 use Psr\Http\Message\ResponseInterface;
 use exface\Core\DataTypes\StringDataType;
 use GuzzleHttp\Psr7\Uri;
+use exface\Core\Exceptions\DataSources\DataConnectionConfigurationError;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -39,6 +40,8 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     private $charset = null;
 
     private $use_cookies = false;
+    
+    private $use_cookie_sessions = false;
 
     private $cache_enabled = false;
 
@@ -109,9 +112,20 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             if (! file_exists($cookieDir)) {
                 mkdir($cookieDir);
             }
-            $storeSessionCookies = $this->getWorkbench()->getCMS()->isUserLoggedIn();
+            
+            if ($this->getUseCookieSessions() === true) {
+                if ($this->getWorkbench()->getCMS()->isUserLoggedIn() === false) {
+                    $err = new DataConnectionFailedError($this, 'Cannot use session cookies for HTTP connection "' . $this->getAlias() . '": user not logged on!');
+                    $this->getWorkbench()->getLogger()->logException($err);
+                }
+                $storeSessionCookies = true;
+            } else {
+                $storeSessionCookies = false;
+            }
             $cookieJar = new \GuzzleHttp\Cookie\FileCookieJar($cookieDir . DIRECTORY_SEPARATOR . $cookieFile, $storeSessionCookies);
             $defaults['cookies'] = $cookieJar;
+        } elseif ($this->getUseCookieSessions() === true) {
+            throw new DataConnectionConfigurationError($this, 'Cannot set use_cookie_sessions=true if use_cookies=false for HTTP connection alias "' . $this->getAlias() . '"!');
         }
         
         // Cache
@@ -301,26 +315,56 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      *
      * @return boolean
      */
-    public function getUseCookies()
+    public function getUseCookies() : bool
     {
         return $this->use_cookies;
     }
 
     /**
      * Set to TRUE to use cookies for this connection.
-     * Defaults to FALSE.
      *
      * Cookies will be stored in the data folder of the current user!
+     * 
+     * NOTE: session cookies will not be stored unless `use_cookie_sessions` is
+     * also explicitly set to `TRUE`!
      *
      * @uxon-property use_cookies
      * @uxon-type boolean
+     * @uxon-default false
      *
      * @param boolean $value            
      * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
      */
-    public function setUseCookies($value)
+    public function setUseCookies(bool $value) : HttpConnectionInterface
     {
-        $this->use_cookies = \exface\Core\DataTypes\BooleanDataType::cast($value);
+        $this->use_cookies = $value;
+        return $this;
+    }
+    
+    /**
+     *
+     * @return bool
+     */
+    public function getUseCookieSessions() : bool
+    {
+        return $this->use_cookie_sessions;
+    }
+    
+    /**
+     * Set to TRUE to store session cookies too.
+     * 
+     * This option can only be used if `use_cookies` is `TRUE`.
+     *
+     * @uxon-property use_cookie_sessions
+     * @uxon-type boolean
+     * @uxon-default false
+     *
+     * @param boolean $value            
+     * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
+     */
+    public function setUseCookieSessions(bool $value) : HttpConnectionInterface
+    {
+        $this->use_cookie_sessions = $value;
         return $this;
     }
 
@@ -392,6 +436,10 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $this;
     }
 
+    /**
+     * 
+     * @return string
+     */
     protected function getCacheAbsolutePath()
     {
         $path = Filemanager::pathJoin(array(

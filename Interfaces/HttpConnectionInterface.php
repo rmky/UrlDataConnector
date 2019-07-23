@@ -54,18 +54,35 @@ interface HttpConnectionInterface extends UrlConnectionInterface
      *
      * @return boolean
      */
-    public function getUseCookies();
+    public function getUseCookies() : bool;
     
     /**
      * Set to TRUE to use cookies for this connection.
+     * 
      * Defaults to FALSE.
      *
      * Cookies will be stored in the data folder of the current user!
      *
      * @param boolean $value
-     * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
+     * @return HttpConnectionInterface
      */
-    public function setUseCookies($value);
+    public function setUseCookies(bool $value) : HttpConnectionInterface;
+    
+    /**
+     *
+     * @return boolean
+     */
+    public function getUseCookieSessions() : bool;
+    
+    /**
+     * Set to TRUE to store session cookies too.
+     * 
+     * Default: FALSE.
+     *
+     * @param boolean $value
+     * @return HttpConnectionInterface
+     */
+    public function setUseCookieSessions(bool $value) : HttpConnectionInterface;
     
     public function getCacheEnabled();
     
