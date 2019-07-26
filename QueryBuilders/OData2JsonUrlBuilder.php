@@ -498,4 +498,25 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
     {
         return $this->buildODataValue($qpart, $value);
     }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::isRemotePaginationConfigured()
+     */
+    public function isRemotePaginationConfigured() : bool
+    {
+        return parent::isRemotePaginationConfigured();
+    }
+    
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::isRemoteFilter()
+     */
+    public function isRemoteFilter(QueryPartFilter $qpart)
+    {
+        return parent::isRemoteFilter($qpart);
+    }
 }
