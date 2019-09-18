@@ -472,6 +472,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
             case 'Edm.Guid':
                 $value = 'guid' . $preformattedValue;
                 break;
+            case 'Edm.DateTimeOffset':
             case 'Edm.DateTime':
                 $date = new \DateTime(str_replace("'", '', $preformattedValue));
                 $value = "datetime'" . $date->format('Y-m-d\TH:i:s') . "'";
