@@ -58,12 +58,22 @@ class CallOData2Operation extends CallWebService
         
         $val = $parameter->getDataType()->parse($val);
         
-        switch (true) {
-            case ($parameter->getCustomProperty('odata_type') === 'Edm.Guid'):
-                return "guid'" . $val . "'";
-                break;
-            default:
+        switch ($parameter->getCustomProperty('odata_type')) {
+            case 'Edm.Guid':
+                return "guid'{$val}'";
+            case 'Edm.DateTimeOffset':
+            case 'Edm.DateTime':
+                $date = new \DateTime($val);
+                return "datetime'" . $date->format('Y-m-d\TH:i:s') . "'";
+            case 'Edm.Binary':
+                return "binary'{$val}'";
+            case 'Edm.Time':
+                $date = new \DateTime($val);
+                return 'PT' . $date->format('H\Ti\M');
+            case 'Edm.String':
                 return "'" . $val . "'";
+            default:
+                return is_numeric($val) === false || (substr($val, 0, 1) === 0 && substr($val, 1, 1) !== '.') ? "'{$val}'" : $val;
         }
     }
     
