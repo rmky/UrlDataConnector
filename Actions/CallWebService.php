@@ -120,10 +120,8 @@ use exface\Core\CommonLogic\Constants\Icons;
  *  "url": "http://url.toyouservice.com/service",
  *  "result_message_pattern": "\"result":"(?<message>[^"]*)\"",
  *  "method": "POST",
- *  "body": "{\"param1\": \"[#param1_data_column#]\"}",
- *  "headers": {
- *      "Content-Type": "application/json"
- *  }
+ *  "Content-Type": "application/json",
+ *  "body": "{\"param1\": \"[#param1_data_column#]\"}"
  * }
  * 
  * ```
@@ -166,6 +164,8 @@ class CallWebService extends AbstractAction implements iCallService
      * @var string[]
      */
     private $headers = [];
+    
+    private $contentType = null;
     
     /**
      * @var string|NULL
@@ -259,7 +259,13 @@ class CallWebService extends AbstractAction implements iCallService
      */
     protected function buildHeaders() : array
     {
-        return $this->getHeaders();
+        $headers = $this->getHeaders();
+        
+        if ($this->getContentType() !== null) {
+            $headers['Content-Type'] = $this->getContentType();
+        }
+        
+        return $headers;
     }
 
     /**
@@ -284,7 +290,8 @@ class CallWebService extends AbstractAction implements iCallService
     }
     
     /**
-     * Replaces body placeholders with parameter values from the given data sheet row.
+     * Populates the request body with parameters from a given row by replaces body placeholders 
+     * (if a body-template was specified) or creating a body according to the content type.
      * 
      * @param DataSheetInterface $data
      * @param int $rowNr
@@ -295,7 +302,7 @@ class CallWebService extends AbstractAction implements iCallService
         $body = $this->getBody();
         
         if ($body === null) {
-            return '';
+            return $this->buildBodyFromParameters($data, $rowNr);
         }
         
         $placeholders = StringDataType::findPlaceholders($body);
@@ -318,6 +325,40 @@ class CallWebService extends AbstractAction implements iCallService
         }
         
         return StringDataType::replacePlaceholders($body, $phValues);
+    }
+    
+    /**
+     * Returns the request body built from service parameters according to the content type.
+     * 
+     * @param DataSheetInterface $data
+     * @param int $rowNr
+     * @return string
+     */
+    protected function buildBodyFromParameters(DataSheetInterface $data, int $rowNr) : string
+    {
+        $str = '';
+        $contentType = $this->getContentType();
+        switch (true) {
+            case stripos($contentType, 'json') !== false:
+                $params = [];
+                foreach ($this->getParameters() as $param) {
+                    $name = $param->getName();
+                    $val = $data->getCellValue($name, $rowNr);
+                    $val = $this->prepareParamValue($param, $val);
+                    $params[$name] = $val;
+                }
+                $str = json_encode($params);
+                break;
+            case strcasecmp($contentType, 'application/x-www-form-urlencoded') === 0:
+                foreach ($this->getParameters() as $param) {
+                    $name = $param->getName();
+                    $val = $data->getCellValue($name, $rowNr);
+                    $val = $this->prepareParamValue($param, $val);
+                    $str .= '&' . urlencode($name) . '=' . urlencode($val);
+                }
+                break;
+        }
+        return $str;
     }
 
     /**
@@ -357,6 +398,9 @@ class CallWebService extends AbstractAction implements iCallService
         $resultData->setAutoCount(false);
         
         $rowCnt = $input->countRows();
+        if ($rowCnt === 0 && $this->getInputRowsMin() === 0) {
+            $rowCnt = 1;
+        }
         for ($i = 0; $i < $rowCnt; $i++) {
             $request = new Request($this->getMethod(), $this->buildUrl($input, $i), $this->buildHeaders(), $this->buildBody($input, $i));
             $query = new Psr7DataQuery($request);
@@ -384,7 +428,7 @@ class CallWebService extends AbstractAction implements iCallService
             if (! $this->dataSource instanceof DataSourceInterface) {
                 $this->dataSource = DataSourceFactory::createFromModel($this->getWorkbench(), $this->dataSource);
             }
-            return $this->dataSource;
+            return $this->dataSource->getConnection();
         }
         return $this->getMetaObject()->getDataConnection();
     }
@@ -393,7 +437,7 @@ class CallWebService extends AbstractAction implements iCallService
      * Use this the connector of this data source to call the web service.
      * 
      * @uxon-property data_source_alias
-     * @uxon-type metamodel:datasource
+     * @uxon-type metamodel:data_source
      * 
      * @param string $idOrAlias
      * @return CallWebService
@@ -465,7 +509,7 @@ class CallWebService extends AbstractAction implements iCallService
             if (in_array($param->getName(), $urlPlaceholders) === true) {
                 $urlPhValues[$name] = $val;
             }
-            $params .= '&' . $name . '=' . $val;
+            $params .= '&' . urlencode($name) . '=' . urlencode($val);
         }
         if (empty($urlPhValues) === false) {
             $url = StringDataType::replacePlaceholders($url, $urlPhValues);
@@ -625,4 +669,29 @@ class CallWebService extends AbstractAction implements iCallService
         
         return $matches['message'] ?? $matches[1];
     }
+    
+    /**
+     * 
+     * @return string
+     */
+    public function getContentType() : ?string
+    {
+        return $this->contentType;
+    }
+    
+    /**
+     * Set the content type for the request.
+     * 
+     * @uxon-property content_type
+     * @uxon-type [application/x-www-form-urlencoded,application/json,text/plain,application/xml]
+     * 
+     * @param string $value
+     * @return CallWebService
+     */
+    public function setContentType(string $value) : CallWebService
+    {
+        $this->contentType = trim($value);
+        return $this;
+    }
+    
 }
