@@ -378,16 +378,23 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function prepareFilter(QueryPartFilter $qpart)
     {
+        if ($qpart->getDataAddressProperty('filter_remote') !== null) {
+            $qpart->setDataAddressProperty('filter_remote', BooleanDataType::cast($qpart->getDataAddressProperty('filter_remote')));
+        }
+        if ($qpart->getDataAddressProperty('filter_locally') !== null) {
+            $qpart->setDataAddressProperty('filter_locally', BooleanDataType::cast($qpart->getDataAddressProperty('filter_locally')));
+        }
+        
         // If there are options for remote filtering set and the filter_remote address property is not explicitly off, enable it
         if ($qpart->getDataAddressProperty('filter_remote_url') || $qpart->getDataAddressProperty('filter_remote_url_param') || $qpart->getDataAddressProperty('filter_remote_prefix')) {
             if ($qpart->getDataAddressProperty('filter_remote') === '' || is_null($qpart->getDataAddressProperty('filter_remote'))) {
-                $qpart->setDataAddressProperty('filter_remote', 1);
+                $qpart->setDataAddressProperty('filter_remote', true);
             }
         }
         
         // Enable local filtering if remote filters are not enabled and local filtering is not explicitly off
-        if (! $qpart->getDataAddressProperty('filter_remote') && (is_null($qpart->getDataAddressProperty('filter_locally')) || $qpart->getDataAddressProperty('filter_locally') === '')) {
-            $qpart->setDataAddressProperty('filter_locally', 1);
+        if ($qpart->getDataAddressProperty('filter_remote') === false && ($qpart->getDataAddressProperty('filter_locally') === null || $qpart->getDataAddressProperty('filter_locally') === '')) {
+            $qpart->setDataAddressProperty('filter_locally', true);
         }
         
         // If a local filter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always
@@ -420,16 +427,23 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function prepareSorter(QueryPartSorter $qpart)
     {
+        if ($qpart->getDataAddressProperty('sort_remote') !== null) {
+            $qpart->setDataAddressProperty('sort_remote', BooleanDataType::cast($qpart->getDataAddressProperty('sort_remote')));
+        }
+        if ($qpart->getDataAddressProperty('sort_locally') !== null) {
+            $qpart->setDataAddressProperty('sort_locally', BooleanDataType::cast($qpart->getDataAddressProperty('sort_locally')));
+        }
+        
         // If there are options for remote sorting set and the sort_remote address property is not explicitly off, enable it
         if ($qpart->getDataAddressProperty('sort_remote_url_param')) {
-            if ($qpart->getDataAddressProperty('sort_remote') === '' || is_null($qpart->getDataAddressProperty('sort_remote'))) {
-                $qpart->setDataAddressProperty('sort_remote', 1);
+            if ($qpart->getDataAddressProperty('sort_remote') === '' || $qpart->getDataAddressProperty('sort_remote') === null) {
+                $qpart->setDataAddressProperty('sort_remote', true);
             }
         }
         
         // Enable local sorting if remote sort is not enabled and local sorting is not explicitly off
-        if (! $qpart->getDataAddressProperty('sort_remote') && (is_null($qpart->getDataAddressProperty('sort_locally')) || $qpart->getDataAddressProperty('sort_locally') === '')) {
-            $qpart->setDataAddressProperty('sort_locally', 1);
+        if (! $qpart->getDataAddressProperty('sort_remote') && ($qpart->getDataAddressProperty('sort_locally') === null || $qpart->getDataAddressProperty('sort_locally') === '')) {
+            $qpart->setDataAddressProperty('sort_locally', true);
         }
         
         // If a local sorter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always
@@ -818,7 +832,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function isRemotePaginationConfigured() : bool
     {
-        $dsOption = $this->getMainObject()->getDataAddressProperty('request_remote_pagination');
+        $dsOption = BooleanDataType::cast($this->getMainObject()->getDataAddressProperty('request_remote_pagination'));
         if ($dsOption === null) {
             return $this->buildUrlParamLimit($this->getMainObject()) ? true : false;
         } else {
