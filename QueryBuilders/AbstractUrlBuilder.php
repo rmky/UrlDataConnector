@@ -71,11 +71,15 @@ use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
  * - `uid_response_data_path` - used to find the data in the response for a 
  * request with a filter on UID (instead of response_data_path)
  * 
+ * - `create_request_method` - HTTP method for create requests (PUT by default). 
+ * 
  * - `create_request_data_address` - used in create requests instead of the 
  * data address
  * 
  * - `create_request_data_path` - path to the object/array holding the 
  * attributes of the instance to be created
+ * 
+ * - `update_request_method` - HTTP method for update requests (PATCH by default). 
  * 
  * - `update_request_data_address` - used in update requests instead of the 
  * data address
@@ -83,6 +87,11 @@ use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
  * - `update_request_data_path` - this is where the data is put in the body 
  * of update requests (if not specified the attributes are just put in the root 
  * object)
+ * 
+ * - `delete_request_method` - HTTP method for delete requests (DELETE by default). 
+ * 
+ * - `delete_request_data_address` - used in delete requests instead of the 
+ * data address 
  * 
  * ## On attribute level
  * 
@@ -116,16 +125,21 @@ use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
  * the data source does not support filtering over this attribute).
  * 
  * - `create_data_address` - used in the body of create queries (typically 
- * POST-queries) instead of the data address
+ * PUT-queries) instead of the data address
  * 
  * - `update_data_address` - used in the body of update queries (typically 
- * PUT/PATCH-queries) instead of the data address
+ * POST/PATCH-queries) instead of the data address
  *
  * @author Andrej Kabachnik
  *        
  */
 abstract class AbstractUrlBuilder extends AbstractQueryBuilder
 {
+    const OPERATION_CREATE = 'create';
+    const OPERATION_READ = 'read';
+    const OPERATION_UPDATE = 'update';
+    const OPERATION_DELETE = 'delete';
+    
     private $endpoint_filter = null;
 
     private $request_split_filter = null;
@@ -844,21 +858,21 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     /**
      * Returns the data address for the given attribute in the context of the specified http method.
      * 
-     * Depending on the method, the custom data shource properties create_data_address, update_data_address,
-     * etc. will be used instead of the regular data address of the attribute.
+     * Depending on the $operation, the custom data shource properties create_data_address, update_data_address,
+     * etc. will be used instead of the regular data address of the attribute. The $operation should be
+     * one of the static::OPERATION_xxx constants.
      * 
      * @param MetaAttributeInterface $attribute
-     * @param string $method
+     * @param string $operation
      * @return string
      */
-    protected function buildDataAddressForAttribute(MetaAttributeInterface $attribute, $method = 'GET')
+    protected function buildDataAddressForAttribute(MetaAttributeInterface $attribute, $operation = self::OPERATION_READ)
     {
         $data_address = $attribute->getDataAddress();
-        switch (strtoupper($method)) {
-            case 'POST':
+        switch ($operation) {
+            case static::OPERATION_CREATE:
                 return ($attribute->getDataAddressProperty('create_data_address') ? $attribute->getDataAddressProperty('create_data_address') : $data_address);
-            case 'PUT':
-            case 'PATCH':
+            case static::OPERATION_UPDATE:
                 return ($attribute->getDataAddressProperty('update_data_address') ? $attribute->getDataAddressProperty('update_data_address') : $data_address);
         }
         return $data_address;
@@ -867,24 +881,28 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     /**
      * Returns the data address for the given object in the context of the specified http method.
      *
-     * Depending on the method, the custom data shource properties create_request_data_address, 
+     * Depending on the $operation, the custom data shource properties create_request_data_address, 
      * update_request_data_address, etc. will be used instead of the regular data address of the object.
+     * The $operation should be one of the static::OPERATION_xxx constants.
      *
      * @param MetaObjectInterface $attribute
      * @param string $method
      * @return string
      */
-    protected function buildDataAddressForObject(MetaObjectInterface $object, $method = 'GET')
+    protected function buildDataAddressForObject(MetaObjectInterface $object, $operation = self::OPERATION_READ)
     {
-        $data_address = $object->getDataAddress();
-        switch (strtoupper($method)) {
-            case 'POST':
-                return ($object->getDataAddressProperty('create_request_data_address') ? $object->getDataAddressProperty('create_request_data_address') : $data_address);
-            case 'PUT':
-            case 'PATCH':
-                return ($object->getDataAddressProperty('update_request_data_address') ? $object->getDataAddressProperty('update_request_data_address') : $data_address);
+        switch ($operation) {
+            case static::OPERATION_CREATE:
+                $custom = $object->getDataAddressProperty('create_request_data_address'); 
+                break;
+            case static::OPERATION_UPDATE:
+                $custom = $object->getDataAddressProperty('update_request_data_address');#
+                break;
+            case static::OPERATION_DELETE:
+                $custom = $object->getDataAddressProperty('delete_request_data_address');#
+                break;
         }
-        return $data_address;
+        return $custom ? $custom : $object->getDataAddress();
     }
     
     /**
@@ -952,5 +970,25 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     {
         return $attribute->getRelationPath()->isEmpty();
     }
+    
+    /**
+     * Returns the HTTP method for a given operations (e.g. static::OPERATION_READ).
+     * 
+     * Override this method to change HTTP methods used.
+     * 
+     * @param string $operation
+     * @return string
+     */
+    protected function getHttpMethod(string $operation) : string
+    {
+        $o = $this->getMainObject();
+        switch ($operation) {
+            case static::OPERATION_CREATE: return $o->getDataAddressProperty('create_request_method') ? $o->getDataAddressProperty('create_request_method') : 'PUT';
+            case static::OPERATION_READ: return $o->getDataAddressProperty('read_request_method') ? $o->getDataAddressProperty('read_request_method') : 'GET';
+            case static::OPERATION_UPDATE: return $o->getDataAddressProperty('update_request_method') ? $o->getDataAddressProperty('update_request_method') : 'PATCH';
+            case static::OPERATION_DELETE: return $o->getDataAddressProperty('delete_request_method') ? $o->getDataAddressProperty('delete_request_method') : 'DELETE';
+        }
+        
+        return 'POST';
+    }
 }
-?>

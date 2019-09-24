@@ -15,7 +15,6 @@ use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
-use exface\Core\DataTypes\ComparatorDataType;
 
 /**
  * This is a query builder for JSON-based oData 2.0 APIs.
@@ -406,59 +405,6 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         return parent::buildDataAddressForObject($object, $method);
     }
     
-    public function delete(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
-    {
-        $method = 'DELETE';
-        $errorPrefix = 'Cannot delete "' . $this->getMainObject()->getName() . '" (' . $this->getMainObject()->getAliasWithNamespace() . '): ';
-        if ($this->getMainObject()->hasUidAttribute() === true) {
-            $uidAttr = $this->getMainObject()->getUidAttribute();
-        } else {
-            throw new QueryBuilderException($errorPrefix . 'Cannot delete objects without UID attributes from an OData source!');
-        }
-        
-        $uidFilterCallback = function(QueryPartFilter $filter) use ($uidAttr) {
-            return $filter->getAttribute()->getDataAddress() === $uidAttr->getDataAddress();
-        };
-        $uidFilters = $this->getFilters()->getFilters($uidFilterCallback);
-        
-        if (empty($uidFilters) === true) {
-            throw new QueryBuilderException($errorPrefix . 'Deletes are only possible when filtering over UID attributes!');
-        }
-        
-        $cnt = 0;
-        if (count($uidFilters) === 1) {
-            $uidFilter = $uidFilters[0];
-            if ($uidFilter->getComparator() !== ComparatorDataType::IN && $uidFilter->getComparator() !== ComparatorDataType::IS && $uidFilter->getComparator() !== ComparatorDataType::EQUALS) {
-                throw new QueryBuilderException($errorPrefix . 'Cannot delete from an OData source with a filter "' . $uidFilter->getCondition()->toString() . '"');
-            }
-            
-            if (is_array($uidFilter->getCompareValue())) {
-                $uids = $uidFilter->getCompareValue();
-            } else {
-                $uids = explode($uidAttr->getValueListDelimiter(), $uidFilter->getCompareValue());
-            }
-            
-            $urlTpl = $this->buildDataAddressForObject($this->getMainObject(), $method);
-            if (count($uids) === 1) {
-                $url = $this->replacePlaceholdersInUrl($urlTpl);
-                $request = new Request($method, $url);
-                $data_connection->query(new Psr7DataQuery($request));
-                $cnt++;
-            } else {
-                foreach ($uids as $uid) {
-                    $url = StringDataType::replacePlaceholders($urlTpl, [$uidFilter->getAlias() => $this->buildUrlFilterValue($uidFilter, $uid)]);
-                    $request = new Request($method, $url);
-                    $data_connection->query(new Psr7DataQuery($request));
-                    $cnt++;
-                }
-            }
-        } else {
-            throw new QueryBuilderException($errorPrefix . 'Cannot delete from OData source if multiple filters over the UID attribute are used!');
-        }
-        
-        return new DataQueryResultData([], $cnt, true, $cnt);
-    }
-    
     /**
      * Takes care of special OData type formatting like "date'2019-01-31'" or "guid'xxx'"
      * 
@@ -498,5 +444,22 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
     protected function buildRequestBodyValue(QueryPartValue $qpart, $value) : string
     {
         return $this->buildODataValue($qpart, $value);
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::getHttpMethod()
+     */
+    protected function getHttpMethod(string $operation) : string
+    {
+        switch ($operation) {
+            case static::OPERATION_CREATE: return 'POST';
+            case static::OPERATION_READ: return 'GET';
+            case static::OPERATION_UPDATE: return 'PATCH';
+            case static::OPERATION_DELETE: return 'DELETE';
+        }
+        
+        return parent::getHttpMethod($operation);
     }
 }

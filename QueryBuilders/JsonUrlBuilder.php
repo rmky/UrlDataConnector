@@ -1,6 +1,8 @@
 <?php
 namespace exface\UrlDataConnector\QueryBuilders;
 
+use exface\Core\DataTypes\ComparatorDataType;
+use exface\Core\DataTypes\StringDataType;
 use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\DataSheets\DataColumn;
 use exface\UrlDataConnector\Psr7DataQuery;
@@ -10,6 +12,7 @@ use exface\Core\Interfaces\DataSources\DataConnectionInterface;
 use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 use Psr\Http\Message\RequestInterface;
+use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
 
 /**
@@ -88,17 +91,14 @@ class JsonUrlBuilder extends AbstractUrlBuilder
      */
     public function create(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
-        // Create the request URI
-        $method = 'POST';
-
         // Create JSON objects from value query parts
-        $json_objects = $this->buildRequestBodyObjects($method);
+        $json_objects = $this->buildRequestBodyObjects(static::OPERATION_CREATE);
         
         $insert_ids = array();
         $uidAlias = $this->getMainObject()->getUidAttributeAlias();
         $data_path = $this->getMainObject()->getDataAddressProperty('create_request_data_path');
         foreach ($json_objects as $obj) {
-            $request = $this->buildRequestPutPostDelete($method, $obj, $data_path);
+            $request = $this->buildRequestPutPostDelete(static::OPERATION_CREATE, $obj, $data_path);
             $query = new Psr7DataQuery($request);
                         
             $result = $this->parseResponse($data_connection->query($query));
@@ -111,9 +111,9 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         return new DataQueryResultData($insert_ids, count($insert_ids), false);
     }
     
-    protected function buildRequestPutPostDelete($method, $jsonObject, string $dataPath = null) : RequestInterface
+    protected function buildRequestPutPostDelete(string $operation, $jsonObject, string $dataPath = null) : RequestInterface
     {
-        $uri = $this->buildDataAddressForObject($this->getMainObject(), $method);
+        $uri = $this->buildDataAddressForObject($this->getMainObject(), $operation);
         $uri = $this->replacePlaceholdersInUrl($uri);
         
         $json = new \stdClass();
@@ -128,7 +128,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
             $json = $jsonObject;
         }
         
-        $request = new Request($method, $uri, ['Content-Type' => 'application/json'], $this->encodeBody($json));
+        $request = new Request($this->getHttpMethod($operation), $uri, ['Content-Type' => 'application/json'], $this->encodeBody($json));
         
         return $request;
     }
@@ -145,10 +145,10 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     
     /**
      * 
-     * @param string $method
+     * @param string $operation
      * @return \stdClass[]
      */
-    protected function buildRequestBodyObjects(string $method) : array
+    protected function buildRequestBodyObjects(string $operation) : array
     {
         $json_objects = array();
         foreach ($this->getValues() as $qpart) {
@@ -165,7 +165,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
                 continue;
             }
             
-            if ($json_attr = $this->buildDataAddressForAttribute($attr, $method)) {
+            if ($json_attr = $this->buildDataAddressForAttribute($attr, $operation)) {
                 foreach ($qpart->getValues() as $row => $val) {
                     if (! $json_objects[$row]) {
                         $json_objects[$row] = new \stdClass();
@@ -197,18 +197,15 @@ class JsonUrlBuilder extends AbstractUrlBuilder
      * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::update()
      */
     public function update(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
-    {
-        // Create the request URI
-        $method = 'PATCH';
-        
+    {        
         // Create JSON objects from value query parts
-        $json_objects = $this->buildRequestBodyObjects($method);
+        $json_objects = $this->buildRequestBodyObjects(static::OPERATION_UPDATE);
         
         $insert_ids = array();
         $uidAlias = $this->getMainObject()->getUidAttributeAlias();
         $data_path = $this->getMainObject()->getDataAddressProperty('update_request_data_path');
         foreach ($json_objects as $obj) {
-            $request = $this->buildRequestPutPostDelete($method, $obj, $data_path);
+            $request = $this->buildRequestPutPostDelete(static::OPERATION_UPDATE, $obj, $data_path);
             $query = new Psr7DataQuery($request);
             
             $result = $this->parseResponse($data_connection->query($query));
@@ -360,7 +357,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         }
         return $val;
     }
-
+    
     /**
      * 
      * {@inheritDoc}
@@ -368,27 +365,57 @@ class JsonUrlBuilder extends AbstractUrlBuilder
      */
     public function delete(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
-        // Create the request URI
-        $method = 'DELETE';
+        $method = $this->getHttpMethod(static::OPERATION_DELETE);
+        $errorPrefix = 'Cannot delete "' . $this->getMainObject()->getName() . '" (' . $this->getMainObject()->getAliasWithNamespace() . '): ';
         
-        // Create JSON objects from value query parts
-        $json_objects = $this->buildRequestBodyObjects($method);
         
-        $insert_ids = array();
-        $uidAlias = $this->getMainObject()->getUidAttributeAlias();
-        $data_path = $this->getMainObject()->getDataAddressProperty('delete_request_data_path');
-        foreach ($json_objects as $obj) {
-            $request = $this->buildRequestPutPostDelete($method, $obj, $data_path);
-            $query = new Psr7DataQuery($request);
-            
-            $result = $this->parseResponse($data_connection->query($query));
-            if (is_array($result)) {
-                $result_data = $this->findRowData($result, $data_path);
-            }
-            $insert_ids[] = [$uidAlias => $this->findFieldInData($this->buildDataAddressForAttribute($this->getMainObject()->getUidAttribute()), $result_data)];
+        if ($this->getMainObject()->hasUidAttribute() === true) {
+            $uidAttr = $this->getMainObject()->getUidAttribute();
+        } else {
+            throw new QueryBuilderException($errorPrefix . 'Cannot delete objects without UID attributes via JSON URL builder!');
         }
         
-        return new DataQueryResultData($insert_ids, count($insert_ids), false);
+        $uidFilterCallback = function(QueryPartFilter $filter) use ($uidAttr) {
+            return $filter->getAttribute()->getDataAddress() === $uidAttr->getDataAddress();
+        };
+        $uidFilters = $this->getFilters()->getFilters($uidFilterCallback);
+        
+        if (empty($uidFilters) === true) {
+            throw new QueryBuilderException($errorPrefix . 'Deletes are only possible when filtering over UID attributes!');
+        }
+        
+        $cnt = 0;
+        if (count($uidFilters) === 1) {
+            $uidFilter = $uidFilters[0];
+            if ($uidFilter->getComparator() !== ComparatorDataType::IN && $uidFilter->getComparator() !== ComparatorDataType::IS && $uidFilter->getComparator() !== ComparatorDataType::EQUALS) {
+                throw new QueryBuilderException($errorPrefix . 'Cannot delete with a filter "' . $uidFilter->getCondition()->toString() . '"');
+            }
+            
+            if (is_array($uidFilter->getCompareValue())) {
+                $uids = $uidFilter->getCompareValue();
+            } else {
+                $uids = explode($uidAttr->getValueListDelimiter(), $uidFilter->getCompareValue());
+            }
+            
+            $urlTpl = $this->buildDataAddressForObject($this->getMainObject(), $method);
+            if (count($uids) === 1) {
+                $url = $this->replacePlaceholdersInUrl($urlTpl);
+                $request = new Request($method, $url);
+                $data_connection->query(new Psr7DataQuery($request));
+                $cnt++;
+            } else {
+                foreach ($uids as $uid) {
+                    $url = StringDataType::replacePlaceholders($urlTpl, [$uidFilter->getAlias() => $this->buildUrlFilterValue($uidFilter, $uid)]);
+                    $request = new Request($method, $url);
+                    $data_connection->query(new Psr7DataQuery($request));
+                    $cnt++;
+                }
+            }
+        } else {
+            throw new QueryBuilderException($errorPrefix . 'Cannot delete from OData source if multiple filters over the UID attribute are used!');
+        }
+        
+        return new DataQueryResultData([], $cnt, true, $cnt);
     }
 
     /**
