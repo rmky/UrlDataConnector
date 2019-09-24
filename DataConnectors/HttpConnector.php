@@ -21,6 +21,7 @@ use Psr\Http\Message\ResponseInterface;
 use exface\Core\DataTypes\StringDataType;
 use GuzzleHttp\Psr7\Uri;
 use exface\Core\Exceptions\DataSources\DataConnectionConfigurationError;
+use exface\UrlDataConnector\ModelBuilders\SwaggerModelBuilder;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -52,6 +53,8 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     private $fixed_params = '';
 
     private $client;
+    
+    private $swaggerUrl = null;
     
     /**
      * Returns the initialized Guzzle client
@@ -501,5 +504,43 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     protected function willIgnore(Psr7DataQuery $query) : bool
     {
         return $query->getRequest()->getUri()->__toString() ? false : true;
+    }
+    
+    /**
+     *
+     * @return string|NULL
+     */
+    public function getSwaggerUrl() : ?string
+    {
+        return $this->swaggerUrl;
+    }
+    
+    /**
+     * 
+     * @param string $value
+     * @return HttpConnector
+     */
+    public function setSwaggerUrl(string $value) : HttpConnector
+    {
+        $this->swaggerUrl = $value;
+        return $this;
+    }
+    
+    public function hasSwagger() : bool
+    {
+        return $this->swaggerUrl !== null;
+    }
+    
+    /**
+     *
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\AbstractDataConnector::getModelBuilder()
+     */
+    public function getModelBuilder()
+    {
+        if ($this->hasSwagger()) {
+            return new SwaggerModelBuilder($this);
+        }
+        return parent::getModelBuilder();
     }
 }
