@@ -14,6 +14,7 @@ use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 use Psr\Http\Message\RequestInterface;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
+use exface\Core\DataTypes\BooleanDataType;
 
 /**
  * This is a query builder for JSON-based REST APIs.
@@ -232,6 +233,9 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         $has_uid_column = $this->getAttribute($this->getMainObject()->getUidAttributeAlias()) ? true : false;
         if (! empty($rows)) {
             if (is_array($rows)) {
+                if (BooleanDataType::cast($this->getMainObject()->getDataAddressProperty('response_use_raw_data')) === true) {
+                    return $rows;
+                }
                 foreach ($rows as $row) {
                     $result_row = array();
                     /* @var $qpart \exface\Core\CommonLogic\QueryBuilder\QueryPartSelect */
