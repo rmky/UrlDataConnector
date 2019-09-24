@@ -32,6 +32,9 @@ use exface\Core\CommonLogic\Constants\Icons;
  * The placeholders are replaced values from the action's input data: the placeholder's
  * name must match one of the data column names of the input data.
  * 
+ * For multiple data items (e.g. a table with multi-select), the webservice is called
+ * multiple times: once per data row, so to say.
+ * 
  * ## Examples
  * 
  * ### A simple GET-webservice with a required parameter 

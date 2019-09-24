@@ -170,16 +170,8 @@ class GraphQLModelBuilder extends AbstractModelBuilder implements ModelBuilderIn
     }
 
     /**
-     * Create action models for function imports.
-     * 
-     * Example $metadata:
-     * 
-     *  <FunctionImport Name="UnlockTaskItem" ReturnType="MY.NAMESPACE.TaskItem" EntitySet="TaskItemSet" m:HttpMethod="GET">
-            <Parameter Name="TaskId" Type="Edm.String" Mode="In" MaxLength="20"/>
-            <Parameter Name="TaskItemId" Type="Edm.String" Mode="In" MaxLength="20"/>
-            <Parameter Name="WarehouseNumber" Type="Edm.String" Mode="In" MaxLength="10"/>
-        </FunctionImport>
-     * 
+     * Create action models for function queries or mutations.
+     *  
      * @param MetaObjectInterface $object
      * @param Crawler $functionImports
      * @param DataTransactionInterface $transaction
