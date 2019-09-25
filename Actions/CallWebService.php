@@ -431,7 +431,7 @@ class CallWebService extends AbstractAction implements iCallService
         }
         
         if ($message === null || $message === '') {
-            $message = $this->getWorkbench()->getCoreApp()->getTranslator()->translate('ACTION.CALLWEBSERVICE.DONE');
+            $message = $this->getWorkbench()->getApp('exface.UrlDataConnector')->getTranslator()->translate('ACTION.CALLWEBSERVICE.DONE');
         }
         
         return ResultFactory::createDataResult($task, $resultData, $message);
