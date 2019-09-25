@@ -35,6 +35,17 @@ use exface\Core\CommonLogic\Constants\Icons;
  * For multiple data items (e.g. a table with multi-select), the webservice is called
  * multiple times: once per data row, so to say.
  * 
+ * You can customize the result message produced by the action using the following
+ * properties:
+ * 
+ * - `result_message_pattern` - a regular expression to extract the result message from
+ * the response - see examples below.
+ * - `result_message_text` - a text or a static formula (e.g. `=TRANSLATE()`) to be
+ * displayed if no errors occur. 
+ * - If `result_message_text` and `result_message_pattern` are both specified, the static
+ * text will be prepended to the extracted result. This is usefull for web services, that
+ * respond with pure data - e.g. an importer serves, that returns the number of items imported.
+ * 
  * ## Examples
  * 
  * ### A simple GET-webservice with a required parameter 
@@ -413,7 +424,15 @@ class CallWebService extends AbstractAction implements iCallService
         }
         
         $resultData->setCounterForRowsInDataSource($resultData->countRows());
-        $message = $this->getMessageFromResponse($response) ?? $this->getResultMessageText() ?? $this->getWorkbench()->getApp('exface.SapConnector')->getTranslator()->translate('ACTION.CALLODATA2OPERATION.SUCCESS');
+        if ($this->getResultMessageText() && $this->getResultMessagePattern()) {
+            $message = $this->getResultMessageText() . $this->getMessageFromResponse($response);
+        } else {
+            $message = $this->getResultMessageText() ?? $this->getMessageFromResponse($response);
+        }
+        
+        if ($message === null || $message === '') {
+            $message = $this->getWorkbench()->getCoreApp()->getTranslator()->translate('ACTION.CALLWEBSERVICE.DONE');
+        }
         
         return ResultFactory::createDataResult($task, $resultData, $message);
     }
@@ -628,7 +647,7 @@ class CallWebService extends AbstractAction implements iCallService
     }
     
     /**
-     * A regular expression to retrieve the result message from the body.
+     * A regular expression to retrieve the result message from the body - the first match is returned or one explicitly named "message".
      * 
      * Extracts a result message from the response body.
      * 
@@ -655,11 +674,11 @@ class CallWebService extends AbstractAction implements iCallService
      */
     protected function getMessageFromResponse(ResponseInterface $response) : ?string
     {
+        $body = $response->getBody()->__toString();
         if ($this->getResultMessagePattern() === null) {
-            return null;
+            return $body;
         }
         
-        $body = $response->getBody()->__toString();
         $matches = [];
         preg_match($this->getResultMessagePattern(), $body, $matches);
         
