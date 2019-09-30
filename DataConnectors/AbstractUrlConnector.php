@@ -53,7 +53,8 @@ abstract class AbstractUrlConnector extends AbstractDataConnectorWithoutTransact
      * If a base URL is set, data addresses of meta objects from this data source should be relative URL!
      *
      * @uxon-property url
-     * @uxon-type string
+     * @uxon-type uri
+     * @uxon-required true
      *
      * @param string $value            
      * @return \exface\UrlDataConnector\DataConnectors\HttpConnector

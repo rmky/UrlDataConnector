@@ -220,7 +220,7 @@ class CallWebService extends AbstractAction implements iCallService
      * of the action's meta object will be used.
      * 
      * @uxon-property url
-     * @uxon-type url
+     * @uxon-type uri
      * 
      * @param string $url
      * @return CallWebService

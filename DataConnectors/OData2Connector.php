@@ -44,7 +44,7 @@ class OData2Connector extends HttpConnector
      * If not set, [#url#]/$metadata will be used automatically.
      * 
      * @uxon-property metadata_url
-     * @uxon-type url
+     * @uxon-type uri
      * 
      * @param string $metadataUrl
      */

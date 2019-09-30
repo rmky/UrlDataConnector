@@ -526,7 +526,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      * the SwaggerModelBuilder.
      * 
      * @uxon-property swagger_url
-     * @uxon-type url
+     * @uxon-type uri
      * 
      * @param string $value
      * @return HttpConnector
