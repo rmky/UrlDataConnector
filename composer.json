@@ -31,8 +31,8 @@
         "app": {
             "app_uid": "0x11e6951dda3ba520b48b847beb4a5184",
             "app_alias": "exface.UrlDataConnector",
-            "model_md5": "5883a59abd32cfdec8631766606489e5",
-            "model_timestamp": "2019-09-30 09:28:27"
+            "model_md5": "21ccb5397bd9268a47bf438eeac3d2e8",
+            "model_timestamp": "2019-09-30 09:52:35"
         }
     },
     "autoload": {

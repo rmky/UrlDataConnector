@@ -134,6 +134,20 @@
             "UXON": "{\"url\":\"\",\"fixed_url_params\":\"&param1=value1&param2=value2\"}",
             "WRAP_PATH": "",
             "UXON_SCHEMA": "connection"
+        },
+        {
+            "CREATED_ON": "2019-09-30 09:52:35",
+            "MODIFIED_ON": "2019-09-30 09:52:35",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11e9e36805b96327bacde4b318306b9a",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "NAME": "Webservice with Swagger\/OpenAPI",
+            "DESCRIPTION": "The Swagger definition will allow to generate the metamodel via model builder",
+            "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
+            "UXON": "{\"url\":\"\",\"swagger_url\":\"\"}",
+            "WRAP_PATH": "",
+            "UXON_SCHEMA": "connection"
         }
     ],
     "totals_rows": [],
