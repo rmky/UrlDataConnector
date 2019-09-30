@@ -1,47 +1,48 @@
 {
-	"name" : "exface/UrlDataConnector",
-	"description" : "Connector for web-based data sources like web services and web pages for the ExFace plattform",
-	"type" : "library",
-	"license" : "GPL-3.0+",
-	"authors" : [{
-			"name" : "Andrej Kabachnik",
-			"email" : "kabachnik@gmail.com",
-			"role" : "Creator"
-		}
-	],
-	"support" : {
-		"source" : "https://github.com/exface/UrlDataConnector",
-		"docs" : "https://github.com/exface/UrlDataConnector/blob/master/Docs",
-		"issues" : "https://github.com/exface/UrlDataConnector/issues"
-	},
-	"require" : {
-		"exface/core" : "~0.1",
-		"guzzlehttp/guzzle" : "^6.2.2",
-		"gajus/dindent" : "^2.0",
-		"symfony/Finder" : "^3.1.2||^4.0",
-		"symfony/Css-Selector" : "^3.1.2||^4.0",
-		"symfony/Dom-Crawler" : "^3.1.2||^4.0",
-		"symfony/Cache" : "^3.2||^4.0",
-		"psr/cache" : "^1.0.1",
-		"kevinrob/guzzle-cache-middleware" : "~2.0",
-		"ruflin/elastica": "^6.1.1"
-	},
-	"extra" : {
-		"app" : {
-			"app_uid" : "0x11e6951dda3ba520b48b847beb4a5184",
-			"app_alias" : "exface.UrlDataConnector",
-			"model_md5" : "3287881fc69101c025ef2023486961d5",
-			"model_timestamp" : "2019-07-10 07:25:42"
-		}
-	},
-	"autoload" : {
-		"psr-4" : {
-			"exface\\UrlDataConnector\\" : ""
-		},
-		"exclude-from-classmap" : [
-			"/Config/",
-			"/Translations/",
-			"/Model/"
-		]
-	}
+    "name": "exface/UrlDataConnector",
+    "description": "Connector for web-based data sources like web services and web pages for the ExFace plattform",
+    "type": "library",
+    "license": "GPL-3.0+",
+    "authors": [
+        {
+            "name": "Andrej Kabachnik",
+            "email": "kabachnik@gmail.com",
+            "role": "Creator"
+        }
+    ],
+    "support": {
+        "source": "https://github.com/exface/UrlDataConnector",
+        "docs": "https://github.com/exface/UrlDataConnector/blob/master/Docs",
+        "issues": "https://github.com/exface/UrlDataConnector/issues"
+    },
+    "require": {
+        "exface/core": "~0.1",
+        "guzzlehttp/guzzle": "^6.2.2",
+        "gajus/dindent": "^2.0",
+        "symfony/Finder": "^3.1.2||^4.0",
+        "symfony/Css-Selector": "^3.1.2||^4.0",
+        "symfony/Dom-Crawler": "^3.1.2||^4.0",
+        "symfony/Cache": "^3.2||^4.0",
+        "psr/cache": "^1.0.1",
+        "kevinrob/guzzle-cache-middleware": "~2.0",
+        "ruflin/elastica": "^6.1.1"
+    },
+    "extra": {
+        "app": {
+            "app_uid": "0x11e6951dda3ba520b48b847beb4a5184",
+            "app_alias": "exface.UrlDataConnector",
+            "model_md5": "5883a59abd32cfdec8631766606489e5",
+            "model_timestamp": "2019-09-30 09:28:27"
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "exface\\UrlDataConnector\\": ""
+        },
+        "exclude-from-classmap": [
+            "/Config/",
+            "/Translations/",
+            "/Model/"
+        ]
+    }
 }

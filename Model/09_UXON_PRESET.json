@@ -1,0 +1,163 @@
+{
+    "object_alias": "exface.Core.UXON_PRESET",
+    "columns": [
+        {
+            "name": "CREATED_ON",
+            "attribute_alias": "CREATED_ON"
+        },
+        {
+            "name": "MODIFIED_ON",
+            "attribute_alias": "MODIFIED_ON"
+        },
+        {
+            "name": "CREATED_BY_USER",
+            "attribute_alias": "CREATED_BY_USER"
+        },
+        {
+            "name": "MODIFIED_BY_USER",
+            "attribute_alias": "MODIFIED_BY_USER"
+        },
+        {
+            "name": "UID",
+            "attribute_alias": "UID"
+        },
+        {
+            "name": "APP",
+            "attribute_alias": "APP"
+        },
+        {
+            "name": "NAME",
+            "attribute_alias": "NAME"
+        },
+        {
+            "name": "DESCRIPTION",
+            "attribute_alias": "DESCRIPTION"
+        },
+        {
+            "name": "PROTOTYPE",
+            "attribute_alias": "PROTOTYPE"
+        },
+        {
+            "name": "UXON",
+            "attribute_alias": "UXON"
+        },
+        {
+            "name": "WRAP_PATH",
+            "attribute_alias": "WRAP_PATH"
+        },
+        {
+            "name": "UXON_SCHEMA",
+            "attribute_alias": "UXON_SCHEMA"
+        }
+    ],
+    "rows": [
+        {
+            "CREATED_ON": "2019-09-30 08:38:41",
+            "MODIFIED_ON": "2019-09-30 08:38:41",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11e9e35db31db507bacde4b318306b9a",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "NAME": "OData 2.0 Connection",
+            "DESCRIPTION": "",
+            "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/OData2Connector.php",
+            "UXON": "{\"url\":\"\",\"user\":\"\",\"password\":\"\"}",
+            "WRAP_PATH": "",
+            "UXON_SCHEMA": "connection"
+        },
+        {
+            "CREATED_ON": "2019-09-30 08:39:01",
+            "MODIFIED_ON": "2019-09-30 08:39:01",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11e9e35dbeddb029bacde4b318306b9a",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "NAME": "OData 4.0 Connection",
+            "DESCRIPTION": "",
+            "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/OData4Connector.php",
+            "UXON": "{\"url\":\"\",\"user\":\"\",\"password\":\"\"}",
+            "WRAP_PATH": "",
+            "UXON_SCHEMA": "connection"
+        },
+        {
+            "CREATED_ON": "2019-09-30 09:21:00",
+            "MODIFIED_ON": "2019-09-30 09:25:38",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11e9e3639c32b39ebacde4b318306b9a",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "NAME": "Webservice with cookies",
+            "DESCRIPTION": "By default only non-session cookies will be stored. Enable `use_cookie_sessions` additionally to store session cookies too. This will only work for logged in users though.",
+            "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
+            "UXON": "{\"url\":\"\",\"use_cookies\":true,\"use_cookie_sessions\":false}",
+            "WRAP_PATH": "",
+            "UXON_SCHEMA": "connection"
+        },
+        {
+            "CREATED_ON": "2019-09-30 09:22:18",
+            "MODIFIED_ON": "2019-09-30 09:27:04",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11e9e363cab1537dbacde4b318306b9a",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "NAME": "Webservice with cache",
+            "DESCRIPTION": "When caching is enabled, the cache-control HTTP headers will by used by default. You can explicitly ignore them via `cache_ignore_headers` to cache even those responses, that are marked as non-cacheable.",
+            "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
+            "UXON": "{\"URL\":\"\",\"cache_enabled\":true,\"cache_ignore_headers\":false,\"cache_lifetime_in_seconds\":\"28800\"}",
+            "WRAP_PATH": "",
+            "UXON_SCHEMA": "connection"
+        },
+        {
+            "CREATED_ON": "2019-09-30 09:23:56",
+            "MODIFIED_ON": "2019-09-30 09:23:56",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11e9e364055e3d0abacde4b318306b9a",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "NAME": "Webservice with basic auth",
+            "DESCRIPTION": "",
+            "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
+            "UXON": "{\"url\":\"\",\"user\":\"\",\"password\":\"\"}",
+            "WRAP_PATH": "",
+            "UXON_SCHEMA": "connection"
+        },
+        {
+            "CREATED_ON": "2019-09-30 09:28:04",
+            "MODIFIED_ON": "2019-09-30 09:28:27",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11e9e36498f20e0cbacde4b318306b9a",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "NAME": "Fixed URL parameters for all requests",
+            "DESCRIPTION": "Add `fixed_url_params` to append static parameter to every request",
+            "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
+            "UXON": "{\"url\":\"\",\"fixed_url_params\":\"&param1=value1&param2=value2\"}",
+            "WRAP_PATH": "",
+            "UXON_SCHEMA": "connection"
+        }
+    ],
+    "totals_rows": [],
+    "filters": {
+        "operator": "AND",
+        "conditions": [
+            {
+                "expression": "APP",
+                "comparator": "=",
+                "value": "0x11e6951dda3ba520b48b847beb4a5184",
+                "object_alias": "exface.Core.UXON_PRESET"
+            }
+        ]
+    },
+    "rows_limit": null,
+    "rows_offset": 0,
+    "sorters": [
+        {
+            "attribute_alias": "CREATED_ON",
+            "direction": "ASC"
+        },
+        {
+            "attribute_alias": "UID",
+            "direction": "ASC"
+        }
+    ]
+}
