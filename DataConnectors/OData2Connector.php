@@ -39,12 +39,12 @@ class OData2Connector extends HttpConnector
     }
 
     /**
-     * Specifies the URL of the $metadata endpoint.
+     * A custom URL of the $metadata endpoint.
      * 
-     * If not set, url/$metadata will be used automatically.
+     * If not set, [#url#]/$metadata will be used automatically.
      * 
      * @uxon-property metadata_url
-     * @uxon-type string
+     * @uxon-type url
      * 
      * @param string $metadataUrl
      */

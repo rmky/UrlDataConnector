@@ -253,7 +253,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
 
     /**
-     * Sets the user name for basic authentification.
+     * The user name for HTTP basic authentification.
      *
      * @uxon-property user
      * @uxon-type string
@@ -273,10 +273,10 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
 
     /**
-     * Sets the password for basic authentification.
+     * Sets the password for basic HTTP authentification.
      *
      * @uxon-property password
-     * @uxon-type string
+     * @uxon-type password
      *
      * @param string $value            
      * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
@@ -299,8 +299,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
 
     /**
-     * Sets the proxy server address to be used.
-     * Use name:port notation like 192.169.1.10:8080 or myproxy:8080.
+     * Proxy server address to be used - e.g. myproxy:8080 or 192.169.1.10:8080.
      *
      * @uxon-property proxy
      * @uxon-type string
@@ -377,11 +376,14 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
 
     /**
-     * Enables or disables caching of HTTP requests.
-     * Default: FALSE.
+     * Enables (TRUE) or disables (FALSE) caching of HTTP requests.
+     * 
+     * Use `cache_lifetime_in_seconds`, `cache_ignore_headers`, etc. for futher cache
+     * customization.
      *
      * @uxon-property cache_enabled
      * @uxon-type boolean
+     * @uxon-default false
      *
      * @param boolean $value            
      * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
@@ -398,14 +400,14 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
 
     /**
-     * Makes all requests get cached regardless of their headers.
-     * Default: FALSE.
+     * Set to TRUE to cache all requests regardless of their cache-control headers.
      *
      * If set to TRUE, this automatically sets the default cache lifetime to 60 seconds. Use
      * "cache_lifetime_in_seconds" to specify a custom value.
      *
      * @uxon-property cache_ignore_headers
      * @uxon-type boolean
+     * @uxon-default false
      *
      * @param boolean $value            
      * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
@@ -425,10 +427,12 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
 
     /**
-     * Sets the default lifetime for request cache items.
+     * How long a cached URL is concidered up-to-date.
+     * 
+     * NOTE: This only works if the cache is enabled via `cache_enabled: true`.
      *
      * @uxon-property cache_lifetime_in_seconds
-     * @uxon-type number
+     * @uxon-type integer
      *
      * @param integer $value            
      * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
@@ -467,7 +471,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     /**
      * Adds specified params to every request: e.g. &format=json&ignoreETag=false.
      * 
-     * @uxon-property fixed_params
+     * @uxon-property fixed_url_params
      * @uxon-type string
      * 
      * @param string $fixed_params
@@ -516,6 +520,13 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
     
     /**
+     * URL of the Swagger/OpenAPI description of the web service (if available).
+     * 
+     * If used, the metamodel can be generated from the Swagger description using
+     * the SwaggerModelBuilder.
+     * 
+     * @uxon-property swagger_url
+     * @uxon-type url
      * 
      * @param string $value
      * @return HttpConnector

@@ -48,8 +48,7 @@ abstract class AbstractUrlConnector extends AbstractDataConnectorWithoutTransact
     }
 
     /**
-     * Sets the base URL for this connection.
-     * It will be prepended to every data address accessed here.
+     * The base URL for this connection - it will be prepended to every data address accessed here.
      *
      * If a base URL is set, data addresses of meta objects from this data source should be relative URL!
      *
