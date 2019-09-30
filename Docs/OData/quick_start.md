@@ -4,15 +4,16 @@ Each OData service should be modeled as a sperate data source. The $metadata doc
 
 ## Creating a data connection
 
-Go to Administration > Metamodel > Connections and add a new connection as shown below.
+1. Go to Administration > Metamodel > Connections 
+2. Add a new connection with the connector, that matches the OData version - i.e. `OData2Connector` for OData v2.0, `OData4Connector` for OData v4.0 or `SapOData2Connector` if your are connecting to SAP NetWeaver using the [SapConnector](https://github.com/ExFace/SapConnector/blob/master/Docs/index.md) app.
+3. Press the magic wand on the configuration widget and choose a config preset, that looks best to you, and fill out the missing values.
+4. If you have created an app for your OData metamodel, don't forget to assign it to the connection.
 
-![SAP OData connection settings](images/northwind_connection.png)
-
-The only mandatory configuration option is the `url`, which should point to the root of your OData service. Make sure, it ends with a slash (e.g. `http://services.odata.org/V4/Northwind/Northwind.svc/`). The connector does not depend on the version of the OData standard, that is being used.
+The only mandatory configuration option is the `url`, which should point to the root of your OData service. Make sure, it ends with a slash (e.g. `http://services.odata.org/V4/Northwind/Northwind.svc/`). 
 
 The name and alias of your connection can be anything - refer to the general [data source documentation](https://github.com/exface/Core/blob/master/Docs/understanding_the_metamodel/data_sources_and_connections.md) for details.
 
-If you have created an app for your OData metamodel, don't forget to assign it to the connection.
+You don't need to specify a user and a password in the connection settings: if you prefer per-user credentials, remove the corresponding fields here and create credential sets for your users instead - see the [general documentation for credential storage](https://github.com/ExFace/Core/blob/0.x-dev/Docs/creating_metamodels/Data_connection_credentials_and_user-specific_settings.md).
 
 ## Creating a data source
 
