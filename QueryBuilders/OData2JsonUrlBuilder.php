@@ -336,21 +336,15 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
     {
         $url = '';
         $sort = [];
-        $order = [];
         
         foreach ($this->getSorters() as $qpart) {
             if ($sortParam = $this->buildUrlParamSorter($qpart)) {
-                $sort[] = $sortParam;
-                $order[] = $qpart->getOrder();
+                $sort[] = $sortParam . ' ' . $qpart->getOrder();
             }
         }
         
         if (! empty($sort)) {
             $url = '$orderby=' . implode(',', $sort);
-        }
-        
-        if (! empty($order)) {
-            $url .= ' ' . implode(',', $order);
         }
         
         return $url;
