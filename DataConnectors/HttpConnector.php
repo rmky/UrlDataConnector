@@ -554,4 +554,23 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         }
         return parent::getModelBuilder();
     }
+    
+    /**
+     * Returns the server root of the URL.
+     * 
+     * E.g. http://www.mydomain.com for http://www.mydomain.com/path.
+     * 
+     * @return string
+     */
+    public function getUrlServerRoot() : string
+    {
+        $parts = parse_url($this->getUrl());
+        $port = ($parts['port'] ? ':' . $parts['port'] : '');
+        if ($parts['user'] || $parts['pass']) {
+            $auth = $parts['user'] . ($parts['pass'] ? ':' . $parts['pass'] : '') . '@';
+        } else {
+            $auth = '';
+        }
+        return $parts['scheme'] . '://' . $auth . $parts['host'] . $port;
+    }
 }
