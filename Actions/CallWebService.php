@@ -15,7 +15,6 @@ use exface\Core\Interfaces\Actions\iCallService;
 use exface\Core\CommonLogic\Actions\ServiceParameter;
 use exface\Core\Interfaces\Actions\ServiceParameterInterface;
 use exface\Core\Interfaces\DataSheets\DataSheetInterface;
-use exface\Core\Exceptions\DataSources\DataQueryFailedError;
 use exface\Core\Factories\DataSheetFactory;
 use Psr\Http\Message\ResponseInterface;
 use exface\Core\Interfaces\Model\MetaObjectInterface;
@@ -24,6 +23,7 @@ use exface\Core\Factories\DataSourceFactory;
 use exface\Core\DataTypes\StringDataType;
 use exface\Core\Exceptions\Actions\ActionInputMissingError;
 use exface\Core\CommonLogic\Constants\Icons;
+use exface\UrlDataConnector\Exceptions\HttpConnectorRequestError;
 
 /**
  * Calls a generic web service using parameters to fill placeholders in the URL and body.
@@ -45,6 +45,15 @@ use exface\Core\CommonLogic\Constants\Icons;
  * - If `result_message_text` and `result_message_pattern` are both specified, the static
  * text will be prepended to the extracted result. This is usefull for web services, that
  * respond with pure data - e.g. an importer serves, that returns the number of items imported.
+ * 
+ * Similarly, you can make error messages look for information in the error response
+ * if the web service produce more informative errors than the generic errors in the
+ * data connectors.
+ * 
+ * - `error_message_pattern` - a regular expression to find the error message (this will
+ * make this error message visible to the users!)
+ * - `error_code_pattern` - a regular expression to find the error code (this will
+ * make this error code visible to the users!)
  * 
  * ## Examples
  * 
@@ -192,6 +201,10 @@ class CallWebService extends AbstractAction implements iCallService
      * @var string|NULL
      */
     private $resultMessagePattern = null;
+    
+    private $errorMessagePattern = null;
+    
+    private $errorCodePattern = null;
     
     /**
      *
@@ -419,7 +432,15 @@ class CallWebService extends AbstractAction implements iCallService
             try {
                 $resultData = $this->parseResponse($response, $resultData);
             } catch (\Throwable $e) {
-                throw new DataQueryFailedError($query, $e->getMessage(), null, $e);
+                if ($eResponse = $this->getErrorResponse($e)) {
+                    $message = $this->getErrorMessageFromResponse($eResponse);
+                    $code = $this->getErrorCodeFromResponse($eResponse);
+                    $statusCode = $eResponse->getStatusCode();
+                    $reasonPhrase = $eResponse->getReasonPhrase();
+                }
+                $ex = new HttpConnectorRequestError($query, $statusCode, $reasonPhrase, $message, $code, $e);
+                $ex->setUseRemoteMessageAsTitle(($message !== null));
+                throw $ex;
             }
         }
         
@@ -713,4 +734,116 @@ class CallWebService extends AbstractAction implements iCallService
         return $this;
     }
     
+    /**
+     *
+     * @return string
+     */
+    protected function getErrorMessagePattern() : ?string
+    {
+        return $this->errorMessagePattern;
+    }
+    
+    /**
+     * Use a regular expression to extract messages from error responses.
+     * 
+     * By default, the action will use the error handler of the data connection to
+     * parse error responses from the web service. This will mostly produce general
+     * errors like "500 Internal Server Error". Using the `error_message_pattern`
+     * you can tell the action where to look for the actual error text.
+     * 
+     * @uxon-property error_message_pattern
+     * @uxon-type string
+     * 
+     * @param string $value
+     * @return CallWebService
+     */
+    public function setErrorMessagePattern(string $value) : CallWebService
+    {
+        $this->errorMessagePattern = $value;
+        return $this;
+    }
+    
+    /**
+     *
+     * @return string
+     */
+    protected function getErrorCodePattern() : ?string
+    {
+        return $this->errorMessageCode;
+    }
+    
+    /**
+     * Use a regular expression to extract error codes from error responses.
+     * 
+     * By default, the action will use the error handler of the data connection to
+     * parse error responses from the web service. This will mostly produce general
+     * errors like "500 Internal Server Error". Using the `error_code_pattern`
+     * you can tell the action where to look for the actual error code an use
+     * it in the error it produces.
+     * 
+     * @uxon-property error_code_pattern
+     * @uxon-type string
+     * 
+     * @param string $value
+     * @return CallWebService
+     */
+    public function setErrorCodePattern(string $value) : CallWebService
+    {
+        $this->errorMessageCode = $value;
+        return $this;
+    }
+    
+    /**
+     * 
+     * @param \Throwable $e
+     * @return ResponseInterface|NULL
+     */
+    protected function getErrorResponse(\Throwable $e) : ?ResponseInterface
+    {
+        if (method_exists($e, 'getResponse') === true) {
+            $response = $e->getResponse();
+            if ($response instanceof ResponseInterface) {
+                return $response;
+            }
+        }
+        return null;
+    }
+    
+    /**
+     *
+     * @param ResponseInterface $response
+     * @return string|NULL
+     */
+    protected function getErrorMessageFromResponse(ResponseInterface $response) : ?string
+    {
+        if ($this->getResultMessagePattern() !== null) {
+            $body = $response->getBody()->__toString();
+            $matches = [];
+            preg_match($this->getResultMessagePattern(), $body, $matches);
+            if (empty($matches) === false) {
+                return $matches['message'] ?? $matches[1];
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     *
+     * @param ResponseInterface $response
+     * @return string|NULL
+     */
+    protected function getErrorCodeFromResponse(ResponseInterface $response) : ?string
+    {
+        if ($this->getErrorCodePattern() !== null) {
+            $body = $response->getBody()->__toString();
+            $matches = [];
+            preg_match($this->getResultMessagePattern(), $body, $matches);
+            if (empty($matches) === false) {
+                return $matches['message'] ?? $matches[1];
+            }
+        }
+        
+        return null;
+    }
 }
