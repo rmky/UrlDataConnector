@@ -5,6 +5,9 @@ use exface\Core\Exceptions\DataSources\DataQueryFailedError;
 use exface\Core\Interfaces\DataSources\DataQueryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use exface\Core\Interfaces\WorkbenchInterface;
+use exface\Core\CommonLogic\Workbench;
+use exface\Core\Factories\DataSheetFactory;
 
 /**
  * Error which can be thrown when an HTTP client returns a HTTP status code indicating
@@ -19,6 +22,8 @@ class HttpConnectorRequestError extends DataQueryFailedError
     private $httpStatusCode = null;
 
     private $httpReasonPhrase = null;
+    
+    private $useRemoteMessageAsTitle = false;
 
     // Default Reason Phrases fuer verschiedene HTTP Statuscodes
     private $defaultReasonPhrase = [
@@ -173,4 +178,40 @@ class HttpConnectorRequestError extends DataQueryFailedError
     {
         return $this->getQuery()->getResponse();
     }
+    
+    /**
+     *
+     * @return bool
+     */
+    protected function getUseRemoteMessageAsTitle() : bool
+    {
+        return $this->useRemoteMessageAsTitle;
+    }
+    
+    /**
+     * 
+     * @param bool $value
+     * @return HttpConnectorRequestError
+     */
+    public function setUseRemoteMessageAsTitle(bool $value) : HttpConnectorRequestError
+    {
+        $this->useRemoteMessageAsTitle = $value;
+        return $this;
+    }
+    
+    public function getMessageModelData(Workbench $exface, $error_code)
+    {
+        if ($this->getUseRemoteMessageAsTitle() === true) {
+            $ds = DataSheetFactory::createFromObjectIdOrAlias($exface, 'exface.Core.MESSAGE');
+            $ds->addRow([
+                'TITLE' => $this->getMessage(), 
+                'HINT' => '', 
+                'DESCRIPTION' => '', 
+                'TYPE' => 'ERROR'
+            ]);
+            return $ds;
+        }
+        return parent::getMessageModelData($exface, $error_code);
+    }
+    
 }
