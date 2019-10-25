@@ -438,8 +438,12 @@ class CallWebService extends AbstractAction implements iCallService
                     $statusCode = $eResponse->getStatusCode();
                     $reasonPhrase = $eResponse->getReasonPhrase();
                 }
-                $ex = new HttpConnectorRequestError($query, $statusCode, $reasonPhrase, $message, $code, $e);
-                $ex->setUseRemoteMessageAsTitle(($message !== null));
+                if (! $e instanceof HttpConnectorRequestError) {
+                    $ex = new HttpConnectorRequestError($query, $statusCode, $reasonPhrase, $message, $code, $e);
+                } else {
+                    $ex = new HttpConnectorRequestError($query, $statusCode, $reasonPhrase, $message, $code, $e->getPrevious());
+                }
+                $ex->setUseRemoteMessageAsTitle(($message !== null ? true : false));
                 throw $ex;
             }
         }
@@ -816,10 +820,10 @@ class CallWebService extends AbstractAction implements iCallService
      */
     protected function getErrorMessageFromResponse(ResponseInterface $response) : ?string
     {
-        if ($this->getResultMessagePattern() !== null) {
+        if ($this->getErrorMessagePattern() !== null) {
             $body = $response->getBody()->__toString();
             $matches = [];
-            preg_match($this->getResultMessagePattern(), $body, $matches);
+            preg_match($this->getErrorMessagePattern(), $body, $matches);
             if (empty($matches) === false) {
                 return $matches['message'] ?? $matches[1];
             }
