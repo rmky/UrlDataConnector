@@ -435,6 +435,9 @@ class CallWebService extends AbstractAction implements iCallService
                 if ($eResponse = $this->getErrorResponse($e)) {
                     $message = $this->getErrorMessageFromResponse($eResponse);
                     $code = $this->getErrorCodeFromResponse($eResponse);
+                    if ($code === null && $message) {
+                        $code = '';
+                    }
                     $statusCode = $eResponse->getStatusCode();
                     $reasonPhrase = $eResponse->getReasonPhrase();
                 }
