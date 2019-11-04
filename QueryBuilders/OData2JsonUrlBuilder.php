@@ -324,7 +324,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      */
     protected function buildUrlFilterValueEscapedString(QueryPartFilter $qpart, string $value) : string
     {
-        return "'" . str_replace(' ', 'x0020', $value) . "'";
+        return "'" . rawurlencode($value) . "'";
     }
     
     /**
