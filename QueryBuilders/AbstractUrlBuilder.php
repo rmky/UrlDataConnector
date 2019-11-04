@@ -776,7 +776,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         
         if ($hasMoreRows === false && ! $totalCnt) {
-            $totalCnt = count($result_rows);
+            $totalCnt = count($result_rows) + $this->getOffset();
         }
         
         $rows = array_values($result_rows);
