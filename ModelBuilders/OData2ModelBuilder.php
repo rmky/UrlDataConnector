@@ -125,10 +125,23 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         $imported_rows = $this->getObjectData($entities, $app, $source)->getRows();
         $existingAddressCol = $existing_objects->getColumns()->getByExpression('DATA_ADDRESS');
         $existingAliasCol = $existing_objects->getColumns()->getByExpression('ALIAS');
+        $importedAliases = [];
         foreach ($imported_rows as $row) {
+            // Check if alias is unique within the currently imported objects. Need a dedicated
+            // error here, because otherwise there will be a duplicate-error when saving, which
+            // is really hard to mentally connect to the model builder.
+            if (in_array($row['ALIAS'], $importedAliases) === false) {
+                $importedAliases[] = $row['ALIAS'];
+            } else {
+                throw new ModelBuilderRuntimeError($this, 'Corrupt $metadata: multiple EntityType nodes found with name "' . $row['DATA_ADDRESS'] . '"');
+            }
+            // If there already exists an object with this data address - skip it
             if ($existingAddressCol->findRowByValue($row['DATA_ADDRESS']) === false) {
-                if ($existingAliasCol->findRowByValue($row['ALIAS']) !== false) {
-                    $row['ALIAS'] = $row['ALIAS'] . '2';
+                // If the data address is not knonw yet, but there is an alias conflict,
+                // make the alias unique by adding a counter
+                $existingAliasRows = $existingAliasCol->findRowsByValue($row['ALIAS']);
+                if (empty($existingAliasRows) === false) {
+                    $row['ALIAS'] = $row['ALIAS'] . '_' . (count($existingAliasRows)+1);
                 }
                 $new_objects->addRow($row);
             } 
@@ -443,9 +456,9 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                 'DATA_SOURCE' => $ds_uid,
                 'APP' => $app_uid,
                 'DATA_ADDRESS_PROPS' => json_encode([
-                                            "EntityType" => $entityName,
-                                            "Namespace" => $namespace
-                                        ])
+                    "EntityType" => $entityName,
+                    "Namespace" => $namespace
+                ])
             ]);
         }
         return $sheet;
@@ -654,6 +667,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
     }
     
     /**
+     * Returns the XML node for the first EntitySet containing the given EntityType
      * 
      * @param \DOMElement $entityTypeNode
      * @return \Symfony\Component\DomCrawler\Crawler
