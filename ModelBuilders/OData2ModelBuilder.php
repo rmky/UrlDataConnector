@@ -663,7 +663,11 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
      */
     protected function getEntityType(MetaObjectInterface $object)
     {
-        return $this->stripNamespace($this->getMetadata()->filterXPath($this->getXPathToEntitySets() . '[@Name="' . $object->getDataAddress() . '"]')->attr('EntityType'));
+        $entitySet = $this->getMetadata()->filterXPath($this->getXPathToEntitySets() . '[@Name="' . $object->getDataAddress() . '"]');
+        if ($entitySet->count() === 0) {
+            throw new ModelBuilderRuntimeError($this, 'No EntitySet matching data address "' . $object->getDataAddress() . '" ob object "' . $object->getName() . '" (' . $object->getAliasWithNamespace() . ') found in $metdata');
+        }
+        return $this->stripNamespace($entitySet->attr('EntityType'));
     }
     
     /**
