@@ -93,8 +93,18 @@ class OData4JsonUrlBuilder extends OData2JsonUrlBuilder
      */
     protected function buildUrlFilterValue(QueryPartFilter $qpart, string $preformattedValue = null)
     {
-        $value = $preformattedValue ?? $qpart->getCompareValue();
         $comparator = $qpart->getComparator();
+        
+        if ($preformattedValue !== null) {
+            $value = $preformattedValue;
+        } else {
+            $value = $qpart->getCompareValue();
+            try {
+                $value = $qpart->getDataType()->parse($value);
+            } catch (\Throwable $e) {
+                throw new QueryBuilderException('Cannot create OData filter for "' . $qpart->getCondition()->toString() . '" - invalid data type!', null, $e);
+            }
+        }
         
         if ($comparator === EXF_COMPARATOR_IN || $comparator === EXF_COMPARATOR_NOT_IN) {
             $values = [];

@@ -15,6 +15,8 @@ use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
+use exface\Core\DataTypes\DateDataType;
+use exface\Core\DataTypes\BooleanDataType;
 
 /**
  * This is a query builder for JSON-based oData 2.0 APIs.
@@ -227,14 +229,18 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
     protected function buildUrlFilterPredicate(QueryPartFilter $qpart, string $property, string $escapedValue) : string
     {
         $comp = $qpart->getComparator();
+        $type = $qpart->getDataType();
         switch ($comp) {
             case EXF_COMPARATOR_IS:
             case EXF_COMPARATOR_IS_NOT:
-                if ($qpart->getDataType() instanceof NumberDataType) {
-                    $op = ($comp === EXF_COMPARATOR_IS_NOT ? 'ne' : 'eq');
-                    return "{$property} {$op} {$escapedValue}";
-                } else {
-                    return "substringof({$escapedValue}, {$property})" . ($comp === EXF_COMPARATOR_IS_NOT ? ' ne' : ' eq') . ' true';
+                switch (true) {
+                    case $type instanceof NumberDataType:
+                    case $type instanceof DateDataType:
+                    case $type instanceof BooleanDataType:
+                        $op = ($comp === EXF_COMPARATOR_IS_NOT ? 'ne' : 'eq');
+                        return "{$property} {$op} {$escapedValue}";
+                    default:
+                        return "substringof({$escapedValue}, {$property})" . ($comp === EXF_COMPARATOR_IS_NOT ? ' ne' : ' eq') . ' true';
                 }
             case EXF_COMPARATOR_IN:
             case EXF_COMPARATOR_NOT_IN:
@@ -303,10 +309,16 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
             $value = implode($qpart->getAttribute()->getValueListDelimiter(), $value);
         }
         
+        if ($preformattedValue === null) {
+            try {
+                $value = $qpart->getDataType()->parse($value);
+            } catch (\Throwable $e) {
+                throw new QueryBuilderException('Cannot create OData filter for "' . $qpart->getCondition()->toString() . '" - invalid data type!', null, $e);
+            }
+        }
+        
         switch (true) {
             // Wrap string data types in single quotes
-            // Since spaces are used as delimiters in oData filter expression, they need to be
-            // replaced by x0020.
             case ($qpart->getDataType() instanceof StringDataType): 
                 $value = $this->buildUrlFilterValueEscapedString($qpart, $value); 
                 break; 

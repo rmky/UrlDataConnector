@@ -552,7 +552,16 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function buildUrlFilterValue(QueryPartFilter $qpart, string $preformattedValue = null)
     {
-        return $preformattedValue ?? $qpart->getCompareValue();
+        if ($preformattedValue !== null) {
+            $value = $preformattedValue;
+        } else {
+            $value = $qpart->getCompareValue();
+            try {
+                $value = $qpart->getDataType()->parse($value);
+            } catch (\Throwable $e) {
+                throw new QueryBuilderException('Cannot create filter for "' . $qpart->getCondition()->toString() . '" - invalid data type!', null, $e);
+            }
+        }
     }
     
     /**
