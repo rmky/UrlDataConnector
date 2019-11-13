@@ -131,16 +131,15 @@ class HtmlUrlBuilder extends AbstractUrlBuilder
             }
         }
         
-        $result_rows_with_uid_keys = array();
-        if ($this->getAttribute($this->getMainObject()->getUidAttributeAlias())) {
+        if ($this->getUseUidsAsRowNumbers() === true) {
+            $result_rows_with_uid_keys = array();
             foreach ($result_rows as $row) {
-                $result_rows_with_uid_keys[$row[$this->getMainObject()->getUidAttributeAlias()]] = $row;
+                $result_rows_with_uid_keys[$row[$this->getMainObject()->getUidAttribute()->getDataAddress()]] = $row;
             }
-        } else {
-            $result_rows_with_uid_keys = $result_rows;
+            return $result_rows_with_uid_keys;
         }
         
-        return $result_rows_with_uid_keys;
+        return $result_rows;
     }
 
     protected function performCalculationOnNode($expression, \DOMNode $node)

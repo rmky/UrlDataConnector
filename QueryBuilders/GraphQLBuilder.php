@@ -18,7 +18,6 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
 use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
 use Psr\Http\Message\RequestInterface;
-use exface\Core\DataTypes\BooleanDataType;
 
 /**
  * This is a query builder for GraphQL.

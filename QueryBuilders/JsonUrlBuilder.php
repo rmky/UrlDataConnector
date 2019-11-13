@@ -230,7 +230,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         
         $rows = $this->findRowData($parsed_data, $this->buildPathToResponseRows($query));
         
-        $has_uid_column = $this->getAttribute($this->getMainObject()->getUidAttributeAlias()) ? true : false;
+        $useUidForRowNumber = $this->getUseUidsAsRowNumbers();
         if (! empty($rows)) {
             if (is_array($rows)) {
                 if (BooleanDataType::cast($this->getMainObject()->getDataAddressProperty('response_use_raw_data')) === true) {
@@ -267,7 +267,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
                             $result_row[$qpart->getColumnKey()] = $val;
                         }
                     }
-                    if ($has_uid_column) {
+                    if ($useUidForRowNumber === true) {
                         $result_rows[$result_row[$this->getMainObject()->getUidAttributeAlias()]] = $result_row;
                     } else {
                         $result_rows[] = $result_row;
@@ -275,6 +275,11 @@ class JsonUrlBuilder extends AbstractUrlBuilder
                 }
             }
         }
+        
+        if ($useUidForRowNumber === true) {
+            $result_rows = array_values($result_rows);
+        }
+        
         return $result_rows;
     }
 

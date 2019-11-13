@@ -79,6 +79,14 @@ use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
  * - `create_request_data_path` - path to the object/array holding the 
  * attributes of the instance to be created
  * 
+ * - `read_request_remove_ambiguous_uids` - set to `true` to ignore rows with
+ * UID values, that alread exist in previous rows. This is usefull if you use
+ * a single service to read multiple objects: e.g. product groups and categories.
+ * Assuming each group has a category id and name, you could create a category-object
+ * with this option set to `true` to get a distinct list of categories. **WARNING:** 
+ * don't use this option with server-side pagination because client and server will
+ * have different oppinion on page length!   
+ * 
  * - `update_request_method` - HTTP method for update requests (PATCH by default). 
  * 
  * - `update_request_data_address` - used in update requests instead of the 
@@ -143,6 +151,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     private $endpoint_filter = null;
 
     private $request_split_filter = null;
+    
+    private $UseUidsAsRowNumbers = null;
 
     /**
      * Returns a PSR7 GET-Request for this query.
@@ -720,8 +730,21 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         
         $query = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
         if ($data = $this->parseResponse($query)) {
+            // See if the query has an IN-filter, that is set to split requests. This is quite common for URLs like mydomain.com/get_something/id=XXX.
+            // If we filter over ids and have multiple values, we will need to make as many identical requests as there are values and merge
+            // the results together here. So the easiest thing to do is perform this query multiple times, changing the split filter value each time.
+            if ($this->getRequestSplitFilter() && $this->getRequestSplitFilter()->getComparator() == EXF_COMPARATOR_IN) {
+                $requiresMultipleReadRequests = true;
+                // Since we are going to merge multipe result sets, it we need to be sure, there really is
+                // only one row per UID value.
+                $this->setUseUidsAsRowNumbers(true);
+            } else {
+                $requiresMultipleReadRequests = false;
+            }
+            
             // Find the total row counter within the response
             $totalCnt = $this->findRowCounter($data, $query);
+            
             // Find data rows within the response and do the postprocessing
             $result_rows = $this->buildResultRows($data, $query);
             
@@ -737,10 +760,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             // Apply postprocessing options like `response_group_by_attribute_alias`
             $result_rows = $this->applyPostprocessing($result_rows);
             
-            // See if the query has an IN-filter, that is set to split requests. This is quite common for URLs like mydomain.com/get_something/id=XXX.
-            // If we filter over ids and have multiple values, we will need to make as many identical requests as there are values and merge
-            // the results together here. So the easiest thing to do is perform this query multiple times, changing the split filter value each time.
-            if ($this->getRequestSplitFilter() && $this->getRequestSplitFilter()->getComparator() == EXF_COMPARATOR_IN) {
+            // Make more requests if we have multiple values for split filters
+            if ($requiresMultipleReadRequests === true) {
                 $split_values = explode($this->getRequestSplitFilter()->getValueListDelimiter(), $this->getRequestSplitFilter()->getCompareValue());
                 // skip the first UID as it has been fetched already
                 $skip_val = true;
@@ -788,9 +809,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             $totalCnt = count($result_rows) + $this->getOffset();
         }
         
-        $rows = array_values($result_rows);
-        
-        return new DataQueryResultData($rows, count($result_rows), $hasMoreRows, $totalCnt);
+        return new DataQueryResultData($result_rows, count($result_rows), $hasMoreRows, $totalCnt);
     }
 
     protected function parseResponse(Psr7DataQuery $query)
@@ -999,5 +1018,31 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         
         return 'POST';
+    }
+    
+    /**
+     * 
+     * @param bool $trueOrFalse
+     * @return AbstractUrlBuilder
+     */
+    protected function setUseUidsAsRowNumbers(bool $trueOrFalse) : AbstractUrlBuilder
+    {
+        $this->UseUidsAsRowNumbers = $trueOrFalse;
+        return $this;
+    }
+    
+    /**
+     * Returns TRUE if the uniqueness of UIDs must be enforced in each result.
+     * 
+     * @return bool
+     */
+    protected function getUseUidsAsRowNumbers() : bool
+    {
+        if ($this->UseUidsAsRowNumbers !== null) {
+            return $this->UseUidsAsRowNumbers;
+        }
+        
+        $obj = $this->getMainObject();
+        return (BooleanDataType::cast($obj->getDataAddressProperty('read_request_remove_ambiguous_uids')) === true && $obj->hasUidAttribute() === true);
     }
 }
