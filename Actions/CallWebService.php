@@ -428,8 +428,8 @@ class CallWebService extends AbstractAction implements iCallService
         for ($i = 0; $i < $rowCnt; $i++) {
             $request = new Request($this->getMethod(), $this->buildUrl($input, $i), $this->buildHeaders(), $this->buildBody($input, $i));
             $query = new Psr7DataQuery($request);
-            $response = $this->getDataConnection()->query($query)->getResponse();
             try {
+                $response = $this->getDataConnection()->query($query)->getResponse();
                 $resultData = $this->parseResponse($response, $resultData);
             } catch (\Throwable $e) {
                 if ($eResponse = $this->getErrorResponse($e)) {
@@ -751,12 +751,16 @@ class CallWebService extends AbstractAction implements iCallService
     }
     
     /**
-     * Use a regular expression to extract messages from error responses.
+     * Use a regular expression to extract messages from error responses - the first match is returned or one explicitly named "message".
      * 
      * By default, the action will use the error handler of the data connection to
      * parse error responses from the web service. This will mostly produce general
      * errors like "500 Internal Server Error". Using the `error_message_pattern`
      * you can tell the action where to look for the actual error text.
+     * 
+     * For example, if the web service would return the following JSON
+     * `{"error":"Sorry, you are out of luck!"}`, you could use this regex to get the
+     * message: `/"error":"(?<message>[^"]*)"/`.
      * 
      * @uxon-property error_message_pattern
      * @uxon-type string
@@ -780,13 +784,17 @@ class CallWebService extends AbstractAction implements iCallService
     }
     
     /**
-     * Use a regular expression to extract error codes from error responses.
+     * Use a regular expression to extract error codes from error responses - the first match is returned or one explicitly named "code".
      * 
      * By default, the action will use the error handler of the data connection to
      * parse error responses from the web service. This will mostly produce general
      * errors like "500 Internal Server Error". Using the `error_code_pattern`
      * you can tell the action where to look for the actual error code an use
      * it in the error it produces.
+     * 
+     * For example, if the web service would return the following JSON
+     * `{"errorCode":"2","error":"Sorry!"}`, you could use this regex to get the
+     * message: `/"errorCode":"(?<code>[^"]*)"/`.
      * 
      * @uxon-property error_code_pattern
      * @uxon-type string
