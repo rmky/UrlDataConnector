@@ -39,6 +39,10 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     private $proxy = null;
 
     private $charset = null;
+    
+    private $errorTextPattern = null;
+    
+    private $errorTextUseAsMessageTitle = null;
 
     private $use_cookies = false;
     
@@ -227,10 +231,24 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     protected function createResponseException(Psr7DataQuery $query, ResponseInterface $response = null, \Throwable $exceptionThrown = null)
     {
         if ($response !== null) {
-            return new HttpConnectorRequestError($query, $response->getStatusCode(), $response->getReasonPhrase(), $this->getResponseErrorText($response), null, $exceptionThrown);
+            $message = $this->getResponseErrorText($response, $exceptionThrown);
+            $ex = new HttpConnectorRequestError($query, $response->getStatusCode(), $response->getReasonPhrase(), $message, null, $exceptionThrown);
+            $useAsTitle = false;
+            if ($this->getErrorTextUseAsMessageTitle() === true) {
+                $useAsTitle = true;
+            } elseif ($this->getErrorTextUseAsMessageTitle() === null) {
+                if ($exceptionThrown !== null && $exceptionThrown->getMessage() !== $message) {
+                    $useAsTitle = true;
+                }
+            }
+            if ($useAsTitle === true) {
+                $ex->setUseRemoteMessageAsTitle(true);
+            }
         } else {
-            return new HttpConnectorRequestError($query, 0, 'No Response from Server', $exceptionThrown->getMessage(), null, $exceptionThrown);
+            $ex = new HttpConnectorRequestError($query, 0, 'No Response from Server', $exceptionThrown->getMessage(), null, $exceptionThrown);
         }
+        
+        return $ex;
     }
     
     /**
@@ -494,6 +512,15 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      */
     protected function getResponseErrorText(ResponseInterface $response, \Throwable $exceptionThrown = null) : string
     {
+        if ($pattern = $this->getErrorTextPattern()) {
+            $body = $response->getBody()->__toString();
+            $matches = [];
+            preg_match($pattern, $body, $matches);
+            if (empty($matches) === false) {
+                return $matches['message'] ?? $matches[1];
+            }
+        }
+        
         if ($exceptionThrown !== null) {
             return $exceptionThrown->getMessage();
         }
@@ -572,5 +599,77 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             $auth = '';
         }
         return $parts['scheme'] . '://' . $auth . $parts['host'] . $port;
+    }
+    
+    /**
+     *
+     * @return string|NULL
+     */
+    public function getErrorTextPattern() : ?string
+    {
+        return $this->errorTextPattern;
+    }
+    
+    /**
+     * Regular expression to extract the error message from the error response.
+     * 
+     * By default, all server errors result in fairly general "webservice request failed" errors,
+     * where the actual error message is part of the error details. This is good for technical APIs,
+     * that provide exception-type errors or error codes. However, if the server can generate
+     * error messages suitable for end users, you can extract them via `error_text_pattern` and
+     * even use the as message titles, so they are always visible for users.
+     * 
+     * If an `error_text_pattern` is provided and a match was found, the remote error text
+     * will be automatically placed in the title of the error message shown. To move it back to
+     * the details, set `error_text_use_as_message_title` to `false` explicitly. In this case,
+     * the remote error messages will still be only visible in the error details, but they will
+     * be better formatted - this is a typical setting for technical APIs with structured errors
+     * like `{"error": "message text"}`.
+     * 
+     * If a pattern is provided, it is applied to the body text of error responses and the first 
+     * match or one explicitly named "message" is concidered to be the error text.
+     * 
+     * For example, if the web service would return the following JSON
+     * `{"error":"Sorry, you are out of luck!"}`, you could use this regex to get the
+     * message: `/"error":"(?<message>[^"]*)"/`.
+     * 
+     * @param string $value
+     * @return HttpConnector
+     */
+    public function setErrorTextPattern(string $value) : HttpConnector
+    {
+        $this->errorTextPattern = $value;
+        return $this;
+    }
+    
+    /**
+     *
+     * @return bool
+     */
+    public function getErrorTextUseAsMessageTitle() : ?bool
+    {
+        return $this->errorTextUseAsMessageTitle;
+    }
+    
+    /**
+     * Set to TRUE/FALSE to place the remote error message in the title or the details of error messages displayed.
+     * 
+     * By default, all server errors result in fairly general "webservice request failed" errors,
+     * where the actual error message is part of the error details. This is good for technical APIs,
+     * that provide exception-type errors or error codes. However, if the server can generate
+     * error messages suitable for end users, you can extract them via `error_text_pattern` and
+     * even use the as message titles, so they are always visible for users.
+     * 
+     * @uxon-property error_text_use_as_message_title
+     * @uxon-type boolean
+     * @uxon-default false
+     * 
+     * @param bool $value
+     * @return HttpConnector
+     */
+    public function setErrorTextUseAsMessageTitle(bool $value) : HttpConnector
+    {
+        $this->errorTextUseAsMessageTitle = $value;
+        return $this;
     }
 }
