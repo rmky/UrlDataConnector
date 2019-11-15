@@ -204,11 +204,10 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
             return '';
         }
         
-        $value = $this->buildUrlFilterValue($qpart);
-        
+        $value = null;
         // Add a prefix to the value if needed
         if ($prefix = $qpart->getDataAddressProperty('filter_remote_prefix')) {
-            $value = $prefix . $value;
+            $value = $prefix . $this->buildUrlFilterValue($qpart);
         }
         
         return $this->buildUrlFilterPredicate($qpart, $param, $value);
@@ -226,13 +225,15 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      * @param string $escapedValue
      * @return string
      */
-    protected function buildUrlFilterPredicate(QueryPartFilter $qpart, string $property, string $escapedValue) : string
+    protected function buildUrlFilterPredicate(QueryPartFilter $qpart, string $property, string $preformattedValue = null) : string
     {
         $comp = $qpart->getComparator();
         $type = $qpart->getDataType();
+        
         switch ($comp) {
             case EXF_COMPARATOR_IS:
             case EXF_COMPARATOR_IS_NOT:
+                $escapedValue = $preformattedValue ?? $this->buildUrlFilterValue($qpart);
                 switch (true) {
                     case $type instanceof NumberDataType:
                     case $type instanceof DateDataType:
@@ -262,6 +263,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
                     return '';
                 }
             default:
+                $escapedValue = $preformattedValue ?? $this->buildUrlFilterValue($qpart);
                 $operatior = $this->buildUrlFilterComparator($qpart);
                 return "{$property} {$operatior} {$escapedValue}";
         }

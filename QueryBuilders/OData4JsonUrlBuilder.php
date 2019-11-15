@@ -52,12 +52,13 @@ class OData4JsonUrlBuilder extends OData2JsonUrlBuilder
      * {@inheritDoc}
      * @see \exface\UrlDataConnector\QueryBuilders\OData2JsonUrlBuilder::buildUrlFilterPredicate()
      */
-    protected function buildUrlFilterPredicate(QueryPartFilter $qpart, string $property, string $escapedValue) : string
+    protected function buildUrlFilterPredicate(QueryPartFilter $qpart, string $property, string $preformattedValue = null) : string
     {
         $comp = $qpart->getComparator();
         switch ($comp) {
             case EXF_COMPARATOR_IS:
             case EXF_COMPARATOR_IS_NOT:
+                $escapedValue = $preformattedValue ?? $this->buildUrlFilterValue($qpart);
                 if ($qpart->getDataType() instanceof NumberDataType) {
                     $op = ($comp === EXF_COMPARATOR_IS_NOT ? 'ne' : 'eq');
                     return "{$property} {$op} {$escapedValue}";
@@ -72,7 +73,7 @@ class OData4JsonUrlBuilder extends OData2JsonUrlBuilder
                     // difficulties in() or simply do not support it.
                     $qpart->setComparator($qpart->getComparator() === EXF_COMPARATOR_IN ? EXF_COMPARATOR_EQUALS : EXF_COMPARATOR_EQUALS_NOT);
                     // Rebuild the value because we changed the comparator!
-                    $escapedValue = $this->buildUrlFilterValue($qpart);
+                    $preformattedValue = $this->buildUrlFilterValue($qpart);
                     // Continue with next case here.
                 } else {
                     if ($qpart->getComparator() === EXF_COMPARATOR_IN) {
@@ -82,7 +83,7 @@ class OData4JsonUrlBuilder extends OData2JsonUrlBuilder
                     }
                 }
             default:
-                return parent::buildUrlFilterPredicate($qpart, $property, $escapedValue);
+                return parent::buildUrlFilterPredicate($qpart, $property, $preformattedValue);
         }
     }
     
