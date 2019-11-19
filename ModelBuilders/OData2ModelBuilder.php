@@ -94,9 +94,10 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             $reloaded_ds = DataSheetFactory::createFromObject($refreshed_object);
             $reloaded_ds->importUxonObject($uxon);
             $reloaded_ds->setCounterForRowsInDataSource(count($imported_rows));
+            return $reloaded_ds;
         }
         
-        return $reloaded_ds;
+        return $created_ds;
     }
     
     /**
