@@ -572,6 +572,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 throw new QueryBuilderException('Cannot create filter for "' . $qpart->getCondition()->toString() . '" - invalid data type!', null, $e);
             }
         }
+        return $value;
     }
     
     /**
