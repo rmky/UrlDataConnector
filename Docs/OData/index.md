@@ -9,3 +9,5 @@ It is advisable to create a separate app in the metamodel for every oData servic
 Read the detailed [OData model guidelines](the_metamodel_for_odata.md) for more details.
 
 ## Common recipes
+
+- [Filling a data widget (e.g. `DataTable`) via OData FunctionImport](OData2_FunctionImport_as_data_source_for_a_table.md)
