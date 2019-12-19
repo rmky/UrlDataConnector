@@ -93,8 +93,14 @@ class CallOData2Operation extends CallWebService
         $json = json_decode($body);
         $result = $json->d;
         if ($result instanceof \stdClass) {
-            $rows = [(array) $result];
+            if ($result->results && is_array($result->results)) {
+                // Decode JSON as assoc array again because otherwise the rows will remain objects.
+                $rows = json_decode($body, true)['d']['results'];
+            } else {
+                $rows = [(array) $result];
+            }
         } elseif (is_array($result)) {
+            // Decode JSON as assoc array again because otherwise the rows will remain objects.
             $rows = json_decode($body, true)['d'];
         } else {
             throw new \RuntimeException('Invalid result data of type ' . gettype($result) . ': JSON object or array expected!');
