@@ -109,13 +109,13 @@
         },
         {
             "CREATED_ON": "2019-09-30 09:23:56",
-            "MODIFIED_ON": "2019-09-30 09:23:56",
+            "MODIFIED_ON": "2020-01-08 20:27:34",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
             "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
             "UID": "0x11e9e364055e3d0abacde4b318306b9a",
             "APP": "0x11e6951dda3ba520b48b847beb4a5184",
-            "NAME": "Webservice with basic auth",
-            "DESCRIPTION": "",
+            "NAME": "Webservice with basic HTTP authentication",
+            "DESCRIPTION": "URL + username and password",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
             "UXON": "{\"url\":\"\",\"user\":\"\",\"password\":\"\"}",
             "WRAP_PATH": "",
@@ -146,6 +146,20 @@
             "DESCRIPTION": "The Swagger definition will allow to generate the metamodel via model builder",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
             "UXON": "{\"url\":\"\",\"swagger_url\":\"\"}",
+            "WRAP_PATH": "",
+            "UXON_SCHEMA": "connection"
+        },
+        {
+            "CREATED_ON": "2020-01-08 20:26:25",
+            "MODIFIED_ON": "2020-01-08 20:27:11",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11ea3254e4f34fd09442e4b318306b9a",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "NAME": "Credentials for basic HTTP authentication",
+            "DESCRIPTION": "Preset for a credential set for web services with basic HTTP authentication",
+            "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
+            "UXON": "{\"user\":\"\",\"password\":\"\"}",
             "WRAP_PATH": "",
             "UXON_SCHEMA": "connection"
         }
