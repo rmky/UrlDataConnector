@@ -60,6 +60,25 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     
     private $swaggerUrl = null;
     
+    // Authentication
+    /**
+     * 
+     * @var ?bool
+     */
+    private $basic_auth = null;
+    
+    /**
+     * 
+     * @var string
+     */
+    private $basic_auth_url = null;
+    
+    /**
+     *
+     * @var string
+     */
+    private $basic_auth_method = 'GET';
+    
     /**
      * Returns the initialized Guzzle client
      * 
@@ -671,5 +690,32 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     {
         $this->errorTextUseAsMessageTitle = $value;
         return $this;
+    }
+    
+    public function setBasicAuth(bool $trueOrFalse) : HttpConnectionInterface
+    {
+        $this->basic_auth = $trueOrFalse;
+        return $this;
+    }
+    
+    protected function hasBasicAuth() : bool
+    {
+        return $this->basic_auth;
+    }
+    
+    public function setBasicAuthUrl(string $string) : HttpConnectionInterface
+    {
+        $this->basic_auth = $string;
+        return $this;
+    }
+    
+    protected function hasBasicAuth() : bool
+    {
+        return $this->basic_auth;
+    }
+    
+    protected function getBasicAuthUrl() : ?string
+    {
+        return $this->basic_auth_url;
     }
 }
