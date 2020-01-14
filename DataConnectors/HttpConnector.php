@@ -22,6 +22,14 @@ use exface\Core\DataTypes\StringDataType;
 use GuzzleHttp\Psr7\Uri;
 use exface\Core\Exceptions\DataSources\DataConnectionConfigurationError;
 use exface\UrlDataConnector\ModelBuilders\SwaggerModelBuilder;
+use exface\Core\Exceptions\Security\AuthenticationFailedError;
+use exface\Core\Interfaces\Security\AuthenticationTokenInterface;
+use exface\Core\CommonLogic\Security\AuthenticationToken\UsernamePasswordAuthToken;
+use exface\Core\Interfaces\UserInterface;
+use exface\Core\Interfaces\Widgets\iContainOtherWidgets;
+use exface\Core\CommonLogic\UxonObject;
+use GuzzleHttp\Psr7\Request;
+use Psr\Http\Message\RequestInterface;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -31,6 +39,9 @@ use exface\UrlDataConnector\ModelBuilders\SwaggerModelBuilder;
  */
 class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterface
 {
+    const AUTH_TYPE_BASIC = 'basic';
+    const AUTH_TYPE_DIGEST = 'digest';
+    const AUTH_TYPE_NONE = 'none';
 
     private $user = null;
 
@@ -63,21 +74,132 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     // Authentication
     /**
      * 
-     * @var ?bool
+     * @var ?string
      */
-    private $basic_auth = null;
+    private $authentication = null;
     
     /**
      * 
-     * @var string
+     * @var ?string
      */
-    private $basic_auth_url = null;
+    private $authentication_url = null;
     
     /**
      *
      * @var string
      */
-    private $basic_auth_method = 'GET';
+    private $authentication_request_method = 'GET';
+    
+    /**
+     *
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\DataSources\DataConnectionInterface::authenticate()
+     */
+    public function authenticate(AuthenticationTokenInterface $token, bool $updateUserCredentials = true, UserInterface $credentialsOwner = null) : AuthenticationTokenInterface
+    {
+        $authenticationType = $this->getAuthentication();
+        switch ($authenticationType) {
+            case self::AUTH_TYPE_DIGEST:
+            case self::AUTH_TYPE_BASIC:
+                return $this->authenticateViaBasicAuth($token, $updateUserCredentials, $credentialsOwner);
+            case self::AUTH_TYPE_NONE:
+                return $token;
+            default:
+                throw new AuthenticationFailedError("Authentication failed as no supported authentication type was given. Please provide a supported authentication in the connection '{$this->getAlias()}'.");
+        }
+    }
+    
+    /**
+     * Authentication via basic_auth authentication method.
+     * 
+     * @param AuthenticationTokenInterface $token
+     * @param bool $updateUserCredentials
+     * @param UserInterface $credentialsOwner
+     * @throws InvalidArgumentException
+     * @throws AuthenticationFailedError
+     * @return AuthenticationTokenInterface
+     */
+    protected function authenticateViaBasicAuth(AuthenticationTokenInterface $token, bool $updateUserCredentials = true, UserInterface $credentialsOwner = null) : AuthenticationTokenInterface
+    {
+        if (! $token instanceof UsernamePasswordAuthToken) {
+            throw new InvalidArgumentException('Invalid token class "' . get_class($token) . '" for authentication via data connection "' . $this->getAliasWithNamespace() . '" - only "UsernamePasswordAuthToken" and derivatives supported!');
+        }
+        
+        if (! $this->getAuthenticationUrl()) {
+            throw new AuthenticationFailedError("Authentication failed for User '{$token->getUsername()}'! Either provide authentication_url or a general url in the connection '{$this->getAlias()}'.");
+        }
+        
+        $defaults = array();
+        
+        // Basic authentication
+        $defaults['auth'] = array(
+            $token->getUsername(),
+            $token->getPassword()
+        );
+        if ($this->getAuthentication() === self::AUTH_TYPE_DIGEST) {
+            $defaults['auth'][] = 'digest';
+        }
+        
+        $response = null;
+        
+        try {
+            $request = new Request($this->getAuthenticationRequestMethod(), $this->getAuthenticationUrl());
+            $request = $this->prepareRequest($request);
+            $query = new Psr7DataQuery($request);
+            $response = $this->getClient()->send($request, $defaults);
+        } catch (\Throwable $e) {
+            if ($e instanceof RequestException) {
+                $response = $e->getResponse();
+                $query->setResponse($response);
+            } else {
+                $response = null;
+            }
+            $queryError = $this->createResponseException($query, $response, $e);
+            throw new AuthenticationFailedError("Authentication failed for User '{$token->getUsername()}' - {$queryError->getMessage()}", null, $queryError);
+        }
+        
+        if ($response === null || $response->getStatusCode() >= 400) {
+            if ($response !== null) {
+                $query->setResponse($response);
+            }
+            $queryError = $this->createResponseException($query, $response);
+            throw new AuthenticationFailedError("Authentication failed for User '{$token->getUsername()}' ", null, $queryError);
+        }
+        
+        if ($updateUserCredentials === true) {
+            $user = $credentialsOwner ?? $this->getWorkbench()->getSecurity()->getAuthenticatedUser();
+            $uxon = new UxonObject([
+                'user' => $token->getUsername(),
+                'password' => $token->getPassword()
+            ]);
+            $credentialSetName = $this->getName() . ' - ' . ($token->getUsername() ? $token->getUsername() : 'no username');
+            $this->updateUserCredentials($user, $uxon, $credentialSetName);
+        }
+        
+        return $token;
+    }
+    
+    /**
+     *
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\DataSources\DataConnectionInterface::createLoginWidget()
+     */
+    public function createLoginWidget(iContainOtherWidgets $container) : iContainOtherWidgets
+    {
+        if ($this->getAuthentication() === null || $this->getAuthentication() === self::AUTH_TYPE_NONE) {
+            return parent::createLoginWidget($container);
+        }
+        
+        $container->setWidgets(new UxonObject([
+            [
+                'attribute_alias' => 'USERNAME',
+                'required' => true
+            ],[
+                'attribute_alias' => 'PASSWORD'
+            ]
+        ]));
+        return $container;
+    }
     
     /**
      * Returns the initialized Guzzle client
@@ -120,11 +242,15 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         }
         
         // Basic authentication
-        if ($this->getUser()) {
+        if ($this->getAuthentication() === self::AUTH_TYPE_BASIC || $this->getAuthentication() === self::AUTH_TYPE_DIGEST) {
             $defaults['auth'] = array(
                 $this->getUser(),
                 $this->getPassword()
             );
+            
+            if ($this->getAuthentication() === self::AUTH_TYPE_DIGEST) {
+                $defaults['auth'][] = 'digest';
+            }
         }
         
         // Cookies
@@ -219,13 +345,8 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
                     $query->setRequest($query->getRequest()->withUri($uri->withQuery($uri->getQuery() . $this->getFixedUrlParams())));
                 }
                 $request = $query->getRequest();
-                if ($request->getUri()->__toString() === '') {
-                    $baseUrl = $this->getUrl();
-                    if ($endpoint = StringDataType::substringAfter($baseUrl, '/', '', false, true)) {
-                        $request = $request->withUri(new Uri($endpoint));
-                    }
-                }
-                $response = $this->getClient()->send($request);
+                $request = $this->prepareRequest($request);
+                $response = $this->getClient()->send($request, $guzzleRequestOptions ?? []);
                 $query->setResponse($response);
             } catch (RequestException $re) {
                 if ($response = $re->getResponse()) {
@@ -238,6 +359,22 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             }
         }
         return $query;
+    }
+    
+    /**
+     * 
+     * @param RequestInterface $request
+     * @return RequestInterface
+     */
+    protected function prepareRequest(RequestInterface $request) : RequestInterface
+    {
+        if ($request->getUri()->__toString() === '') {
+            $baseUrl = $this->getUrl();
+            if ($endpoint = StringDataType::substringAfter($baseUrl, '/', '', false, true)) {
+                $request = $request->withUri(new Uri($endpoint));
+            }
+        }
+        return $request;
     }
     
     /**
@@ -284,6 +421,11 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         $query->setRequest(modify_request($query->getRequest(), ['set_headers'=> $clientHeaders]));
     }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Interfaces\HttpConnectionInterface::getUser()
+     */
     public function getUser()
     {
         return $this->user;
@@ -304,6 +446,11 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $this;
     }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Interfaces\HttpConnectionInterface::getPassword()
+     */
     public function getPassword()
     {
         return $this->password;
@@ -407,6 +554,11 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $this;
     }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Interfaces\HttpConnectionInterface::getCacheEnabled()
+     */
     public function getCacheEnabled()
     {
         return $this->cache_enabled;
@@ -431,6 +583,11 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $this;
     }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Interfaces\HttpConnectionInterface::getCacheIgnoreHeaders()
+     */
     public function getCacheIgnoreHeaders()
     {
         return $this->cache_ignore_headers;
@@ -458,6 +615,11 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $this;
     }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Interfaces\HttpConnectionInterface::getCacheLifetimeInSeconds()
+     */
     public function getCacheLifetimeInSeconds()
     {
         return $this->cache_lifetime_in_seconds;
@@ -583,6 +745,10 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $this;
     }
     
+    /**
+     * 
+     * @return bool
+     */
     public function hasSwagger() : bool
     {
         return $this->swaggerUrl !== null;
@@ -692,25 +858,71 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $this;
     }
     
-    public function setBasicAuth(bool $trueOrFalse) : HttpConnectionInterface
+    protected function getAuthentication() : ?string
     {
-        $this->basic_auth = $trueOrFalse;
+        if ($this->authentication === null) {
+            if ($this->getUser() !== null) {
+                return self::AUTH_TYPE_BASIC;
+            }
+        }
+        return $this->authentication;
+    }
+    
+    /**
+     * Set the authentication method this connection should use.
+     * 
+     * @uxon-property authentication
+     * @uxon-type [basic,digest,none]
+     * 
+     * @param string $value
+     * @return HttpConnector
+     */
+    public function setAuthentication(string $value) : HttpConnector
+    {
+        if (defined('static::AUTH_TYPE_' . mb_strtoupper($value)) === false) {
+            throw new DataConnectionConfigurationError($this, 'Invalid value "' . $value . '" for connection property "authentication".');
+        }
+        $this->authentication = mb_strtolower($value);
         return $this;
     }
     
-    protected function hasBasicAuth() : bool
+    /**
+     * Set the authentication url.
+     * 
+     * @uxon-property authentication_url
+     * @uxon-type string
+     * 
+     * @param string $string
+     * @return HttpConnectionInterface
+     */
+    public function setAuthenticationUrl(string $string) : HttpConnectionInterface
     {
-        return $this->basic_auth;
-    }
-    
-    public function setBasicAuthUrl(string $string) : HttpConnectionInterface
-    {
-        $this->basic_auth = $string;
+        $this->authentication_url = $string;
         return $this;
     }
     
-    protected function getBasicAuthUrl() : ?string
+    protected function getAuthenticationUrl() : ?string
     {
-        return $this->basic_auth_url;
+        return $this->authentication_url ?? $this->getUrl();
+    }
+    
+    /**
+     * Set the authentication request method. Default is 'GET'.
+     * 
+     * @uxon-property authentication_request_method
+     * @uxon-type [GET,POST,CONNECT,HEAD,OPTIONS]
+     * 
+     * @param string $string
+     * @return HttpConnectionInterface
+     */
+    public function setAuthenticationRequestMethod(string $string) : HttpConnectionInterface
+    {
+        $this->authentication_request_method = $string;
+        return $this;
+    }
+    
+    protected function getAuthenticationRequestMethod() : ?string
+    {
+        return $this->authentication_request_method;
     }
 }
