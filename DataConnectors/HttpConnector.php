@@ -97,29 +97,40 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      */
     public function authenticate(AuthenticationTokenInterface $token, bool $updateUserCredentials = true, UserInterface $credentialsOwner = null) : AuthenticationTokenInterface
     {
-        $authenticationType = $this->getAuthentication();
+        $authenticationType = $this->getAuthentication() ?? self::AUTH_TYPE_BASIC;
         switch ($authenticationType) {
             case self::AUTH_TYPE_DIGEST:
             case self::AUTH_TYPE_BASIC:
-                return $this->authenticateViaBasicAuth($token, $updateUserCredentials, $credentialsOwner);
+                $authenticatedToken =  $this->authenticateViaBasicAuth($token, $updateUserCredentials, $credentialsOwner);
+                break;
             case self::AUTH_TYPE_NONE:
                 return $token;
             default:
                 throw new AuthenticationFailedError("Authentication failed as no supported authentication type was given. Please provide a supported authentication in the connection '{$this->getAlias()}'.");
         }
+        
+        if ($updateUserCredentials === true && $authenticatedToken) {
+            $user = $credentialsOwner ?? $this->getWorkbench()->getSecurity()->getAuthenticatedUser();
+            $uxon = new UxonObject([
+                'user' => $authenticatedToken->getUsername(),
+                'password' => $authenticatedToken->getPassword()
+            ]);
+            $credentialSetName = ($authenticatedToken->getUsername() ? $authenticatedToken->getUsername() : 'no username') . ' - ' . $this->getName();
+            $this->updateUserCredentials($user, $uxon, $credentialSetName);
+        }
+        
+        return $authenticatedToken;
     }
     
     /**
      * Authentication via basic_auth authentication method.
      * 
      * @param AuthenticationTokenInterface $token
-     * @param bool $updateUserCredentials
-     * @param UserInterface $credentialsOwner
      * @throws InvalidArgumentException
      * @throws AuthenticationFailedError
      * @return AuthenticationTokenInterface
      */
-    protected function authenticateViaBasicAuth(AuthenticationTokenInterface $token, bool $updateUserCredentials = true, UserInterface $credentialsOwner = null) : AuthenticationTokenInterface
+    protected function authenticateViaBasicAuth(AuthenticationTokenInterface $token) : AuthenticationTokenInterface
     {
         if (! $token instanceof UsernamePasswordAuthToken) {
             throw new InvalidArgumentException('Invalid token class "' . get_class($token) . '" for authentication via data connection "' . $this->getAliasWithNamespace() . '" - only "UsernamePasswordAuthToken" and derivatives supported!');
@@ -164,16 +175,6 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             }
             $queryError = $this->createResponseException($query, $response);
             throw new AuthenticationFailedError("Authentication failed for User '{$token->getUsername()}' ", null, $queryError);
-        }
-        
-        if ($updateUserCredentials === true) {
-            $user = $credentialsOwner ?? $this->getWorkbench()->getSecurity()->getAuthenticatedUser();
-            $uxon = new UxonObject([
-                'user' => $token->getUsername(),
-                'password' => $token->getPassword()
-            ]);
-            $credentialSetName = $this->getName() . ' - ' . ($token->getUsername() ? $token->getUsername() : 'no username');
-            $this->updateUserCredentials($user, $uxon, $credentialSetName);
         }
         
         return $token;
