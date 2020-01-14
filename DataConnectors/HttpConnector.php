@@ -709,11 +709,6 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $this;
     }
     
-    protected function hasBasicAuth() : bool
-    {
-        return $this->basic_auth;
-    }
-    
     protected function getBasicAuthUrl() : ?string
     {
         return $this->basic_auth_url;
