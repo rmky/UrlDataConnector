@@ -59,8 +59,8 @@ class OData2Connector extends HttpConnector
      * {@inheritDoc}
      * @see \exface\UrlDataConnector\DataConnectors\HttpConnector::getBasicAuthUrl()
      */
-    public function getBasicAuthUrl() : ?string
+    public function getAuthenticationUrl() : ?string
     {
-        return parent::getBasicAuthUrl() ?? $this->getMetadataUrl();
+        return parent::getAuthenticationUrl() ?? $this->getMetadataUrl();
     }
 }
