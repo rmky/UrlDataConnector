@@ -106,7 +106,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             case self::AUTH_TYPE_NONE:
                 return $token;
             default:
-                throw new AuthenticationFailedError("Authentication failed as no authentication type was given. Please provide authentication in the connection '{$this->getAlias()}'.");
+                throw new AuthenticationFailedError("Authentication failed as no supported authentication type was given. Please provide a supported authentication in the connection '{$this->getAlias()}'.");
         }
     }
     
@@ -186,6 +186,10 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      */
     public function createLoginWidget(iContainOtherWidgets $container) : iContainOtherWidgets
     {
+        if ($this->getAuthentication() === null || $this->getAuthentication() === self::AUTH_TYPE_NONE) {
+            return parent::createLoginWidget($container);
+        }
+        
         $container->setWidgets(new UxonObject([
             [
                 'attribute_alias' => 'USERNAME',
