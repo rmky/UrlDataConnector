@@ -29,7 +29,6 @@ use exface\Core\Interfaces\UserInterface;
 use exface\Core\Interfaces\Widgets\iContainOtherWidgets;
 use exface\Core\CommonLogic\UxonObject;
 use GuzzleHttp\Psr7\Request;
-use exface\Core\Exceptions\DataSources\DataQueryFailedError;
 use Psr\Http\Message\RequestInterface;
 
 /**
@@ -111,6 +110,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
     
     /**
+     * Authentication via basic_auth authentication method.
      * 
      * @param AuthenticationTokenInterface $token
      * @param bool $updateUserCredentials
@@ -361,6 +361,11 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $query;
     }
     
+    /**
+     * 
+     * @param RequestInterface $request
+     * @return RequestInterface
+     */
     protected function prepareRequest(RequestInterface $request) : RequestInterface
     {
         if ($request->getUri()->__toString() === '') {
@@ -416,6 +421,11 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         $query->setRequest(modify_request($query->getRequest(), ['set_headers'=> $clientHeaders]));
     }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Interfaces\HttpConnectionInterface::getUser()
+     */
     public function getUser()
     {
         return $this->user;
@@ -436,6 +446,11 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $this;
     }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Interfaces\HttpConnectionInterface::getPassword()
+     */
     public function getPassword()
     {
         return $this->password;
@@ -539,6 +554,11 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $this;
     }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Interfaces\HttpConnectionInterface::getCacheEnabled()
+     */
     public function getCacheEnabled()
     {
         return $this->cache_enabled;
@@ -563,6 +583,11 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $this;
     }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Interfaces\HttpConnectionInterface::getCacheIgnoreHeaders()
+     */
     public function getCacheIgnoreHeaders()
     {
         return $this->cache_ignore_headers;
@@ -590,6 +615,11 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $this;
     }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Interfaces\HttpConnectionInterface::getCacheLifetimeInSeconds()
+     */
     public function getCacheLifetimeInSeconds()
     {
         return $this->cache_lifetime_in_seconds;
@@ -715,6 +745,10 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $this;
     }
     
+    /**
+     * 
+     * @return bool
+     */
     public function hasSwagger() : bool
     {
         return $this->swaggerUrl !== null;
@@ -835,7 +869,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
     
     /**
-     * Use a specific authentication method.
+     * Set the authentication method this connection should use.
      * 
      * @uxon-property authentication
      * @uxon-type [basic,digest,none]
@@ -853,7 +887,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
     
     /**
-     * Set the authentication url. Enables basic_auth authentication.
+     * Set the authentication url.
      * 
      * @uxon-property authentication_url
      * @uxon-type string
