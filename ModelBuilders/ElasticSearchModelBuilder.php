@@ -108,7 +108,7 @@ class ElasticSearchModelBuilder extends AbstractModelBuilder implements ModelBui
     {
         $existing_objects = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.OBJECT');
         $existing_objects->getColumns()->addMultiple(['DATA_ADDRESS', 'ALIAS']);
-        $existing_objects->addFilterFromString('APP', $app->getUid(), EXF_COMPARATOR_EQUALS);
+        $existing_objects->getFilters()->addConditionFromString('APP', $app->getUid(), EXF_COMPARATOR_EQUALS);
         $existing_objects->dataRead();
         
         $new_objects = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.OBJECT');
@@ -195,8 +195,8 @@ class ElasticSearchModelBuilder extends AbstractModelBuilder implements ModelBui
             
             // See if action alread exists in the model
             $existingAction = DataSheetFactory::createFromObjectIdOrAlias($object->getWorkbench(), 'exface.Core.OBJECT_ACTION');
-            $existingAction->addFilterFromString('APP', $object->getApp()->getUid(), EXF_COMPARATOR_EQUALS);
-            $existingAction->addFilterFromString('ALIAS', $this->getActionAliasFromType($type['name'], $operation), EXF_COMPARATOR_EQUALS);
+            $existingAction->getFilters()->addConditionFromString('APP', $object->getApp()->getUid(), EXF_COMPARATOR_EQUALS);
+            $existingAction->getFilters()->addConditionFromString('ALIAS', $this->getActionAliasFromType($type['name'], $operation), EXF_COMPARATOR_EQUALS);
             $existingAction->getColumns()->addFromSystemAttributes()->addFromExpression('CONFIG_UXON');
             $existingAction->dataRead();
             
@@ -343,7 +343,7 @@ class ElasticSearchModelBuilder extends AbstractModelBuilder implements ModelBui
             // (e.g. to allow TimeStampingBehavior, etc.)
             $attributes = $new_relations->copy();
             $attributes->getColumns()->addFromSystemAttributes();
-            $attributes->addFilterFromColumnValues($attributes->getUidColumn());
+            $attributes->getFilters()->addConditionFromColumnValues($attributes->getUidColumn());
             $attributes->dataRead();
             
             // Overwrite existing values with those read from the $metadata

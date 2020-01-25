@@ -112,7 +112,7 @@ class SwaggerModelBuilder extends AbstractModelBuilder implements ModelBuilderIn
     {
         $existing_objects = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.OBJECT');
         $existing_objects->getColumns()->addMultiple(['DATA_ADDRESS', 'ALIAS']);
-        $existing_objects->addFilterFromString('APP', $app->getUid(), EXF_COMPARATOR_EQUALS);
+        $existing_objects->getFilters()->addConditionFromString('APP', $app->getUid(), EXF_COMPARATOR_EQUALS);
         $existing_objects->dataRead();
         
         $new_objects = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.OBJECT');
@@ -191,8 +191,8 @@ class SwaggerModelBuilder extends AbstractModelBuilder implements ModelBuilderIn
             
             // See if action alread exists in the model
             $existingAction = DataSheetFactory::createFromObjectIdOrAlias($object->getWorkbench(), 'exface.Core.OBJECT_ACTION');
-            $existingAction->addFilterFromString('APP', $object->getApp()->getUid(), EXF_COMPARATOR_EQUALS);
-            $existingAction->addFilterFromString('ALIAS', $pathDef['opertationId'], EXF_COMPARATOR_EQUALS);
+            $existingAction->getFilters()->addConditionFromString('APP', $object->getApp()->getUid(), EXF_COMPARATOR_EQUALS);
+            $existingAction->getFilters()->addConditionFromString('ALIAS', $pathDef['opertationId'], EXF_COMPARATOR_EQUALS);
             $existingAction->getColumns()->addFromSystemAttributes()->addFromExpression('CONFIG_UXON');
             $existingAction->dataRead();
             
@@ -269,8 +269,8 @@ class SwaggerModelBuilder extends AbstractModelBuilder implements ModelBuilderIn
                 $ds = DataSheetFactory::createFromObjectIdOrAlias($object->getWorkbench(), 'exface.Core.OBJECT');
                 $ds->getColumns()->addFromUidAttribute();
                 $ds->getColumns()->addFromExpression('NAME');
-                $ds->addFilterFromString('DATA_ADDRESS_PROPS', '"swagger_component":"' . $refComponent . '"', EXF_COMPARATOR_EQUALS);
-                $ds->addFilterFromString('DATA_SOURCE', $object->getDataSourceId(), EXF_COMPARATOR_EQUALS);
+                $ds->getFilters()->addConditionFromString('DATA_ADDRESS_PROPS', '"swagger_component":"' . $refComponent . '"', EXF_COMPARATOR_EQUALS);
+                $ds->getFilters()->addConditionFromString('DATA_SOURCE', $object->getDataSourceId(), EXF_COMPARATOR_EQUALS);
                 $ds->dataRead();
                 
                 if ($ds->countRows() === 1) {

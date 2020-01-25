@@ -530,7 +530,7 @@ class CallWebService extends AbstractAction implements iCallService
             }
         }
         if ($data->isFresh() === false && $data->hasUidColumn(true)) {
-            $data->addFilterFromColumnValues($data->getUidColumn());
+            $data->getFilters()->addConditionFromColumnValues($data->getUidColumn());
             $data->dataRead();
         }
         return $data;
