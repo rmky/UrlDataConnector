@@ -18,6 +18,7 @@ use exface\Core\DataTypes\BooleanDataType;
 use exface\Core\Interfaces\DataSources\DataConnectionInterface;
 use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
+use exface\Core\DataTypes\ComparatorDataType;
 
 /**
  * This is an abstract query builder for REST APIs.
@@ -162,43 +163,61 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function buildRequestGet()
     {
-        $endpoint = $this->getMainObject()->getDataAddress();
-        $urlFilters = $this->getFilters()->copy();
+        $thisObj = $this->getMainObject();
+        $endpoint = $thisObj->getDataAddress();
         
-        // Add filters
-        foreach ($urlFilters as $qpart) {
-            if ($this->getMainObject()->getUidAttributeAlias() == $qpart->getAlias() && $this->getMainObject()->getDataAddressProperty('uid_request_data_address')) {
-                // In REST APIs it is common to have a special URL to fetch data by UID of the object:
-                // e.g. /users/1.xml would be the URL to fetch data for the user with UID = 1. Since in ExFace
-                // the UID filter can also be used in regular searches, we can tell ExFace to use a special
-                // data address for UID-based queries. Other filters will get applied to, but most APIs will
-                // probably ignore them. If the API can actually handle a regular UID-filter, the special
-                // data address should be simply left empty - this gives much more flexibility!
-                $endpoint = $this->getMainObject()->getDataAddressProperty('uid_request_data_address');
-                $this->setRequestSplitFilter($qpart);
-                $urlFilters->removeFilter($qpart);
-            } elseif ($filter_endpoint = $qpart->getDataAddressProperty('filter_remote_url')) {
+        $queryFilters = $this->getFilters();
+        // Copy the query filters since they might get modified by the logic below and we want to
+        // keep the original query filters untouched.
+        $requestFilters = $queryFilters->copy();
+        
+        // Check if there are filters, that require to split the request into multiple requests.
+        foreach ($requestFilters->getFilters() as $nr => $qpart) {
+            switch (true) {
+                // Need to split the request, if the object has a separate `uid_request_data_address`
+                // and there is a filter over the UID attribute
+                case $thisObj->getUidAttributeAlias() == $qpart->getAlias() && $thisObj->getDataAddressProperty('uid_request_data_address'):
+                    // In REST APIs it is common to have a special URL to fetch data by UID of the object:
+                    // e.g. /users/1.xml would be the URL to fetch data for the user with UID = 1. Since in ExFace
+                    // the UID filter can also be used in regular searches, we can tell ExFace to use a special
+                    // data address for UID-based queries. Other filters will get applied to, but most APIs will
+                    // probably ignore them. If the API can actually handle a regular UID-filter, the special
+                    // data address should be simply left empty - this gives much more flexibility!
+                    $endpoint = $thisObj->getDataAddressProperty('uid_request_data_address');
+                    // Remember the original filter (not it's copy from $requestFilters) for further processing!
+                    $this->setRequestSplitFilter($queryFilters->getFilters()[$nr]);
+                    // Remove the filter from the current request because it's value is already part of
+                    // the endpoint.
+                    $requestFilters->removeFilter($qpart);
+                    break;
                 // Another way to set custom URLs is to give an attribute an explicit URL via filter_remote_url address property.
                 // This ultimately does the same thing, as uid_request_data_address on object level, but it's more general
                 // because it can be set for every attribute.
-                if ($qpart->getComparator() == EXF_COMPARATOR_IN) {
-                    // FIXME this check prevents split filter collisions, but it can be greatly improved in two ways
-                    // - we should generally look for other custom URLs
-                    // - the final URL with all placeholders replaced should be compared
-                    if ($this->getRequestSplitFilter() && strcasecmp($this->getRequestSplitFilter()->getDataAddressProperty('filter_remote_url'), $filter_endpoint)) {
-                        throw new QueryBuilderException('Cannot use multiple filters requiring different custom URLs in one query: "' . $this->getRequestSplitFilter()->getCondition()->toString() . '" AND "' . $qpart->getCondition()->toString() . '"!');
+                case $filter_endpoint = $qpart->getDataAddressProperty('filter_remote_url'):
+                    if ($qpart->getComparator() == ComparatorDataType::IN) {
+                        // FIXME this check prevents split filter collisions, but it can be greatly improved in two ways
+                        // - we should generally look for other custom URLs
+                        // - the final URL with all placeholders replaced should be compared
+                        if ($this->getRequestSplitFilter() !== null) {
+                            if (strcasecmp($this->getRequestSplitFilter()->getDataAddressProperty('filter_remote_url'), $filter_endpoint) !== 0) {
+                                throw new QueryBuilderException('Cannot use multiple filters requiring different custom URLs in one query: "' . $this->getRequestSplitFilter()->getCondition()->toString() . '" AND "' . $qpart->getCondition()->toString() . '"!');
+                            }
+                        } else {
+                            // Remember the original filter (not it's copy from $requestFilters) for further processing!
+                            $this->setRequestSplitFilter($queryFilters->getFilters()[$nr]);
+                        }
+                        $value = reset(explode($qpart->getValueListDelimiter(), $qpart->getCompareValue()));
+                    } else {
+                        $value = $qpart->getCompareValue();
                     }
-                    
-                    $this->setRequestSplitFilter($qpart);
-                    $value = reset(explode($qpart->getValueListDelimiter(), $qpart->getCompareValue()));
-                } else {
-                    $value = $qpart->getCompareValue();
-                }
-                // The filter_remote_url accepts the value placeholder along with attribute alias based placeholders. Since the value-placeholder
-                // is not supported in the regular data_address or the uid_request_data_address (there simply is nothing to take the value from),
-                // it must be replaced here already
-                $endpoint = str_replace('[#~value#]', $value, $filter_endpoint);
-                $urlFilters->removeFilter($qpart);
+                    // The filter_remote_url accepts the value placeholder along with attribute alias based placeholders. Since the value-placeholder
+                    // is not supported in the regular data_address or the uid_request_data_address (there simply is nothing to take the value from),
+                    // it must be replaced here already
+                    $endpoint = str_replace('[#~value#]', $value, $filter_endpoint);
+                    // Remove the filter from the current request because it's value is already part of
+                    // the endpoint.
+                    $requestFilters->removeFilter($qpart);
+                    break;
             } 
             
             // All (other) query parts, that do not affect the endpoint, remain in the filter group.
@@ -206,10 +225,11 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             // built instead of an individual URL parameter for every filter.
         }
         
-        $params_string = $this->buildUrlParams($urlFilters);
+        // build URL parameters from the filters remaining after the above preprocessing
+        $params_string = $this->buildUrlParams($requestFilters);
         
         // Add attributes needed for address property logic
-        if ($group_alias = $this->getMainObject()->getDataAddressProperty('response_group_by_attribute_alias')) {
+        if ($group_alias = $thisObj->getDataAddressProperty('response_group_by_attribute_alias')) {
             $this->addAttribute($group_alias);
         }
         
@@ -218,8 +238,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         
         if ($endpoint !== false) {
             // Run custom regexp transformations
-            if ($replace_pattern = $this->getMainObject()->getDataAddressProperty('request_url_replace_pattern')) {
-                $replace_with = $this->getMainObject()->getDataAddressProperty('request_url_replace_with');
+            if ($replace_pattern = $thisObj->getDataAddressProperty('request_url_replace_pattern')) {
+                $replace_with = $thisObj->getDataAddressProperty('request_url_replace_with');
                 $endpoint = preg_replace($replace_pattern, $replace_with, $endpoint);
             }
             
@@ -497,7 +517,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         foreach (StringDataType::findPlaceholders($url_string) as $ph) {
             if ($ph_filter = $this->getFilter($ph)) {
                 if (! is_null($ph_filter->getCompareValue())) {
-                    if ($this->getRequestSplitFilter() == $ph_filter && $ph_filter->getComparator() == EXF_COMPARATOR_IN) {
+                    if ($this->getRequestSplitFilter() == $ph_filter && $ph_filter->getComparator() == ComparatorDataType::IN) {
                         $ph_value = explode($ph_filter->getValueListDelimiter(), $ph_filter->getCompareValue())[0];
                     } else {
                         $ph_value = $this->buildUrlFilterValue($ph_filter);
@@ -734,7 +754,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             // See if the query has an IN-filter, that is set to split requests. This is quite common for URLs like mydomain.com/get_something/id=XXX.
             // If we filter over ids and have multiple values, we will need to make as many identical requests as there are values and merge
             // the results together here. So the easiest thing to do is perform this query multiple times, changing the split filter value each time.
-            if ($this->getRequestSplitFilter() && $this->getRequestSplitFilter()->getComparator() == EXF_COMPARATOR_IN) {
+            if ($this->getRequestSplitFilter() && $this->getRequestSplitFilter()->getComparator() == ComparatorDataType::IN) {
                 $requiresMultipleReadRequests = true;
                 // Since we are going to merge multipe result sets, it we need to be sure, there really is
                 // only one row per UID value.
@@ -763,7 +783,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             
             // Make more requests if we have multiple values for split filters
             if ($requiresMultipleReadRequests === true) {
-                $split_values = explode($this->getRequestSplitFilter()->getValueListDelimiter(), $this->getRequestSplitFilter()->getCompareValue());
+                $splitFilter = $this->getRequestSplitFilter();
+                $split_values = explode($splitFilter->getValueListDelimiter(), $splitFilter->getCompareValue());
+                $splitFilter->setComparator(ComparatorDataType::EQUALS);
                 // skip the first UID as it has been fetched already
                 $skip_val = true;
                 foreach ($split_values as $val) {
@@ -771,12 +793,13 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                         $skip_val = false;
                         continue;
                     }
-                    $this->getRequestSplitFilter()->setCompareValue($val);
-                    $subquery = $data_connection->query($this->buildRequestGet());
+                    $splitFilter->setCompareValue($val);
+                    $subquery = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
                     if ($data = $this->parseResponse($subquery)) {
                         $totalCnt = $totalCnt + $this->findRowCounter($data, $query);
                         $subquery_rows = $this->buildResultRows($data, $subquery);
-                        $result_rows = array_merge($result_rows, $this->applyPostprocessing($subquery_rows));
+                        $subquery_rows = $this->applyPostprocessing($subquery_rows);
+                        $result_rows = array_merge($result_rows, $subquery_rows);
                     }
                 }
                 // Make sure, we give back the split filter it's initial value, in case any further code will be interested in filters.
