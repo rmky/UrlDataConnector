@@ -17,6 +17,7 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
 use exface\Core\DataTypes\DateDataType;
 use exface\Core\DataTypes\BooleanDataType;
+use exface\Core\DataTypes\TimeDataType;
 
 /**
  * This is a query builder for JSON-based oData 2.0 APIs.
@@ -68,6 +69,46 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         }
         
         return $path;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\JsonUrlBuilder::buildResultRows()
+     */
+    protected function buildResultRows($parsed_data, Psr7DataQuery $query)
+    {
+        $rows = parent::buildResultRows($parsed_data, $query);
+        
+        foreach ($this->getAttributes() as $qpart) {
+            $dataType = $qpart->getDataType();
+            switch (true) {
+                case $dataType instanceof TimeDataType:
+                    foreach ($rows as $rowNr => $row) {
+                        $val = $row[$qpart->getDataAddress()];
+                        $timeParts = [];
+                        if (preg_match('/PT(\d{1,2}H)?(\d{1,2}M)?(\d{1,2}S)?/', $val, $timeParts)) {
+                            $hours = '00';
+                            $minutes = '00';
+                            $seconds = null;
+                            for ($i = 1; $i <= 3; $i++) {
+                                switch (strtoupper(substr($timeParts[$i], 0, -1))) {
+                                    case 'H' : $hours = substr($timeParts[$i], 2); break;
+                                    case 'M' : $minutes = substr($timeParts[$i], 2); break;
+                                    case 'S' : $seconds = substr($timeParts[$i], 2); break;
+                                }
+                                
+                            }
+                            $rows[$rowNr][$qpart->getDataAddress()] = $hours . ':' . $minutes . ($seconds !== null ? ':' . $seconds : '');
+                        }
+                        
+                    }
+                    break;
+                // Add more custom data type handling here
+            }
+        }
+        
+        return $rows;
     }
     
     /**
