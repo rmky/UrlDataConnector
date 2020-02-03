@@ -28,6 +28,7 @@ use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Interfaces\DataTypes\DataTypeInterface;
 use exface\UrlDataConnector\Actions\CallOData2Operation;
 use exface\Core\Interfaces\Selectors\AliasSelectorInterface;
+use exface\Core\DataTypes\TimeDataType;
 
 /**
  * 
@@ -592,6 +593,9 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                 break;
             case (strpos($source_data_type, 'DATE') !== false):
                 $type = DataTypeFactory::createFromString($workbench, DateDataType::class);
+                break;
+            case (strpos($source_data_type, 'TIME') !== false):
+                $type = DataTypeFactory::createFromString($workbench, TimeDataType::class);
                 break;
             default:
                 $type = DataTypeFactory::createFromString($workbench, StringDataType::class);
