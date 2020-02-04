@@ -19,6 +19,7 @@ use exface\Core\Interfaces\DataSources\DataConnectionInterface;
 use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 use exface\Core\DataTypes\ComparatorDataType;
+use exface\Core\Interfaces\Model\CompoundAttributeInterface;
 
 /**
  * This is an abstract query builder for REST APIs.
@@ -316,7 +317,13 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     {
         $query = '';
         foreach ($group->getFilters() as $qpart) {
-            $query = $this->addParameterToUrl($query, $this->buildUrlFilter($qpart));
+            if ($qpart->getAttribute() instanceof CompoundAttributeInterface) {
+                $compoundFilterGroup = $qpart->getAttribute()->splitCondition($qpart->getCondition());
+                $compoundFilterQpart = $this->getFilters()->createQueryPartFromConditionGroup($compoundFilterGroup);
+                $query .= $this->buildUrlFilterGroup($compoundFilterQpart, true);
+            } else {
+                $query = $this->addParameterToUrl($query, $this->buildUrlFilter($qpart));
+            }
         }
         foreach ($group->getNestedGroups() as $qpart) {
             $query .= $this->buildUrlFilterGroup($qpart);

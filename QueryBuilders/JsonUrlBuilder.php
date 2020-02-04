@@ -15,6 +15,8 @@ use Psr\Http\Message\RequestInterface;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
 use exface\Core\DataTypes\BooleanDataType;
+use exface\Core\Interfaces\Model\CompoundAttributeInterface;
+use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
 
 /**
  * This is a query builder for JSON-based REST APIs.
@@ -240,32 +242,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
                     $result_row = array();
                     /* @var $qpart \exface\Core\CommonLogic\QueryBuilder\QueryPartSelect */
                     foreach ($this->getAttributes() as $qpart) {
-                        $val = $row;
-                        if ($path = $qpart->getDataAddress()) {
-                            foreach ($this->dataPathSplit($path) as $step) {
-                                if ($cond_start = strpos($step, '[')) {
-                                    if (substr($step, - 1) != ']')
-                                        throw new QueryBuilderException('Invalid conditional selector in attribute "' . $qpart->getAlias() . '": "' . $step . '"!');
-                                    $cond = explode('=', substr($step, $cond_start + 1, - 1));
-                                    if ($val = $val[substr($step, 0, $cond_start)]) {
-                                        foreach ($val as $v) {
-                                            if ($v[$cond[0]] == $cond[1]) {
-                                                $val = $v;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    $val = $val[$step];
-                                }
-                            }
-                            
-                            // Check if the value is still an array and an aggregator must be applied
-                            if (is_array($val)) {
-                                $val = DataColumn::aggregateValues($val, $qpart->getAggregator());
-                            }
-                            $result_row[$qpart->getColumnKey()] = $val;
-                        }
+                        $result_row[$qpart->getColumnKey()] = $this->getValueFromRow($qpart, $row);
                     }
                     if ($useUidForRowNumber === true) {
                         $result_rows[$result_row[$this->getMainObject()->getUidAttributeAlias()]] = $result_row;
@@ -281,6 +258,53 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         }
         
         return $result_rows;
+    }
+    
+    protected function getValueFromRow(QueryPartAttribute $qpart, array $row)
+    {
+        switch (true) {
+            case $path = $qpart->getDataAddress():
+                $val = $this->getValueFromRowViaXPath($qpart, $row, $path);
+                break;
+            case ($qpartAttr = $qpart->getAttribute()) && $qpartAttr instanceof CompoundAttributeInterface:
+                $val = '';
+                foreach ($qpartAttr->getComponents() as $component) {
+                    $compAttr = $component->getAttribute();
+                    $compQpart = new QueryPartAttribute($compAttr->getAlias(), $qpart->getQuery());
+                    $val .= $component->getValuePrefix() . $this->getValueFromRow($compQpart, $row) . $component->getValueSuffix();
+                }
+                break;
+        }
+        
+        return $val;
+    }
+    
+    protected function getValueFromRowViaXPath(QueryPartAttribute $qpart, array $row, string $path)
+    {
+        $val = $row;
+        foreach ($this->dataPathSplit($path) as $step) {
+            if ($cond_start = strpos($step, '[')) {
+                if (substr($step, - 1) != ']')
+                    throw new QueryBuilderException('Invalid conditional selector in attribute "' . $qpart->getAlias() . '": "' . $step . '"!');
+                    $cond = explode('=', substr($step, $cond_start + 1, - 1));
+                    if ($val = $val[substr($step, 0, $cond_start)]) {
+                        foreach ($val as $v) {
+                            if ($v[$cond[0]] == $cond[1]) {
+                                $val = $v;
+                                break;
+                            }
+                        }
+                    }
+            } else {
+                $val = $val[$step];
+            }
+        }
+        
+        // Check if the value is still an array and an aggregator must be applied
+        if (is_array($val)) {
+            $val = DataColumn::aggregateValues($val, $qpart->getAggregator());
+        }
+        return $val;
     }
 
     /**

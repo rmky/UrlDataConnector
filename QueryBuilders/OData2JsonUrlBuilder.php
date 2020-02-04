@@ -18,6 +18,7 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
 use exface\Core\DataTypes\DateDataType;
 use exface\Core\DataTypes\BooleanDataType;
 use exface\Core\DataTypes\TimeDataType;
+use exface\Core\Interfaces\Model\CompoundAttributeInterface;
 
 /**
  * This is a query builder for JSON-based oData 2.0 APIs.
@@ -203,7 +204,15 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         $op = ' ' . $this->buildUrlFilterGroupOperator($qpart->getOperator()) . ' ';
         
         foreach ($qpart->getFilters() as $filter) {
-            if ($stmt = $this->buildUrlFilter($filter)) {
+            if ($filter->getAttribute() instanceof CompoundAttributeInterface) {
+                $compoundFilterGroup = $filter->getAttribute()->splitCondition($filter->getCondition());
+                $compoundFilterQpart = $this->getFilters()->createQueryPartFromConditionGroup($compoundFilterGroup);
+                $stmt = $this->buildUrlFilterGroup($compoundFilterQpart, true);
+            } else {
+                $stmt = $this->buildUrlFilter($filter);
+            }
+            
+            if ($stmt) {
                 $query .= ($query ? $op : '') . $stmt;
             }
         }
