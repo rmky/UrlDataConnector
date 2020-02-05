@@ -167,7 +167,21 @@ class JsonUrlBuilder extends AbstractUrlBuilder
                 $this->getWorkbench()->getLogger()->notice('JsonUrlBuilder cannot perform create-operations on related attributes: skipping "' . $attr->getAliasWithRelationPath() . '" of object "' . $this->getMainObject()->getAliasWithNamespace() . '"!');
                 continue;
             }
-            
+            if ($attr instanceof CompoundAttributeInterface) {
+                foreach ($qpart->getValues() as $row => $val) {
+                    if (! $json_objects[$row]) {
+                        $json_objects[$row] = new \stdClass();
+                    }
+                    if (! is_null($val) && $val !== '') {
+                        $splitValue = $attr->splitValue($val);
+                        foreach ($attr->getComponents() as $component) {
+                            if ($json_attr = $this->buildDataAddressForAttribute($component->getAttribute(), $operation)) {
+                                $json_objects[$row]->$json_attr = $this->buildRequestBodyValue($qpart, $splitValue[$component->getIndex()]);
+                            }
+                        }
+                    }
+                }
+            }
             if ($json_attr = $this->buildDataAddressForAttribute($attr, $operation)) {
                 foreach ($qpart->getValues() as $row => $val) {
                     if (! $json_objects[$row]) {
