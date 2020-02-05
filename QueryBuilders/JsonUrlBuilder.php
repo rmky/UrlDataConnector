@@ -116,7 +116,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     
     protected function buildRequestPutPostDelete(string $operation, $jsonObject, string $dataPath = null) : RequestInterface
     {
-        $uri = $this->buildDataAddressForObject($this->getMainObject(), $operation);
+        $uri = $this->buildDataAddressForObject($this->getMainObject(), $this->getHttpMethod($operation));
         $uri = $this->replacePlaceholdersInUrl($uri);
         
         $json = new \stdClass();
