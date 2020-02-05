@@ -511,11 +511,10 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      */
     protected function getHttpMethod(string $operation) : string
     {
+        $o = $this->getMainObject();
         switch ($operation) {
-            case static::OPERATION_CREATE: return 'POST';
-            case static::OPERATION_READ: return 'GET';
-            case static::OPERATION_UPDATE: return 'PATCH';
-            case static::OPERATION_DELETE: return 'DELETE';
+            case static::OPERATION_CREATE: return $o->getDataAddressProperty('create_request_method') ? $o->getDataAddressProperty('create_request_method') : 'POST';
+            case static::OPERATION_UPDATE: return $o->getDataAddressProperty('update_request_method') ? $o->getDataAddressProperty('update_request_method') : 'MERGE';
         }
         
         return parent::getHttpMethod($operation);
