@@ -7,6 +7,10 @@ use exface\Core\Factories\ResultFactory;
 use exface\Core\Factories\DataSheetFactory;
 use exface\Core\Interfaces\Actions\ServiceParameterInterface;
 use exface\Core\Exceptions\Actions\ActionInputMissingError;
+use exface\Core\DataTypes\StringDataType;
+use exface\Core\DataTypes\TimeDataType;
+use exface\Core\DataTypes\DateDataType;
+use exface\Core\DataTypes\TimestampDataType;
 
 /**
  * Calls an OData service operation (FunctionImport).
@@ -56,21 +60,26 @@ class CallOData2Operation extends CallWebService
             return "''";
         }
         
-        $val = $parameter->getDataType()->parse($val);
+        $dataType = $parameter->getDataType();
+        $odataType = $parameter->getCustomProperty('odata_type');
+        $val = $dataType->parse($val);
         
-        switch ($parameter->getCustomProperty('odata_type')) {
-            case 'Edm.Guid':
+        switch (true) {
+            case $odataType === 'Edm.Guid':
                 return "guid'{$val}'";
-            case 'Edm.DateTimeOffset':
-            case 'Edm.DateTime':
+            case $odataType === 'Edm.DateTimeOffset':
+            case $odataType === 'Edm.DateTime':
+            case ! $odataType && ($dataType instanceof DateDataType || $dataType instanceof TimestampDataType):
                 $date = new \DateTime($val);
                 return "datetime'" . $date->format('Y-m-d\TH:i:s') . "'";
-            case 'Edm.Binary':
+            case $odataType === 'Edm.Binary':
                 return "binary'{$val}'";
-            case 'Edm.Time':
+            case $odataType === 'Edm.Time':
+            case ! $odataType && $dataType instanceof TimeDataType:
                 $date = new \DateTime($val);
                 return 'PT' . $date->format('H\Ti\M');
-            case 'Edm.String':
+            case $odataType === 'Edm.String':
+            case ! $odataType && $dataType instanceof StringDataType:
                 return "'" . $val . "'";
             default:
                 return is_numeric($val) === false || (substr($val, 0, 1) === 0 && substr($val, 1, 1) !== '.') ? "'{$val}'" : $val;
