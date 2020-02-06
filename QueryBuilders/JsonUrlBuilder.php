@@ -116,7 +116,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     
     protected function buildRequestPutPostDelete(string $operation, $jsonObject, string $dataPath = null) : RequestInterface
     {
-        $uri = $this->buildDataAddressForObject($this->getMainObject(), $operation);
+        $uri = $this->buildDataAddressForObject($this->getMainObject(), $this->getHttpMethod($operation));
         $uri = $this->replacePlaceholdersInUrl($uri);
         
         $json = new \stdClass();
@@ -167,8 +167,22 @@ class JsonUrlBuilder extends AbstractUrlBuilder
                 $this->getWorkbench()->getLogger()->notice('JsonUrlBuilder cannot perform create-operations on related attributes: skipping "' . $attr->getAliasWithRelationPath() . '" of object "' . $this->getMainObject()->getAliasWithNamespace() . '"!');
                 continue;
             }
-            
-            if ($json_attr = $this->buildDataAddressForAttribute($attr, $operation)) {
+            if ($attr instanceof CompoundAttributeInterface) {
+                foreach ($qpart->getValues() as $row => $val) {
+                    if (! $json_objects[$row]) {
+                        $json_objects[$row] = new \stdClass();
+                    }
+                    if (! is_null($val) && $val !== '') {
+                        $splitValue = $attr->splitValue($val);
+                        foreach ($attr->getComponents() as $component) {
+                            if ($json_attr = $this->buildDataAddressForAttribute($component->getAttribute(), $operation)) {
+                                $json_objects[$row]->$json_attr = $this->buildRequestBodyValue($qpart, $splitValue[$component->getIndex()]);
+                            }
+                        }
+                    }
+                }
+            }
+            if (($json_attr = $this->buildDataAddressForAttribute($attr, $operation)) && $attr->isWritable() === true) {
                 foreach ($qpart->getValues() as $row => $val) {
                     if (! $json_objects[$row]) {
                         $json_objects[$row] = new \stdClass();

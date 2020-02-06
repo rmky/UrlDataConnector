@@ -20,6 +20,7 @@ use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 use exface\Core\DataTypes\ComparatorDataType;
 use exface\Core\Interfaces\Model\CompoundAttributeInterface;
+use exface\Core\Factories\ConditionFactory;
 
 /**
  * This is an abstract query builder for REST APIs.
@@ -519,10 +520,11 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      * @param string $url_string            
      * @return string|boolean
      */
-    protected function replacePlaceholdersInUrl($url_string)
+    protected function replacePlaceholdersInUrl($url_string, bool $strict = true, QueryPartFilterGroup $filterGroup = null)
     {
+        $filterGroup = $filterGroup ?? $this->getFilters();
         foreach (StringDataType::findPlaceholders($url_string) as $ph) {
-            if ($ph_filter = $this->getFilter($ph)) {
+            if ($ph_filter = $filterGroup->findFilterByAlias($ph)) {
                 if (! is_null($ph_filter->getCompareValue())) {
                     if ($this->getRequestSplitFilter() == $ph_filter && $ph_filter->getComparator() == ComparatorDataType::IN) {
                         $ph_value = explode($ph_filter->getValueListDelimiter(), $ph_filter->getCompareValue())[0];
@@ -530,15 +532,23 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                         $ph_value = $this->buildUrlFilterValue($ph_filter);
                     }
                     $url_string = str_replace('[#' . $ph . '#]', $ph_value, $url_string);
-                } else {
-                    // If at least one filter does not have a value, return false
-                    return false;
-                }
+                } 
             } else {
-                // If at least one placeholder does not have a corresponding filter, return false
-                return false;
+                foreach ($this->getFilters()->getFilters() as $qpart) {
+                    if ($qpart->getAttribute() instanceof CompoundAttributeInterface) {
+                        $compoundAttr = $qpart->getAttribute();
+                        $compoundFilterGroup = $compoundAttr->splitCondition($qpart->getCondition());
+                        $compoundFilterQpart = $this->getFilters()->createQueryPartFromConditionGroup($compoundFilterGroup);
+                        $url_string = $this->replacePlaceholdersInUrl($url_string, false, $compoundFilterQpart);
+                    }
+                }                
             }
         }
+        
+        if ($strict === true && empty(StringDataType::findPlaceholders($url_string)) === false) {
+            return false;
+        }
+        
         return $url_string;
     }
 
