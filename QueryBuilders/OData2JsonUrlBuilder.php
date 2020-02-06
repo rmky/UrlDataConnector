@@ -466,7 +466,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
                         $url = rtrim($url, ',');
                         $url .= ")";
                     } else {
-                        $url .= "[#" . $object->getUidAttribute()->getAlias() . "#]";
+                        $url .= "([#" . $object->getUidAttribute()->getAlias() . "#])";
                     }
                     return $url;
                 }
@@ -512,6 +512,11 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      */
     protected function buildRequestBodyValue(QueryPartValue $qpart, $value) : string
     {
+        switch ($qpart->getAttribute()->getDataAddressProperty('odata_type')) {
+            case 'Edm.Guid':
+                $value = "'" . $value . "'";
+                break;
+        }        
         return $this->buildODataValue($qpart, $value);
     }
     
