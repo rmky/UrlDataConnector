@@ -449,6 +449,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         switch (strtoupper($method)) {
             case 'PUT':
             case 'PATCH':
+            case 'MERGE':
             case 'DELETE':
                 if (! $object->getDataAddressProperty('update_request_data_address')) {
                     if ($object->hasUidAttribute() === false) {
@@ -456,7 +457,17 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
                     }
                     
                     $url = $object->getDataAddress();
-                    $url .= "([#" . $object->getUidAttribute()->getAlias() . "#])";
+                    $UidAttribute = $object->getUidAttribute();
+                    if ($UidAttribute instanceof CompoundAttributeInterface) {
+                        $url .="(";
+                        foreach ($UidAttribute->getComponents() as $comp) {
+                            $url .= "{$comp->getAttribute()->getAlias()}=[#{$comp->getAttribute()->getAlias()}#],";
+                        }
+                        $url = rtrim($url, ',');
+                        $url .= ")";
+                    } else {
+                        $url .= "([#" . $object->getUidAttribute()->getAlias() . "#])";
+                    }
                     return $url;
                 }
         }
@@ -501,6 +512,11 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      */
     protected function buildRequestBodyValue(QueryPartValue $qpart, $value) : string
     {
+        switch ($qpart->getAttribute()->getDataAddressProperty('odata_type')) {
+            case 'Edm.Guid':
+                $value = "'" . $value . "'";
+                break;
+        }        
         return $this->buildODataValue($qpart, $value);
     }
     
@@ -511,11 +527,10 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      */
     protected function getHttpMethod(string $operation) : string
     {
+        $o = $this->getMainObject();
         switch ($operation) {
-            case static::OPERATION_CREATE: return 'POST';
-            case static::OPERATION_READ: return 'GET';
-            case static::OPERATION_UPDATE: return 'PATCH';
-            case static::OPERATION_DELETE: return 'DELETE';
+            case static::OPERATION_CREATE: return $o->getDataAddressProperty('create_request_method') ? $o->getDataAddressProperty('create_request_method') : 'POST';
+            case static::OPERATION_UPDATE: return $o->getDataAddressProperty('update_request_method') ? $o->getDataAddressProperty('update_request_method') : 'PATCH';
         }
         
         return parent::getHttpMethod($operation);
