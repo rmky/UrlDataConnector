@@ -182,7 +182,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
                     }
                 }
             }
-            if ($json_attr = $this->buildDataAddressForAttribute($attr, $operation)) {
+            if (($json_attr = $this->buildDataAddressForAttribute($attr, $operation)) && $attr->isWritable() === true) {
                 foreach ($qpart->getValues() as $row => $val) {
                     if (! $json_objects[$row]) {
                         $json_objects[$row] = new \stdClass();
