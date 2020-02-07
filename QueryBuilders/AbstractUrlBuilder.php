@@ -317,11 +317,10 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     protected function buildUrlFilterGroup(QueryPartFilterGroup $group)
     {
         $query = '';
+        /* @var $qpart \exface\Core\CommonLogic\QueryBuilder\QueryPartFilter */
         foreach ($group->getFilters() as $qpart) {
-            if ($qpart->getAttribute() instanceof CompoundAttributeInterface) {
-                $compoundFilterGroup = $qpart->getAttribute()->splitCondition($qpart->getCondition());
-                $compoundFilterQpart = $this->getFilters()->createQueryPartFromConditionGroup($compoundFilterGroup);
-                $query .= $this->buildUrlFilterGroup($compoundFilterQpart, true);
+            if ($qpart->isCompound() && $qpart->getAttribute() instanceof CompoundAttributeInterface) {
+                $query .= $this->buildUrlFilterGroup($qpart->getCompoundFilterGroup(), true);
             } else {
                 $query = $this->addParameterToUrl($query, $this->buildUrlFilter($qpart));
             }
@@ -535,11 +534,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 } 
             } else {
                 foreach ($this->getFilters()->getFilters() as $qpart) {
-                    if ($qpart->getAttribute() instanceof CompoundAttributeInterface) {
-                        $compoundAttr = $qpart->getAttribute();
-                        $compoundFilterGroup = $compoundAttr->splitCondition($qpart->getCondition());
-                        $compoundFilterQpart = $this->getFilters()->createQueryPartFromConditionGroup($compoundFilterGroup);
-                        $url_string = $this->replacePlaceholdersInUrl($url_string, false, $compoundFilterQpart);
+                    if ($qpart->isCompound() && $qpart->getAttribute() instanceof CompoundAttributeInterface) {
+                        $url_string = $this->replacePlaceholdersInUrl($url_string, false, $qpart->getCompoundFilterGroup());
                     }
                 }                
             }
