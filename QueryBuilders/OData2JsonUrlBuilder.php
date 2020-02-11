@@ -204,10 +204,8 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         $op = ' ' . $this->buildUrlFilterGroupOperator($qpart->getOperator()) . ' ';
         
         foreach ($qpart->getFilters() as $filter) {
-            if ($filter->getAttribute() instanceof CompoundAttributeInterface) {
-                $compoundFilterGroup = $filter->getAttribute()->splitCondition($filter->getCondition());
-                $compoundFilterQpart = $this->getFilters()->createQueryPartFromConditionGroup($compoundFilterGroup);
-                $stmt = $this->buildUrlFilterGroup($compoundFilterQpart, true);
+            if ($filter->isCompound() === true) {
+                $stmt = $this->buildUrlFilterGroup($filter->getCompoundFilterGroup(), true);
             } else {
                 $stmt = $this->buildUrlFilter($filter);
             }
