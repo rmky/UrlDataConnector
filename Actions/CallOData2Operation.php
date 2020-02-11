@@ -77,7 +77,7 @@ class CallOData2Operation extends CallWebService
             case $odataType === 'Edm.Time':
             case ! $odataType && $dataType instanceof TimeDataType:
                 $date = new \DateTime($val);
-                return 'PT' . $date->format('H\Ti\M');
+                return 'PT' . $date->format('H\Hi\Mi\S');
             case $odataType === 'Edm.String':
             case ! $odataType && $dataType instanceof StringDataType:
                 return "'" . $val . "'";
