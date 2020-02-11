@@ -430,7 +430,6 @@ class CallWebService extends AbstractAction implements iCallService
             $query = new Psr7DataQuery($request);
             try {
                 $response = $this->getDataConnection()->query($query)->getResponse();
-                $resultData = $this->parseResponse($response, $resultData);
             } catch (\Throwable $e) {
                 if ($eResponse = $this->getErrorResponse($e)) {
                     $message = $this->getErrorMessageFromResponse($eResponse);
@@ -451,7 +450,22 @@ class CallWebService extends AbstractAction implements iCallService
             }
         }
         
+        $resultData = $this->parseResponse($response, $resultData);
         $resultData->setCounterForRowsInDataSource($resultData->countRows());
+        
+        // If the input and the result are based on the same meta object, we can (and should!)
+        // apply filters and sorters of the input to the result. Indeed, having the same object
+        // merely means, we need to fill the sheet with data, which, of course, should adhere
+        // to its settings.
+        if ($input->getMetaObject()->is($resultData->getMetaObject())) {
+            if ($input->getFilters()->isEmpty(true) === false) {
+                $resultData = $resultData->extract($input->getFilters());
+            }
+            if ($input->hasSorters() === true) {
+                $resultData->sort($input->getSorters());
+            }
+        }
+        
         if ($this->getResultMessageText() && $this->getResultMessagePattern()) {
             $message = $this->getResultMessageText() . $this->getMessageFromResponse($response);
         } else {
