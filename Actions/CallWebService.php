@@ -443,7 +443,7 @@ class CallWebService extends AbstractAction implements iCallService
                 if (! $e instanceof HttpConnectorRequestError) {
                     $ex = new HttpConnectorRequestError($query, $statusCode, $reasonPhrase, $message, $code, $e);
                 } else {
-                    $ex = new HttpConnectorRequestError($query, $statusCode, $reasonPhrase, $message, $code, $e->getPrevious());
+                    $ex = new HttpConnectorRequestError($query, $statusCode, $reasonPhrase, $message, $e->getAlias(), $e->getPrevious());
                 }
                 $ex->setUseRemoteMessageAsTitle(($message !== null ? true : false));
                 throw $ex;
