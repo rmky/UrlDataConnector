@@ -11,6 +11,7 @@ use exface\Core\DataTypes\StringDataType;
 use exface\Core\DataTypes\TimeDataType;
 use exface\Core\DataTypes\DateDataType;
 use exface\Core\DataTypes\TimestampDataType;
+use exface\UrlDataConnector\QueryBuilders\OData2JsonUrlBuilder;
 
 /**
  * Calls an OData service operation (FunctionImport).
@@ -64,26 +65,7 @@ class CallOData2Operation extends CallWebService
         $odataType = $parameter->getCustomProperty('odata_type');
         $val = $dataType->parse($val);
         
-        switch (true) {
-            case $odataType === 'Edm.Guid':
-                return "guid'{$val}'";
-            case $odataType === 'Edm.DateTimeOffset':
-            case $odataType === 'Edm.DateTime':
-            case ! $odataType && ($dataType instanceof DateDataType || $dataType instanceof TimestampDataType):
-                $date = new \DateTime($val);
-                return "datetime'" . $date->format('Y-m-d\TH:i:s') . "'";
-            case $odataType === 'Edm.Binary':
-                return "binary'{$val}'";
-            case $odataType === 'Edm.Time':
-            case ! $odataType && $dataType instanceof TimeDataType:
-                $date = new \DateTime($val);
-                return 'PT' . $date->format('H\Hi\Mi\S');
-            case $odataType === 'Edm.String':
-            case ! $odataType && $dataType instanceof StringDataType:
-                return "'" . $val . "'";
-            default:
-                return is_numeric($val) === false || (substr($val, 0, 1) === 0 && substr($val, 1, 1) !== '.') ? "'{$val}'" : $val;
-        }
+        return OData2JsonUrlBuilder::buildUrlFilterODataValue($val, $dataType, $odataType);
     }
     
     /**

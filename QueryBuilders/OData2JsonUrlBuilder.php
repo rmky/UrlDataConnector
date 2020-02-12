@@ -19,6 +19,8 @@ use exface\Core\DataTypes\DateDataType;
 use exface\Core\DataTypes\BooleanDataType;
 use exface\Core\DataTypes\TimeDataType;
 use exface\Core\Interfaces\Model\CompoundAttributeInterface;
+use exface\Core\Interfaces\DataTypes\DataTypeInterface;
+use exface\Core\DataTypes\TimestampDataType;
 
 /**
  * This is a query builder for JSON-based oData 2.0 APIs.
@@ -372,14 +374,124 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
             }
         }
         
+        return $this::buildUrlFilterODataValue($value, $qpart->getDataType(), $qpart->getDataAddressProperty('odata_type'));
+    }
+    
+    /**
+     * Formats the given value according to the OData 2.0 URI conventions.
+     * 
+     * See https://www.odata.org/documentation/odata-version-2-0/overview/ chapter 6.
+     * 
+     * @param string|null $parsedValue
+     * @param DataTypeInterface $dataType
+     * @param string $odataType
+     * @return string
+     */
+    public static function buildUrlFilterODataValue($parsedValue, DataTypeInterface $dataType, string $odataType = null) : string
+    {
         switch (true) {
-            // Wrap string data types in single quotes
-            case ($qpart->getDataType() instanceof StringDataType): 
-                $value = $this->buildUrlFilterValueEscapedString($qpart, $value); 
-                break; 
+            // NULL
+            case $parsedValue === EXF_LOGICAL_NULL || $parsedValue === null:
+                return 'null';
+            // OData GUID
+            case $odataType === 'Edm.Guid':
+                return "guid'{$parsedValue}'";
+            // OData Int64
+            case $odataType === 'Edm.Int64':
+                return "{$parsedValue}L";
+            // Date & Time
+            case $odataType === 'Edm.DateTimeOffset':
+            case $odataType === 'Edm.DateTime':
+            case ! $odataType && ($dataType instanceof DateDataType || $dataType instanceof TimestampDataType):
+                $date = new \DateTime($parsedValue);
+                if ($odataType === 'Edm.DateTimeOffset') {
+                    return "datetimeoffset'{$date->format('c')}'";
+                } else {
+                    return "datetime'{$date->format('Y-m-d\TH:i:s')}'";
+                }
+                // Time only
+            case $odataType === 'Edm.Time':
+            case ! $odataType && $dataType instanceof TimeDataType:
+                $date = new \DateTime($parsedValue);
+                return 'PT' . $date->format('H\Hi\Ms\S');
+            // OData Binary
+            case $odataType === 'Edm.Binary':
+                return "binary'{$parsedValue}'";
+            // Bool
+            case $odataType === 'Edm.Boolean':
+            case ! $odataType && $dataType instanceof BooleanDataType:
+                return $parsedValue ? 'true' : 'false';
+            // OData floating point numbers
+            case $odataType === 'Edm.Single':
+                return $parsedValue . 'f';
+            case $odataType === 'Edm.Double':
+                return $parsedValue . 'd';
+            // String
+            case $odataType === 'Edm.String':
+            case ! $odataType && $dataType instanceof StringDataType:
+                return "'" . $parsedValue . "'";
+            // Fallback for very unexpected cases
+            default:
+                return is_numeric($parsedValue) === false || (substr($parsedValue, 0, 1) === 0 && substr($parsedValue, 1, 1) !== '.') ? "'{$parsedValue}'" : $parsedValue;
         }
-        
-        return $this->buildODataValue($qpart, $value);
+    }
+    
+    /**
+     * Formats the given value according to the OData 2.0 JSON format.
+     * 
+     * See https://www.odata.org/documentation/odata-version-2-0/json-format/ chapter 4.
+     * 
+     * @param string|null $parsedValue
+     * @param DataTypeInterface $dataType
+     * @param string $odataType
+     * @return string
+     */
+    public static function buildRequestBodyODataValue($parsedValue, DataTypeInterface $dataType, string $odataType = null) : string
+    {
+        switch (true) {
+            // NULL
+            case $parsedValue === EXF_LOGICAL_NULL || $parsedValue === null:
+                return 'null';
+            // OData GUID
+            case $odataType === 'Edm.Guid':
+                return $parsedValue;
+            // Date & Time
+            case $odataType === 'Edm.DateTimeOffset':
+                $date = new \DateTime($parsedValue);
+                return static::buildUrlFilterODataValue($parsedValue, $dataType, $odataType);
+            case $odataType === 'Edm.DateTime':
+            case ! $odataType && ($dataType instanceof DateDataType || $dataType instanceof TimestampDataType):
+                $date = new \DateTime($parsedValue);
+                // TODO #timezone add support for timezones!
+                return "/Date({$date->format('U')}000)/";
+            // Time only
+            case $odataType === 'Edm.Time':
+            case ! $odataType && $dataType instanceof TimeDataType:
+                return static::buildUrlFilterODataValue($parsedValue, $dataType, $odataType);
+            // OData Binary
+            case $odataType === 'Edm.Binary':
+                return base64_encode($parsedValue);
+            // Bool
+            case $odataType === 'Edm.Boolean':
+            case ! $odataType && $dataType instanceof BooleanDataType:
+                return $parsedValue ? 'true' : 'false';
+            // Numbers, that need to be formatted as string
+            case $odataType === 'Edm.Byte':
+            case $odataType === 'Edm.Decimal':
+            case $odataType === 'Edm.Int64':
+                return strval($parsedValue);
+            // OData floating point numbers
+            case $odataType === 'Edm.Single':
+            case $odataType === 'Edm.Double':
+                return static::buildUrlFilterODataValue($parsedValue, $dataType, $odataType);
+            // String
+            case $odataType === 'Edm.String':
+            case ! $odataType && $dataType instanceof StringDataType:
+                return strval($parsedValue);
+            // Fallback for very unexpected cases
+            default:
+                return $parsedValue;
+        }
     }
     
     /**
@@ -478,49 +590,13 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
     }
     
     /**
-     * Takes care of special OData type formatting like "date'2019-01-31'" or "guid'xxx'"
-     * 
-     * @param QueryPartAttribute $qpart
-     * @param mixed $preformattedValue
-     * @return string
-     */
-    protected function buildODataValue(QueryPartAttribute $qpart, $preformattedValue = null)
-    {
-        switch ($qpart->getAttribute()->getDataAddressProperty('odata_type')) {
-            case 'Edm.Guid':
-                $value = 'guid' . $preformattedValue;
-                break;
-            case 'Edm.DateTimeOffset':
-            case 'Edm.DateTime':
-                $date = new \DateTime(str_replace("'", '', $preformattedValue));
-                $value = "datetime'" . $date->format('Y-m-d\TH:i:s') . "'";
-                break;
-            case 'Edm.Binary':
-                $value = 'binary' . $preformattedValue;
-                break;
-            case 'Edm.Time':
-                $date = new \DateTime(str_replace("'", '', $preformattedValue));
-                $value = 'PT' . $date->format('H\Ti\M');
-                break;
-            default:
-                $value = $preformattedValue;
-        }
-        return $value;
-    }
-    
-    /**
      * 
      * {@inheritDoc}
      * @see \exface\UrlDataConnector\QueryBuilders\JsonUrlBuilder::buildRequestBodyValue()
      */
     protected function buildRequestBodyValue(QueryPartValue $qpart, $value) : string
     {
-        switch ($qpart->getAttribute()->getDataAddressProperty('odata_type')) {
-            case 'Edm.Guid':
-                $value = "'" . $value . "'";
-                break;
-        }        
-        return $this->buildODataValue($qpart, $value);
+        return $this::buildRequestBodyODataValue($value, $qpart->getDataType(), $qpart->getDataAddressProperty('odata_type'));
     }
     
     /**
