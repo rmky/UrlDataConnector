@@ -487,7 +487,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             $primary_key = false;
         }
         if (count($keys) > 1) {
-            $object->getWorkbench()->getLogger()->logException(new ModelBuilderRuntimeError($this, 'Cannot import compound primary key for ' . $object->getAliasWithNamespace() . ' - please specify a UID manually if needed!'));
+            $object->getWorkbench()->getLogger()->logException(new ModelBuilderRuntimeError($this, 'Cannot import compound primary key for ' . $object->getAliasWithNamespace() . ' - please create a compound attribute in the metamodel manually!'));
         }
         
         foreach ($property_nodes as $node) {

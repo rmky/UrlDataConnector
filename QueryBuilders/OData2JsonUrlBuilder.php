@@ -26,10 +26,19 @@ use exface\Core\Interfaces\Model\CompoundAttributeInterface;
  * See the AbstractUrlBuilder for information about available data address properties.
  * In addition, this query builder provides the following options
  * 
- * ## On object level
+ * ## Data addresses
+ * 
+ * ## Data address settings
+ * 
+ * ### On object level
  * 
  * - `odata_$inlinecount` - controls the inlinecount feature of OData. Set to `allpages`
  * to request an inlinecount from the server.
+ * 
+ * ### On attribute level
+ * 
+ * - `odata_type` - the OData data type (e.g. `Edm.String`) from the $metadata. The
+ * model builder will add this property automatically.
  *
  * @see AbstractUrlBuilder for data source specific parameters
  * 
