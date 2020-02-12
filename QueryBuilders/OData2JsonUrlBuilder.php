@@ -23,12 +23,8 @@ use exface\Core\Interfaces\Model\CompoundAttributeInterface;
 /**
  * This is a query builder for JSON-based oData 2.0 APIs.
  * 
- * See the AbstractUrlBuilder for information about available data address properties.
- * In addition, this query builder provides the following options
- * 
- * ## Data addresses
- * 
- * ## Data address settings
+ * See the `AbstractUrlBuilder` for information about available data address properties.
+ * In addition, this query builder provides the following options.
  * 
  * ### On object level
  * 
