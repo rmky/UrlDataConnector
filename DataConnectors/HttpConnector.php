@@ -33,6 +33,43 @@ use Psr\Http\Message\RequestInterface;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
+ * 
+ * Performs data source queries by sending HTTP requests via Guzzle PHP library. Can use
+ * Swagger/OpenAPI service descriptions to generate a metamodel.
+ * 
+ * ## URLs
+ * 
+ * A base `url` can be configured. It will be used whenever a query builder produces relative
+ * URLs. If the connection can be used for multiple meta object, it is a good idea to use
+ * a base `url` instead of absolute URLs in the object's data addresses.
+ * 
+ * Similarly, static URL parameters can be added via `fixed_url_params`.
+ * 
+ * ## Authentication
+ * 
+ * Supports basic HTTP authentication and digest authentication -uUse `authentication`,
+ * `authentication_url` and `authentication_request_method` to configure.
+ * 
+ * ## Caching
+ * 
+ * Can cache responses. By default caching is disabled. Use `cache_enabled` to turn it on
+ * and ther `cache_*` properties for configuration.
+ * 
+ * ## Error handling
+ * 
+ * Apart from the regular data source error handling, this connector can show server error
+ * messages and codes directly (instead of using error messages from the model). This is
+ * very helpful if the server application can yield well-readale (non-technical) error
+ * messages. Set `error_text_use_as_message_title` to `true` to display server errors
+ * directly.
+ * 
+ * Similarly, a static `error_code` can be configured for all errors from this connection
+ * instead of using the built-in (very general) error codes.
+ * 
+ * ## Cookies
+ * 
+ * Cookies are disabled by default, but can be stored for logged-in users if `use_cookies`
+ * is set to `true`.
  *
  * @author Andrej Kabachnik
  *        
@@ -54,6 +91,8 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     private $errorTextPattern = null;
     
     private $errorTextUseAsMessageTitle = null;
+    
+    private $errorCode = null;
 
     private $use_cookies = false;
     
@@ -389,7 +428,8 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     {
         if ($response !== null) {
             $message = $this->getResponseErrorText($response, $exceptionThrown);
-            $ex = new HttpConnectorRequestError($query, $response->getStatusCode(), $response->getReasonPhrase(), $message, null, $exceptionThrown);
+            $code = $this->getResponseErrorCode($response, $exceptionThrown);
+            $ex = new HttpConnectorRequestError($query, $response->getStatusCode(), $response->getReasonPhrase(), $message, $code, $exceptionThrown);
             $useAsTitle = false;
             if ($this->getErrorTextUseAsMessageTitle() === true) {
                 $useAsTitle = true;
@@ -710,6 +750,20 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
     
     /**
+     * Returns the application-specifc error code provided by the server or NULL if no meaningful error code was sent.
+     * 
+     * If static `error_code` is defined for this connection, it will be returned by default.
+     * 
+     * @param ResponseInterface $response
+     * @param \Throwable $exceptionThrown
+     * @return string|NULL
+     */
+    protected function getResponseErrorCode(ResponseInterface $response, \Throwable $exceptionThrown = null) : ?string
+    {
+        return $this->getErrorCode();
+    }
+    
+    /**
      * 
      * @param Psr7DataQuery $query
      * @return bool
@@ -925,5 +979,36 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     protected function getAuthenticationRequestMethod() : ?string
     {
         return $this->authentication_request_method;
+    }
+    
+    /**
+     *
+     * @return string|NULL
+     */
+    protected function getErrorCode() : ?string
+    {
+        return $this->errorCode;
+    }
+    
+    /**
+     * Set a static error code for all data source errors from this connection.
+     * 
+     * Sometimes it is very helpful to let the user know, that the error comes from a
+     * specific connected system. Think of an error code like `SAP-ERROR`, `FACEBOOK-ERR`
+     * or similar - something to give the user a hint of where the error happened.
+     * 
+     * You can even create an error message in the metamodel with this code and describe
+     * there, what to do.
+     * 
+     * @uxon-property error_code
+     * @uxon-type string
+     * 
+     * @param string $value
+     * @return HttpConnector
+     */
+    public function setErrorCode(string $value) : HttpConnector
+    {
+        $this->errorCode = $value;
+        return $this;
     }
 }
