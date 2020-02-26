@@ -16,6 +16,8 @@ use exface\UrlDataConnector\ModelBuilders\OData2ModelBuilder;
 class OData2Connector extends HttpConnector
 {
     private $metadataUrl = null;
+    
+    private $useBatchRequests = false;
 
     /**
      * 
@@ -62,5 +64,39 @@ class OData2Connector extends HttpConnector
     public function getAuthenticationUrl() : ?string
     {
         return parent::getAuthenticationUrl() ?? $this->getMetadataUrl();
+    }
+    
+    /**
+     *
+     * @return bool
+     */
+    public function getUseBatchRequests() : bool
+    {
+        return $this->useBatchRequests;
+    }
+    
+    /**
+     * Set to TRUE if your OData-server supports $batch requests.
+     * 
+     * If set to `true` separate operations will be combined into a single $batch request
+     * if possible. Additionally all CREATE/UPDATE/DELETE operations of a data transaction
+     * will be put into a single ChangeSet. 
+     * 
+     * See https://www.odata.org/documentation/odata-version-2-0/batch-processing/ for 
+     * technical detals.
+     * 
+     * @uxon-property use_batch_requests
+     * @uxon-type boolean
+     * @uxon-default false
+     * 
+     * @link https://www.odata.org/documentation/odata-version-2-0/batch-processing/
+     * 
+     * @param bool $value
+     * @return OData2Connector
+     */
+    public function setUseBatchRequests(bool $value) : OData2Connector
+    {
+        $this->useBatchRequests = $value;
+        return $this;
     }
 }

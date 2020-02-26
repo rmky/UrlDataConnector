@@ -21,6 +21,9 @@ use exface\Core\DataTypes\TimeDataType;
 use exface\Core\Interfaces\Model\CompoundAttributeInterface;
 use exface\Core\Interfaces\DataTypes\DataTypeInterface;
 use exface\Core\DataTypes\TimestampDataType;
+use Psr\Http\Message\RequestInterface;
+use exface\Core\DataTypes\UUIDDataType;
+use exface\UrlDataConnector\DataConnectors\OData2Connector;
 
 /**
  * This is a query builder for JSON-based oData 2.0 APIs.
@@ -474,7 +477,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
             // Bool
             case $odataType === 'Edm.Boolean':
             case ! $odataType && $dataType instanceof BooleanDataType:
-                return $parsedValue ? 'true' : 'false';
+                return BooleanDataType::cast($parsedValue) ? 'true' : 'false';
             // Numbers, that need to be formatted as string
             case $odataType === 'Edm.Byte':
             case $odataType === 'Edm.Decimal':
@@ -613,5 +616,143 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         }
         
         return parent::getHttpMethod($operation);
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\JsonUrlBuilder::create()
+     */
+    public function create(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
+    {
+        /* @var \exface\UrlDataConnector\DataConnectors\OData2Connector $data_connection */
+        
+        if ($data_connection->getUseBatchRequests() === false) {
+            return parent::create($data_connection);
+        }
+        
+        $this->batch($data_connection, static::OPERATION_CREATE);
+        
+        // FIXME parse the multipart result
+        $insert_ids = [];
+        
+        return new DataQueryResultData($insert_ids, 1, false);
+    }
+    
+    /**
+     *
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\JsonUrlBuilder::update()
+     */
+    public function update(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
+    {
+        /* @var \exface\UrlDataConnector\DataConnectors\OData2Connector $data_connection */
+        
+        if ($data_connection->getUseBatchRequests() === false) {
+            return parent::update($data_connection);
+        }
+        
+        $this->batch($data_connection, static::OPERATION_UPDATE);
+        
+        // FIXME parse the multipart result
+        $insert_ids = [''];
+        
+        return new DataQueryResultData([], count($insert_ids), false);
+    }
+    
+    /**
+     *
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\JsonUrlBuilder::delete()
+     */
+    public function delete(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
+    {
+        /* @var \exface\UrlDataConnector\DataConnectors\OData2Connector $data_connection */
+        
+        if ($data_connection->getUseBatchRequests() === false) {
+            return parent::update($data_connection);
+        }
+        
+        $this->batch($data_connection, static::OPERATION_DELETE);
+        
+        // FIXME parse the multipart result
+        $deleted = [''];
+        
+        return new DataQueryResultData([], count($deleted), false);
+    }
+    
+    /**
+     * Performs an OData $batch request for all CREATE/UPDATE/DELETE operations in this query.
+     * 
+     * @param OData2Connector $data_connection
+     * @param string $operation
+     * @return Psr7DataQuery
+     */
+    protected function batch(OData2Connector $data_connection, string $operation) : Psr7DataQuery
+    {
+        // If using $batch, create a combined batch-request as described here:
+        // https://www.odata.org/documentation/odata-version-2-0/batch-processing/
+        
+        // Create JSON objects from value query parts
+        $json_objects = $this->buildRequestBodyObjects($operation);
+        
+        $data_path = $this->getMainObject()->getDataAddressProperty(strtolower($operation) . '_request_data_path');
+        $subrequests = [];
+        foreach ($json_objects as $json_obj) {
+            $subrequests[] = $this->buildRequestPutPostDelete($operation, $json_obj, $data_path);
+        }
+        
+        $query = new Psr7DataQuery($this->buildRequestBatch($subrequests, $data_connection));
+        
+        return $data_connection->query($query);
+    }
+    
+    /**
+     * Combines multiple PSR7 requests into a single $batch multipart request
+     * 
+     * @param RequestInterface[] $subrequests
+     * @return RequestInterface
+     */
+    protected function buildRequestBatch(array $subrequests, OData2Connector $data_connection) : RequestInterface
+    {
+        $batchBoudnary = 'batch_' . UUIDDataType::generateUuidV4();
+        $changeSetBoundary = 'changeset_' . UUIDDataType::generateUuidV4();
+        $host = $data_connection->getUrlServerRoot();
+        $baseUrl = StringDataType::substringAfter($data_connection->getUrl(), $host, $data_connection->getUrl());
+        $baseUrl = "/" . trim($baseUrl, "/") . "/";
+        
+        $headers = [
+            'Content-Type' => 'multipart/mixed; boundary=' . $batchBoudnary
+        ];
+        
+        $changeSetBody = '';
+        foreach ($subrequests as $subrequest) {
+            $subrequestUrl = $baseUrl . $subrequest->getUri()->__toString();
+            $changeSetBody .= <<<BODY
+Content-Type: application/http
+Content-Transfer-Encoding: binary
+
+{$subrequest->getMethod()} {$subrequestUrl} HTTP/1.1
+Host: {$host}
+Content-Type: application/json;charset=utf-8
+
+{$subrequest->getBody()->__toString()}
+
+--{$changeSetBoundary}
+
+BODY;
+        }
+        
+        $body = <<<BODY
+--{$batchBoudnary}
+Content-Type: multipart/mixed; boundary={$changeSetBoundary}
+
+--{$changeSetBoundary}
+{$changeSetBody}
+
+--{$batchBoudnary}
+BODY;
+
+        return new Request('POST', '$batch', $headers, $body);
     }
 }
