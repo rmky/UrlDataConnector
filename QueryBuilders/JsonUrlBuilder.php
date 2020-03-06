@@ -131,7 +131,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
             $json = $jsonObject;
         }
         
-        $request = new Request($this->getHttpMethod($operation), $uri, ['Content-Type' => 'application/json'], $this->encodeBody($json));
+        $request = new Request($this->getHttpMethod($operation), $uri, $this->getHttpHeaders($operation), $this->encodeBody($json));
         
         return $request;
     }
@@ -474,6 +474,23 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     protected function parseResponse(Psr7DataQuery $query)
     {
         return json_decode($query->getResponse()->getBody(), true);
+    }
+    
+    protected function getHttpHeaders(string $operation) : array
+    {
+        switch ($operation) {
+            case static::OPERATION_READ: 
+                return [
+                    'Accept' => 'application/json'
+                ];
+            case static::OPERATION_CREATE: 
+            case static::OPERATION_UPDATE: 
+            case static::OPERATION_DELETE: 
+                return [
+                    'Content-Type' => 'application/json;charset=utf-8',
+                    'Accept' => 'application/json'
+                ];
+        }
     }
 }
 ?>

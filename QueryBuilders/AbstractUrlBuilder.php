@@ -252,7 +252,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             }
         }
         
-        return new Request('GET', $query_string);
+        return new Request('GET', $query_string, $this->getHttpHeaders(self::OPERATION_READ));
     }
     
     /**
@@ -1037,7 +1037,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     }
     
     /**
-     * Returns the HTTP method for a given operations (e.g. static::OPERATION_READ).
+     * Returns the HTTP method for a given operation (e.g. static::OPERATION_READ).
      * 
      * Override this method to change HTTP methods used.
      * 
@@ -1055,6 +1055,18 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         
         return 'POST';
+    }
+    
+    /**
+     * Returns the HTTP headers for a given operation (e.g. static::OPERATION_READ).
+     * 
+     * The array structure must be compatible with PSR7
+     * 
+     * @return string[][]
+     */
+    protected function getHttpHeaders(string $operation) : array
+    {
+        return [];
     }
     
     /**
