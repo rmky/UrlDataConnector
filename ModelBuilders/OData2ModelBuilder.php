@@ -622,9 +622,11 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                 if ($scale = $node->getAttribute('Scale')) {
                     $options['precision'] = $scale;
                 }
+                
                 if ($precision = $node->getAttribute('Precision')) {
-                    $options['max'] = pow($type->getBase(), ($precision - $scale)) - 1;
+                    $options['max'] = pow($type->getBase(), ($precision - $scale)) - pow(1, (-$scale));
                 }
+                
                 break;
         }
         return new UxonObject($options);
