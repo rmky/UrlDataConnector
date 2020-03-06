@@ -728,13 +728,22 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         $changeSetBody = '';
         foreach ($subrequests as $subrequest) {
             $subrequestUrl = $baseUrl . $subrequest->getUri()->__toString();
+            
+            $subrequestHeaders = '';
+            foreach ($subrequest->getHeaders() as $header => $values) {
+                foreach ($values as $value) {
+                    $subrequestHeaders .= PHP_EOL . "$header: $value";
+                }
+            }
+            $subrequestHeaders = trim($subrequestHeaders);
+            
             $changeSetBody .= <<<BODY
 Content-Type: application/http
 Content-Transfer-Encoding: binary
 
 {$subrequest->getMethod()} {$subrequestUrl} HTTP/1.1
 Host: {$host}
-Content-Type: application/json;charset=utf-8
+{$subrequestHeaders}
 
 {$subrequest->getBody()->__toString()}
 
@@ -742,15 +751,16 @@ Content-Type: application/json;charset=utf-8
 
 BODY;
         }
+        $changeSetBody = trim($changeSetBody);
         
         $body = <<<BODY
 --{$batchBoudnary}
 Content-Type: multipart/mixed; boundary={$changeSetBoundary}
 
 --{$changeSetBoundary}
-{$changeSetBody}
+{$changeSetBody}--
 
---{$batchBoudnary}
+--{$batchBoudnary}--
 BODY;
 
         return new Request('POST', '$batch', $headers, $body);
