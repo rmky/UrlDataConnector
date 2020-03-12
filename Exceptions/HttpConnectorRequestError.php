@@ -5,9 +5,9 @@ use exface\Core\Exceptions\DataSources\DataQueryFailedError;
 use exface\Core\Interfaces\DataSources\DataQueryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
-use exface\Core\Interfaces\WorkbenchInterface;
 use exface\Core\CommonLogic\Workbench;
 use exface\Core\Factories\DataSheetFactory;
+use exface\Core\Interfaces\WorkbenchInterface;
 
 /**
  * Error which can be thrown when an HTTP client returns a HTTP status code indicating
@@ -201,17 +201,28 @@ class HttpConnectorRequestError extends DataQueryFailedError
     
     public function getMessageModelData(Workbench $exface, $error_code)
     {
+        try {
+            $modelMessageData = parent::getMessageModelData($exface, $error_code);
+        } catch (\Throwable $e) {
+            $modelMessageData = DataSheetFactory::createFromObjectIdOrAlias($exface, 'exface.Core.MESSAGE');
+        }
         if ($this->getUseRemoteMessageAsTitle() === true) {
+            
             $ds = DataSheetFactory::createFromObjectIdOrAlias($exface, 'exface.Core.MESSAGE');
+            if (! $descr = $modelMessageData->getCellValue('DESCRIPTION', 0)) {
+                if (! $descr = $modelMessageData->getCellValue('TITLE', 0)) {
+                    $descr = '';
+                }
+            }
             $ds->addRow([
-                'TITLE' => $this->getMessage(), 
-                'HINT' => '', 
-                'DESCRIPTION' => '', 
-                'TYPE' => 'ERROR'
+                'TITLE' => parent::getMessage(), 
+                'HINT' => $modelMessageData->getCellValue('HINT', 0) ?? '', 
+                'DESCRIPTION' => $descr, 
+                'TYPE' => $modelMessageData->getCellValue('TYPE', 0) ?? 'ERROR'
             ]);
             return $ds;
         }
-        return parent::getMessageModelData($exface, $error_code);
+        return $modelMessageData;
     }
     
 }
