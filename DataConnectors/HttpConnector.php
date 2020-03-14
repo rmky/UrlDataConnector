@@ -30,6 +30,7 @@ use exface\Core\Interfaces\Widgets\iContainOtherWidgets;
 use exface\Core\CommonLogic\UxonObject;
 use GuzzleHttp\Psr7\Request;
 use Psr\Http\Message\RequestInterface;
+use exface\Core\Interfaces\Security\AuthenticationProviderInterface;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -129,6 +130,8 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      */
     private $authentication_request_method = 'GET';
     
+    private $authProvider = null;
+    
     /**
      *
      * {@inheritDoc}
@@ -137,13 +140,15 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     public function authenticate(AuthenticationTokenInterface $token, bool $updateUserCredentials = true, UserInterface $credentialsOwner = null) : AuthenticationTokenInterface
     {
         $authenticationType = $this->getAuthentication() ?? self::AUTH_TYPE_BASIC;
-        switch ($authenticationType) {
-            case self::AUTH_TYPE_DIGEST:
-            case self::AUTH_TYPE_BASIC:
+        switch (true) {
+            case $authenticationType === self::AUTH_TYPE_DIGEST:
+            case $authenticationType === self::AUTH_TYPE_BASIC:
                 $authenticatedToken =  $this->authenticateViaBasicAuth($token, $updateUserCredentials, $credentialsOwner);
                 break;
-            case self::AUTH_TYPE_NONE:
+            case $authenticationType === self::AUTH_TYPE_NONE:
                 return $token;
+            case ($authProvider = $this->getAuthProvider()):
+                return $authProvider->authenticate($token);
             default:
                 throw new AuthenticationFailedError("Authentication failed as no supported authentication type was given. Please provide a supported authentication in the connection '{$this->getAlias()}'.");
         }
@@ -1010,5 +1015,17 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     {
         $this->errorCode = $value;
         return $this;
+    }
+    
+    protected function getAuthProvider() : ?AuthenticationProviderInterface
+    {
+        if ($this->authProvider === null) {
+            $authenticationType = $this->getAuthentication();
+            if ($authenticationType instanceof UxonObject) {
+                $authenticatorClass = __NAMESPACE__ . '\\Authentication\\' . $authenticationType->getProperty('class');
+                $this->authProvider = new $authenticatorClass($this, $authenticationType);
+            }
+        }
+        return $this->authProvider;
     }
 }
