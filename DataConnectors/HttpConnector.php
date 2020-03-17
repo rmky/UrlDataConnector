@@ -154,13 +154,13 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         }
         
         if ($updateUserCredentials === true && $authenticatedToken) {
-            $user = $credentialsOwner ?? $this->getWorkbench()->getSecurity()->getAuthenticatedUser();
+            $user = $credentialsOwner;
             $uxon = new UxonObject([
                 'user' => $authenticatedToken->getUsername(),
                 'password' => $authenticatedToken->getPassword()
             ]);
             $credentialSetName = ($authenticatedToken->getUsername() ? $authenticatedToken->getUsername() : 'no username') . ' - ' . $this->getName();
-            $this->updateUserCredentials($user, $uxon, $credentialSetName);
+            $this->saveCredentials($uxon, $credentialSetName, $user);
         }
         
         return $authenticatedToken;
@@ -204,8 +204,9 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             $response = $this->getClient()->send($request, $defaults);
         } catch (\Throwable $e) {
             if ($e instanceof RequestException) {
-                $response = $e->getResponse();
-                $query->setResponse($response);
+                if ($response = $e->getResponse()) {
+                    $query->setResponse($response);
+                }
             } else {
                 $response = null;
             }
