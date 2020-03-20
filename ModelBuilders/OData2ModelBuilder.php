@@ -29,6 +29,7 @@ use exface\Core\Interfaces\DataTypes\DataTypeInterface;
 use exface\UrlDataConnector\Actions\CallOData2Operation;
 use exface\Core\Interfaces\Selectors\AliasSelectorInterface;
 use exface\Core\DataTypes\TimeDataType;
+use exface\Core\DataTypes\BinaryDataType;
 
 /**
  * 
@@ -596,6 +597,9 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                 break;
             case (strpos($source_data_type, 'TIME') !== false):
                 $type = DataTypeFactory::createFromString($workbench, TimeDataType::class);
+                break;
+            case $source_data_type === 'EDM.BINARY':
+                $type = DataTypeFactory::createFromString($workbench, BinaryDataType::class);
                 break;
             default:
                 $type = DataTypeFactory::createFromString($workbench, StringDataType::class);

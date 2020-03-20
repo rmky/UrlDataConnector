@@ -24,6 +24,7 @@ use exface\Core\DataTypes\TimestampDataType;
 use Psr\Http\Message\RequestInterface;
 use exface\Core\DataTypes\UUIDDataType;
 use exface\UrlDataConnector\DataConnectors\OData2Connector;
+use exface\Core\DataTypes\BinaryDataType;
 
 /**
  * This is a query builder for JSON-based oData 2.0 APIs.
@@ -419,6 +420,9 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
                 return 'PT' . $date->format('H\Hi\Ms\S');
             // OData Binary
             case $odataType === 'Edm.Binary':
+                if ($dataType instanceof BinaryDataType) {
+                    $parsedValue = $dataType->convertToHex($parsedValue, false);
+                }
                 return "binary'{$parsedValue}'";
             // Bool
             case $odataType === 'Edm.Boolean':
@@ -473,6 +477,9 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
                 return static::buildUrlFilterODataValue($parsedValue, $dataType, $odataType);
             // OData Binary
             case $odataType === 'Edm.Binary':
+                if ($dataType instanceof BinaryDataType) {
+                    return $dataType->convertToBase64($parsedValue);
+                }
                 return base64_encode($parsedValue);
             // Bool
             case $odataType === 'Edm.Boolean':
