@@ -31,6 +31,8 @@ use exface\Core\CommonLogic\UxonObject;
 use GuzzleHttp\Psr7\Request;
 use Psr\Http\Message\RequestInterface;
 use exface\Core\Interfaces\Security\AuthenticationProviderInterface;
+use exface\Core\Factories\WidgetFactory;
+use exface\Core\Interfaces\Selectors\UserSelectorInterface;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -150,7 +152,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             case ($authProvider = $this->getAuthProvider()):
                 return $authProvider->authenticate($token);
             default:
-                throw new AuthenticationFailedError("Authentication failed as no supported authentication type was given. Please provide a supported authentication in the connection '{$this->getAlias()}'.");
+                throw new DataConnectionConfigurationError($this, "Authentication failed as no supported authentication type was given. Please provide a supported authentication in the connection '{$this->getAlias()}'.");
         }
         
         if ($updateUserCredentials === true && $authenticatedToken) {
@@ -171,7 +173,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      * 
      * @param AuthenticationTokenInterface $token
      * @throws InvalidArgumentException
-     * @throws AuthenticationFailedError
+     * @throws DataConnectionConfigurationError
      * @return AuthenticationTokenInterface
      */
     protected function authenticateViaBasicAuth(AuthenticationTokenInterface $token) : AuthenticationTokenInterface
@@ -181,7 +183,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         }
         
         if (! $this->getAuthenticationUrl()) {
-            throw new AuthenticationFailedError("Authentication failed for User '{$token->getUsername()}'! Either provide authentication_url or a general url in the connection '{$this->getAlias()}'.");
+            throw new DataConnectionConfigurationError($this, "Cannot perform authentication in data connection '{$this->getName()}'! Either provide authentication_url or a general url in the connection configuration.");
         }
         
         $defaults = array();
@@ -210,8 +212,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             } else {
                 $response = null;
             }
-            $queryError = $this->createResponseException($query, $response, $e);
-            throw new AuthenticationFailedError("Authentication failed for User '{$token->getUsername()}' - {$queryError->getMessage()}", null, $queryError);
+            throw $this->createResponseException($query, $response, $e);
         }
         
         if ($response === null || $response->getStatusCode() >= 400) {
@@ -219,7 +220,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
                 $query->setResponse($response);
             }
             $queryError = $this->createResponseException($query, $response);
-            throw new AuthenticationFailedError("Authentication failed for User '{$token->getUsername()}' ", null, $queryError);
+            throw new AuthenticationFailedError($this, "Authentication failed for User '{$token->getUsername()}' ", null, $queryError);
         }
         
         return $token;
@@ -230,20 +231,23 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      * {@inheritDoc}
      * @see \exface\Core\Interfaces\DataSources\DataConnectionInterface::createLoginWidget()
      */
-    public function createLoginWidget(iContainOtherWidgets $container) : iContainOtherWidgets
+    public function createLoginWidget(iContainOtherWidgets $container, bool $saveCredentials = true, UserSelectorInterface $credentialsOwner = null) : iContainOtherWidgets
     {
         if ($this->getAuthentication() === null || $this->getAuthentication() === self::AUTH_TYPE_NONE) {
             return parent::createLoginWidget($container);
         }
         
-        $container->setWidgets(new UxonObject([
-            [
-                'attribute_alias' => 'USERNAME',
-                'required' => true
-            ],[
-                'attribute_alias' => 'PASSWORD'
-            ]
-        ]));
+        $form = $this->createLoginForm($container, $saveCredentials, $saveCredentialsForUser);
+        $form->addWidget(WidgetFactory::createFromUxonInParent($form, new UxonObject([
+            'attribute_alias' => 'USERNAME',
+            'required' => true
+        ])), 0);
+        $form->addWidget(WidgetFactory::createFromUxonInParent($form, new UxonObject([
+            'attribute_alias' => 'PASSWORD'
+        ])), 1);
+        
+        $container->addWidget($form);
+        
         return $container;
     }
     
@@ -446,6 +450,18 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             }
             if ($useAsTitle === true) {
                 $ex->setUseRemoteMessageAsTitle(true);
+            }
+            
+            // Wrap the error in an authentication-exception if login failed.
+            // This will give facades the option to show a login-screen.
+            if ($response->getStatusCode() == 401 && ! ($exceptionThrown instanceof AuthenticationFailedError)) {
+                // If no authentication is configured (but obviously it's needed), assume basic auth.
+                // If not done so and the facade chooses to render a login-form, that form will be
+                // empty.
+                if ($this->getAuthentication() === null) {
+                    $this->setAuthentication(self::AUTH_TYPE_BASIC);
+                }
+                $ex = new AuthenticationFailedError($this, 'Authentication failed for data connection "' . $this->getName() . '": ' . $message, null, $ex);
             }
         } else {
             $ex = new HttpConnectorRequestError($query, 0, 'No Response from Server', $exceptionThrown->getMessage(), null, $exceptionThrown);
