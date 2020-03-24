@@ -237,7 +237,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             return parent::createLoginWidget($container);
         }
         
-        $form = $this->createLoginForm($container, $saveCredentials, $saveCredentialsForUser);
+        $form = $this->createLoginForm($container, $saveCredentials, $credentialsOwner);
         $form->addWidget(WidgetFactory::createFromUxonInParent($form, new UxonObject([
             'attribute_alias' => 'USERNAME',
             'required' => true
