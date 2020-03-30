@@ -1,6 +1,9 @@
 <?php
 namespace exface\UrlDataConnector\Interfaces;
 
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
+
 /**
  * Interface for HTTP-based data connections, regulating headers, authentication, etc.
  *
@@ -8,38 +11,8 @@ namespace exface\UrlDataConnector\Interfaces;
  *        
  */
 interface HttpConnectionInterface extends UrlConnectionInterface
-{
-
-    public function getUser();
-    
-    /**
-     * Sets the user name for basic authentification.
-     *
-     * @param string $value
-     * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
-     */
-    public function setUser($value);
-    
-    public function getPassword();
-    
-    /**
-     * Sets the password for basic authentification.
-     *
-     * @uxon-property password
-     * @uxon-type string
-     *
-     * @param string $value
-     * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
-     */
-    public function setPassword($value);
-    
-    /**
-     * Returns the proxy address to be used in the name:port notation: e.g.
-     * 192.169.1.10:8080 or myproxy:8080.
-     *
-     * @return string
-     */
-    public function getProxy();
+{    
+    public function sendRequest(RequestInterface $request) : ?ResponseInterface;
     
     /**
      * Sets the proxy server address to be used.
@@ -49,12 +22,6 @@ interface HttpConnectionInterface extends UrlConnectionInterface
      * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
      */
     public function setProxy($value);
-    
-    /**
-     *
-     * @return boolean
-     */
-    public function getUseCookies() : bool;
     
     /**
      * Set to TRUE to use cookies for this connection.
@@ -69,24 +36,6 @@ interface HttpConnectionInterface extends UrlConnectionInterface
     public function setUseCookies(bool $value) : HttpConnectionInterface;
     
     /**
-     *
-     * @return boolean
-     */
-    public function getUseCookieSessions() : bool;
-    
-    /**
-     * Set to TRUE to store session cookies too.
-     * 
-     * Default: FALSE.
-     *
-     * @param boolean $value
-     * @return HttpConnectionInterface
-     */
-    public function setUseCookieSessions(bool $value) : HttpConnectionInterface;
-    
-    public function getCacheEnabled();
-    
-    /**
      * Enables or disables caching of HTTP requests.
      * Default: FALSE.
      *
@@ -94,8 +43,6 @@ interface HttpConnectionInterface extends UrlConnectionInterface
      * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
      */
     public function setCacheEnabled($value);
-    
-    public function getCacheIgnoreHeaders();
     
     /**
      * Makes all requests get cached regardless of their headers.
@@ -108,8 +55,6 @@ interface HttpConnectionInterface extends UrlConnectionInterface
      * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
      */
     public function setCacheIgnoreHeaders($value);
-    
-    public function getCacheLifetimeInSeconds();
     
     /**
      * Sets the default lifetime for request cache items.
@@ -131,4 +76,3 @@ interface HttpConnectionInterface extends UrlConnectionInterface
      */
     public function setFixedUrlParams(string $fixed_params);
 }
-?>

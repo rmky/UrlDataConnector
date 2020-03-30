@@ -2,17 +2,15 @@
 namespace exface\UrlDataConnector\DataConnectors\Authentication;
 
 use exface\Core\CommonLogic\UxonObject;
-use exface\Core\Interfaces\iCanBeConvertedToUxon;
 use exface\UrlDataConnector\Interfaces\UrlConnectionInterface;
 use exface\Core\CommonLogic\Traits\ImportUxonObjectTrait;
-use exface\Core\Exceptions\Security\AuthenticationFailedError;
 use exface\Core\Interfaces\Security\AuthenticationTokenInterface;
 use exface\Core\Interfaces\Widgets\iContainOtherWidgets;
-use exface\Core\Interfaces\Security\AuthenticationProviderInterface;
 use exface\UrlDataConnector\Facades\OAuth2ClientFacade;
 use exface\Core\Factories\FacadeFactory;
+use exface\UrlDataConnector\Interfaces\HttpAuthenticationProviderInterface;
 
-class OAuth2 implements iCanBeConvertedToUxon, AuthenticationProviderInterface
+class OAuth2 implements HttpAuthenticationProviderInterface
 {
     use ImportUxonObjectTrait;
     
@@ -39,7 +37,8 @@ class OAuth2 implements iCanBeConvertedToUxon, AuthenticationProviderInterface
     
     public function authenticate(AuthenticationTokenInterface $token) : AuthenticationTokenInterface
     {
-        
+        // TODO
+        return $token;
     }
     
     public function createLoginWidget(iContainOtherWidgets $container) : iContainOtherWidgets
@@ -85,4 +84,29 @@ class OAuth2 implements iCanBeConvertedToUxon, AuthenticationProviderInterface
     {
         $this->getClientFacade()->buildUrlToFacade(false);
     }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\Interfaces\WorkbenchDependantInterface::getWorkbench()
+     */
+    public function getWorkbench()
+    {
+        return $this->connection->getWorkbench();
+    }
+    
+    public function getDefaultRequestOptions(array $defaultOptions): array
+    {
+        return $defaultOptions;
+    }
+
+    public function getCredentialsUxon(AuthenticationTokenInterface $authenticatedToken): UxonObject
+    {
+        return new UxonObject([
+            'authentication' => [
+                'class' => '\\' . get_class($this)
+            ]
+        ]);
+    }
+
 }

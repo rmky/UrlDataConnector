@@ -4,6 +4,9 @@ namespace exface\UrlDataConnector\DataConnectors;
 use function GuzzleHttp\Psr7\_caseless_remove;
 use function GuzzleHttp\Psr7\modify_request;
 use exface\UrlDataConnector\ModelBuilders\OData2ModelBuilder;
+use exface\UrlDataConnector\Interfaces\HttpAuthenticationProviderInterface;
+use exface\Core\CommonLogic\UxonObject;
+use exface\UrlDataConnector\DataConnectors\Authentication\HttpBasicAuth;
 
 /**
  * Connector for oData 2.0 web services
@@ -56,14 +59,15 @@ class OData2Connector extends HttpConnector
         return $this;
     }
     
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\DataConnectors\HttpConnector::getBasicAuthUrl()
-     */
-    public function getAuthenticationUrl() : ?string
+    protected function getAuthProviderConfig() : ?UxonObject
     {
-        return parent::getAuthenticationUrl() ?? $this->getMetadataUrl();
+        $uxon = parent::getAuthProviderConfig();
+        
+        if ($uxon !== null && is_a($uxon->getProperty('class'), '\\' . HttpBasicAuth::class) && $uxon->hasProperty('authentication_url') === false) {
+            $uxon->setProperty('authentication_url', $this->getMetadataUrl());
+        }
+        
+        return $uxon;
     }
     
     /**
