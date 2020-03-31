@@ -53,7 +53,7 @@
     "rows": [
         {
             "CREATED_ON": "2019-09-30 08:38:41",
-            "MODIFIED_ON": "2019-09-30 08:38:41",
+            "MODIFIED_ON": "2020-03-31 17:04:49",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
             "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
             "UID": "0x11e9e35db31db507bacde4b318306b9a",
@@ -61,13 +61,13 @@
             "NAME": "OData 2.0 Connection",
             "DESCRIPTION": "",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/OData2Connector.php",
-            "UXON": "{\"url\":\"\",\"user\":\"\",\"password\":\"\"}",
+            "UXON": "{\"url\":\"\",\"authentication\":{\"class\":\"\\\\exface\\\\UrlDataConnector\\\\DataConnectors\\\\Authentication\\\\HttpBasicAuth\",\"user\":\"\",\"password\":\"\"}}",
             "WRAP_PATH": "",
             "UXON_SCHEMA": "connection"
         },
         {
             "CREATED_ON": "2019-09-30 08:39:01",
-            "MODIFIED_ON": "2019-09-30 08:39:01",
+            "MODIFIED_ON": "2020-03-31 17:04:15",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
             "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
             "UID": "0x11e9e35dbeddb029bacde4b318306b9a",
@@ -75,7 +75,7 @@
             "NAME": "OData 4.0 Connection",
             "DESCRIPTION": "",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/OData4Connector.php",
-            "UXON": "{\"url\":\"\",\"user\":\"\",\"password\":\"\"}",
+            "UXON": "{\"url\":\"\",\"authentication\":{\"class\":\"\\\\exface\\\\UrlDataConnector\\\\DataConnectors\\\\Authentication\\\\HttpBasicAuth\",\"user\":\"\",\"password\":\"\"}}",
             "WRAP_PATH": "",
             "UXON_SCHEMA": "connection"
         },
@@ -109,7 +109,7 @@
         },
         {
             "CREATED_ON": "2019-09-30 09:23:56",
-            "MODIFIED_ON": "2020-01-08 20:27:34",
+            "MODIFIED_ON": "2020-03-31 17:05:11",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
             "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
             "UID": "0x11e9e364055e3d0abacde4b318306b9a",
@@ -117,7 +117,7 @@
             "NAME": "Webservice with basic HTTP authentication",
             "DESCRIPTION": "URL + username and password",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
-            "UXON": "{\"url\":\"\",\"user\":\"\",\"password\":\"\"}",
+            "UXON": "{\"url\":\"\",\"authentication\":{\"class\":\"\\\\exface\\\\UrlDataConnector\\\\DataConnectors\\\\Authentication\\\\HttpBasicAuth\",\"user\":\"\",\"password\":\"\"}}",
             "WRAP_PATH": "",
             "UXON_SCHEMA": "connection"
         },
@@ -151,7 +151,7 @@
         },
         {
             "CREATED_ON": "2020-01-08 20:26:25",
-            "MODIFIED_ON": "2020-01-08 20:27:11",
+            "MODIFIED_ON": "2020-03-31 17:05:30",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
             "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
             "UID": "0x11ea3254e4f34fd09442e4b318306b9a",
@@ -159,7 +159,7 @@
             "NAME": "Credentials for basic HTTP authentication",
             "DESCRIPTION": "Preset for a credential set for web services with basic HTTP authentication",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
-            "UXON": "{\"user\":\"\",\"password\":\"\"}",
+            "UXON": "{\"authentication\":{\"class\":\"\\\\exface\\\\UrlDataConnector\\\\DataConnectors\\\\Authentication\\\\HttpBasicAuth\",\"user\":\"\",\"password\":\"\"}}",
             "WRAP_PATH": "",
             "UXON_SCHEMA": "connection"
         }
@@ -167,6 +167,7 @@
     "totals_rows": [],
     "filters": {
         "operator": "AND",
+        "base_object_alias": "exface.Core.UXON_PRESET",
         "conditions": [
             {
                 "expression": "APP",
