@@ -772,4 +772,14 @@ BODY;
 
         return new Request('POST', '$batch', $headers, $body);
     }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::isRemotePaginationTotalAvailable()
+     */
+    protected function isRemotePaginationTotalAvailable() : ?bool
+    {
+        return parent::isRemotePaginationTotalAvailable() ?? true;
+    }
 }

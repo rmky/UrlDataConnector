@@ -53,6 +53,11 @@ use exface\Core\Factories\ConditionFactory;
  * so you don't need to specify them manually. In this case, `request_remote_pagination`
  * simply turns pagination on or off.
  * 
+ * - `request_remote_pagination_has_total` - set to `true` if the web service can
+ * provide the total number of entries for a paged request. In order for this to work,
+ * you must either provide `response_total_count_path` (recommended) or the query 
+ * builder must implement the `count()` operation.
+ * 
  * - `request_offset_parameter` - name of the URL parameter containing the 
  * page offset for pagination
  * 
@@ -247,9 +252,10 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             
             // Build the resulting query string
             $query_string = $endpoint;
-            if ($params_string) {
-                $query_string .= (strpos($query_string, '?') !== false ? '&' : '?') . $params_string;
-            }
+        }
+        
+        if ($params_string) {
+            $query_string .= (strpos($query_string, '?') !== false ? '&' : '?') . $params_string;
         }
         
         return new Request('GET', $query_string, $this->getHttpHeaders(self::OPERATION_READ));
@@ -837,6 +843,10 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                     $totalCnt = count($result_rows);
                 }
                 $result_rows = $this->applyPagination($result_rows);
+            } else {
+                if ($this->isRemotePaginationTotalAvailable() !== true && ($totalCnt === null || $totalCnt === '') && $usingExtraRowForPagination) {
+                    //$totalCnt = count($result_rows)+1;
+                }
             }
         } else {
             $hasMoreRows = false;
@@ -918,6 +928,19 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             return BooleanDataType::cast($dsOption) && $this->buildUrlParamLimit($this->getMainObject());
         }
         return false;
+    }
+    
+    /**
+     * Returns TRUE if the webservice can provide the total number of records for paged results, FALSE if not and NULL if not specified.
+     * @return bool|NULL
+     */
+    protected function isRemotePaginationTotalAvailable() : ?bool
+    {
+        $value = $this->getMainObject()->getDataAddressProperty('request_remote_pagination_has_total');
+        if ($value === null || $value === '') {
+            return null;
+        }
+        return BooleanDataType::cast($value);
     }
     
     /**
@@ -1093,5 +1116,18 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         
         $obj = $this->getMainObject();
         return (BooleanDataType::cast($obj->getDataAddressProperty('read_request_remove_ambiguous_uids')) === true && $obj->hasUidAttribute() === true);
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::count()
+     */
+    public function count(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
+    {
+        if ($this->isRemotePaginationTotalAvailable() !== true) {
+            return new DataQueryResultData([], 0, true, null);
+        }
+        parent::count($data_connection);
     }
 }
