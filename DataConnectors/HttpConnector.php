@@ -31,6 +31,7 @@ use Psr\Http\Message\RequestInterface;
 use exface\Core\Interfaces\Selectors\UserSelectorInterface;
 use exface\UrlDataConnector\Interfaces\HttpAuthenticationProviderInterface;
 use exface\UrlDataConnector\DataConnectors\Authentication\HttpBasicAuth;
+use GuzzleHttp\Cookie\CookieJarInterface;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -98,6 +99,8 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     private $use_cookies = false;
     
     private $use_cookie_sessions = false;
+    
+    private $cookieJar = null;
 
     private $cache_enabled = false;
 
@@ -230,6 +233,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
                 $storeSessionCookies = false;
             }
             $cookieJar = new \GuzzleHttp\Cookie\FileCookieJar($cookieDir . DIRECTORY_SEPARATOR . $cookieFile, $storeSessionCookies);
+            $this->cookieJar = $cookieJar;
             $defaults['cookies'] = $cookieJar;
         } elseif ($this->getUseCookieSessions() === true) {
             throw new DataConnectionConfigurationError($this, 'Cannot set use_cookie_sessions=true if use_cookies=false for HTTP connection alias "' . $this->getAlias() . '"!');
@@ -439,7 +443,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      */
     protected function setUser($value)
     {
-        if ($this->authProviderUxon === null) {
+        if ($this->getAuthProviderConfig() === null) {
             $this->authProviderUxon = new UxonObject([
                 'class' => '\\' . HttpBasicAuth::class
             ]);
@@ -469,7 +473,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      */
     protected function setPassword($value)
     {
-        if ($this->authProviderUxon === null) {
+        if ($this->getAuthProviderConfig() === null) {
             $this->authProviderUxon = new UxonObject([
                 'class' => '\\' . HttpBasicAuth::class
             ]);
@@ -976,5 +980,26 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             $this->authProvider = new $providerClass($this, $authConfig);
         }
         return $this->authProvider;
+    }
+    
+    /**
+     * 
+     * @return CookieJarInterface|NULL
+     */
+    protected function getCookieJar() : ?CookieJarInterface
+    {
+        return $this->cookieJar;
+    }
+    
+    /**
+     * 
+     * @return HttpConnector
+     */
+    protected function resetCookies() : HttpConnector
+    {
+        if ($this->getCookieJar() !== null) {
+            $this->getCookieJar()->clear();
+        }
+        return $this;
     }
 }
