@@ -27,9 +27,28 @@ use exface\Core\Factories\ConditionFactory;
  * It creates a sequence of URL parameters for a query. Parsing the results is done by
  * specific implementation (e.g. JSON vs. XML)
  * 
- * # Data source options
+ * ## Data addresses
  * 
- * ## On object level
+ * The syntax of data addresses depends on the speicific implementation of the
+ * query builder: i.e. XML builders will use XPath, JSON-query builders may use
+ * XPath or JSONPath, HTML builds will probably use CSS selectors.
+ * 
+ * Additionally the following common placeholders should be supported by all
+ * URL builders.
+ * 
+ * ### On attribute level
+ * 
+ * - `[#~urlplaceholder:<placeholder_name>#]` - the current value of a placeholder
+ * used in the URL (= data address of the object). For example, if the object has
+ * `https://www.github.com/[#vendor#]/` as data address, an attribute can have
+ * the placeholder `[#~urlplaceholder:vendor#]` as data address, which will be
+ * replace by the same value. Thus, our attribute will get the value `exface` in
+ * a query to `https://www.github.com/exface/`. This feature is very usefull in
+ * web services, that do not return values of URL parameters in their response.
+ * 
+ * ## Data source options
+ * 
+ * ### On object level
  * 
  * - `force_filtering` - disables request withot at least a single filter (1). 
  * Some APIs disallow this!
@@ -109,7 +128,7 @@ use exface\Core\Factories\ConditionFactory;
  * - `delete_request_data_address` - used in delete requests instead of the 
  * data address 
  * 
- * ## On attribute level
+ * ### On attribute level
  * 
  * - `filter_remote` - set to 1 to enable remote filtering (0 by default)
  * 
@@ -161,6 +180,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     private $request_split_filter = null;
     
     private $UseUidsAsRowNumbers = null;
+    
+    private $urlPlaceholders = [];
 
     /**
      * Returns a PSR7 GET-Request for this query.
@@ -536,6 +557,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                     } else {
                         $ph_value = $this->buildUrlFilterValue($ph_filter);
                     }
+                    $this->urlPlaceholders[$ph][] = $ph_value;
                     $url_string = str_replace('[#' . $ph . '#]', $ph_value, $url_string);
                 } 
             } else {
@@ -1129,5 +1151,14 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             return new DataQueryResultData([], 0, true, null);
         }
         parent::count($data_connection);
+    }
+    
+    protected function getUrlPlaceholderValues(string $placeholder) : array
+    {
+        $values = $this->urlPlaceholders[$placeholder];
+        if ($values === null) {
+            throw new QueryBuilderException('Placeholder "~urlplaceholders:' . $placeholder . '" not found!');
+        }
+        return $values;
     }
 }

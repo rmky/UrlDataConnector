@@ -279,7 +279,11 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     {
         switch (true) {
             case $path = $qpart->getDataAddress():
-                $val = $this->getValueFromRowViaXPath($qpart, $row, $path);
+                if (substr($path, 0, 2) === '[#') {
+                    $val = $this->getValueFromPlaceholder(StringDataType::findPlaceholders($path)[0], $qpart);
+                } else {
+                    $val = $this->getValueFromRowViaXPath($qpart, $row, $path);
+                }
                 break;
             case ($qpartAttr = $qpart->getAttribute()) && $qpartAttr instanceof CompoundAttributeInterface:
                 $val = '';
@@ -292,6 +296,21 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         }
         
         return $val;
+    }
+    
+    protected function getValueFromPlaceholder(string $placeholder, QueryPartAttribute $qpart)
+    {
+        list($ph, $modifier) = explode(':', $placeholder, 2);
+        switch (true) {
+            case $ph === '~urlplaceholder':
+                $values = $this->getUrlPlaceholderValues($modifier);
+                if (count($values) > 1) {
+                    throw new QueryBuilderException('Too many values (' . count($values) . ') for placeholder "' . $placeholder . '"!');
+                }
+                return $values[0];
+            default:
+                throw new QueryBuilderException('Unknown placeholder "' . $placeholder . '" in data address of attribute "' . $qpart->getAlias() . '"');
+        }
     }
     
     protected function getValueFromRowViaXPath(QueryPartAttribute $qpart, array $row, string $path)
