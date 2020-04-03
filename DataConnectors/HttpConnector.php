@@ -224,7 +224,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             }
             
             if ($this->getUseCookieSessions() === true) {
-                if ($this->getWorkbench()->getCMS()->isUserLoggedIn() === false) {
+                if ($this->getWorkbench()->getSecurity()->getAuthenticatedToken()->isAnonymous() === true) {
                     $err = new DataConnectionFailedError($this, 'Cannot use session cookies for HTTP connection "' . $this->getAlias() . '": user not logged on!');
                     $this->getWorkbench()->getLogger()->logException($err);
                 }
