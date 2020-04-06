@@ -20,7 +20,6 @@ use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 use exface\Core\DataTypes\ComparatorDataType;
 use exface\Core\Interfaces\Model\CompoundAttributeInterface;
-use exface\Core\Factories\ConditionFactory;
 
 /**
  * This is an abstract query builder for REST APIs.
@@ -29,12 +28,21 @@ use exface\Core\Factories\ConditionFactory;
  * 
  * ## Data addresses
  * 
- * The syntax of data addresses depends on the speicific implementation of the
- * query builder: i.e. XML builders will use XPath, JSON-query builders may use
+ * Object data addresses are URLs or their parts. Relative URLs can be used, if a
+ * base URL is defined in the data connection.
+ * 
+ * The syntax of attribute data addresses depends on the speicific implementation of 
+ * the query builder: i.e. XML builders will use XPath, JSON-query builders may use
  * XPath or JSONPath, HTML builds will probably use CSS selectors.
  * 
  * Additionally the following common placeholders should be supported by all
  * URL builders.
+ * 
+ * ### On object level
+ * 
+ * - `[#<attribute_alias>#]` - URLs in object data addresses can include placeholders.
+ * These are basically required filters, that must be part of the URL a opposed to
+ * regular optional filters based on URL parameters.
  * 
  * ### On attribute level
  * 
@@ -138,12 +146,18 @@ use exface\Core\Factories\ConditionFactory;
  * it will be always the same - regardles of what the filter is actually set to. 
  * 
  * - `filter_remote_url_param` - used for filtering instead of the attributes 
- * data address: e.g. &[filter_remote_url_param]=VALUE instead of 
- * &[data_address]=VALUE
+ * data address: e.g. `&[filter_remote_url_param]=VALUE` instead of 
+ * `&[data_address]=VALUE`
  * 
  * - `filter_remote_prefix` - prefix for the value in a filter query: e.g. 
- * &[data_address]=[filter_remote_prefix]VALUE. Can be used to pass default 
+ * `&[data_address]=[filter_remote_prefix]VALUE`. Can be used to pass default 
  * operators etc.
+ * 
+ * - `filter_remote_split_value_lists` - produces multiple request if the
+ * filter value is a list (= an `IN` filter). This options is set to `true`
+ * automatically for UID-filters if the object has a `uid_request_data_address`
+ * or attributes with `filter_remote_url`. For other remote IN-filters, a list
+ * of values will be used as filter value.
  * 
  * - `filter_locally` - set to 1 to filter in ExFace after reading the data
  * (e.g. if the data source does not support filtering over this attribute) or
@@ -182,6 +196,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     private $UseUidsAsRowNumbers = null;
     
     private $urlPlaceholders = [];
+    
+    private $subrequestNo = 0;
 
     /**
      * Returns a PSR7 GET-Request for this query.
@@ -201,6 +217,12 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         
         // Check if there are filters, that require to split the request into multiple requests.
         foreach ($requestFilters->getFilters() as $nr => $qpart) {
+            $splitOption = $qpart->getDataAddressProperty('filter_remote_split_value_lists');
+            if ($splitOption === null || $splitOption === '') {
+                $splitOption = null;
+            } else {
+                $splitOption = BooleanDataType::cast($splitOption);
+            }
             switch (true) {
                 // Need to split the request, if the object has a separate `uid_request_data_address`
                 // and there is a filter over the UID attribute
@@ -213,7 +235,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                     // data address should be simply left empty - this gives much more flexibility!
                     $endpoint = $thisObj->getDataAddressProperty('uid_request_data_address');
                     // Remember the original filter (not it's copy from $requestFilters) for further processing!
-                    $this->setRequestSplitFilter($queryFilters->getFilters()[$nr]);
+                    if ($splitOption !== false) {
+                        $this->setRequestSplitFilter($queryFilters->getFilters()[$nr]);
+                    }
                     // Remove the filter from the current request because it's value is already part of
                     // the endpoint.
                     $requestFilters->removeFilter($qpart);
@@ -222,7 +246,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 // This ultimately does the same thing, as uid_request_data_address on object level, but it's more general
                 // because it can be set for every attribute.
                 case $filter_endpoint = $qpart->getDataAddressProperty('filter_remote_url'):
-                    if ($qpart->getComparator() == ComparatorDataType::IN) {
+                    if ($qpart->getComparator() == ComparatorDataType::IN && $splitOption !== false) {
                         // FIXME this check prevents split filter collisions, but it can be greatly improved in two ways
                         // - we should generally look for other custom URLs
                         // - the final URL with all placeholders replaced should be compared
@@ -246,6 +270,17 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                     // the endpoint.
                     $requestFilters->removeFilter($qpart);
                     break;
+                default:
+                    if ($splitOption === true && $qpart->getComparator() == ComparatorDataType::IN) {
+                        if ($this->getRequestSplitFilter() !== null) {
+                            if (strcasecmp($this->getRequestSplitFilter()->getDataAddressProperty('filter_remote_url'), $filter_endpoint) !== 0) {
+                                throw new QueryBuilderException('Cannot use multiple filters requiring different custom URLs in one query: "' . $this->getRequestSplitFilter()->getCondition()->toString() . '" AND "' . $qpart->getCondition()->toString() . '"!');
+                            }
+                        } else {
+                            // Remember the original filter (not it's copy from $requestFilters) for further processing!
+                            $this->setRequestSplitFilter($queryFilters->getFilters()[$nr]);
+                        }
+                    }
             } 
             
             // All (other) query parts, that do not affect the endpoint, remain in the filter group.
@@ -557,7 +592,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                     } else {
                         $ph_value = $this->buildUrlFilterValue($ph_filter);
                     }
-                    $this->urlPlaceholders[$ph][] = $ph_value;
+                    $this->setUrlPlaceholderValue($ph, $ph_value);
                     $url_string = str_replace('[#' . $ph . '#]', $ph_value, $url_string);
                 } 
             } else {
@@ -823,17 +858,19 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             $result_rows = $this->applyPostprocessing($result_rows);
             
             // Make more requests if we have multiple values for split filters
+            // IDEA probably better to create separate query builders here rather than set
+            // the internal subrequest id. Then each would be a fully functional query and
+            // there would be much less voodoo.
             if ($requiresMultipleReadRequests === true) {
                 $splitFilter = $this->getRequestSplitFilter();
                 $split_values = explode($splitFilter->getValueListDelimiter(), $splitFilter->getCompareValue());
                 $splitFilter->setComparator(ComparatorDataType::EQUALS);
-                // skip the first UID as it has been fetched already
-                $skip_val = true;
-                foreach ($split_values as $val) {
-                    if ($skip_val) {
-                        $skip_val = false;
+                foreach ($split_values as $nr => $val) {
+                    // skip the first UID as it has been fetched already
+                    if ($nr === 0) {
                         continue;
                     }
+                    $this->setSubrequestNo($nr);
                     $splitFilter->setCompareValue($val);
                     $subquery = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
                     if ($data = $this->parseResponse($subquery)) {
@@ -1153,12 +1190,29 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         parent::count($data_connection);
     }
     
-    protected function getUrlPlaceholderValues(string $placeholder) : array
+    protected function setUrlPlaceholderValue(string $placeholder, $value) : AbstractUrlBuilder
     {
-        $values = $this->urlPlaceholders[$placeholder];
-        if ($values === null) {
+        $this->urlPlaceholders[$placeholder][$this->getSubrequestNo()] = $value;
+        return $this;
+    }
+    
+    protected function getUrlPlaceholderValue(string $placeholder) : string
+    {
+        $value = $this->urlPlaceholders[$placeholder][$this->getSubrequestNo()];
+        if ($value === null) {
             throw new QueryBuilderException('Placeholder "~urlplaceholders:' . $placeholder . '" not found!');
         }
-        return $values;
+        return $value;
+    }
+    
+    protected function getSubrequestNo() : int
+    {
+        return $this->subrequestNo;
+    }
+    
+    protected function setSubrequestNo(int $number) : AbstractUrlBuilder
+    {
+        $this->subrequestNo = $number;
+        return $this;
     }
 }

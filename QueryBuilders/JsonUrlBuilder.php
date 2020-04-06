@@ -303,11 +303,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         list($ph, $modifier) = explode(':', $placeholder, 2);
         switch (true) {
             case $ph === '~urlplaceholder':
-                $values = $this->getUrlPlaceholderValues($modifier);
-                if (count($values) > 1) {
-                    throw new QueryBuilderException('Too many values (' . count($values) . ') for placeholder "' . $placeholder . '"!');
-                }
-                return $values[0];
+                return $this->getUrlPlaceholderValue($modifier);
             default:
                 throw new QueryBuilderException('Unknown placeholder "' . $placeholder . '" in data address of attribute "' . $qpart->getAlias() . '"');
         }
