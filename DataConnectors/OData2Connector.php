@@ -4,7 +4,6 @@ namespace exface\UrlDataConnector\DataConnectors;
 use function GuzzleHttp\Psr7\_caseless_remove;
 use function GuzzleHttp\Psr7\modify_request;
 use exface\UrlDataConnector\ModelBuilders\OData2ModelBuilder;
-use exface\UrlDataConnector\Interfaces\HttpAuthenticationProviderInterface;
 use exface\Core\CommonLogic\UxonObject;
 use exface\UrlDataConnector\DataConnectors\Authentication\HttpBasicAuth;
 
