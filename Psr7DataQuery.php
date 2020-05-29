@@ -99,7 +99,7 @@ class Psr7DataQuery extends AbstractDataQuery
         
         // Request
         $request_tab = $debug_widget->createTab();
-        $request_tab->setCaption('Request');
+        $request_tab->setCaption('Data-Request');
         
         $request_widget = WidgetFactory::create($page, 'Html', $request_tab);
         $request_widget_html = <<<HTML
@@ -119,7 +119,7 @@ HTML;
         
         // Response
         $response_tab = $debug_widget->createTab();
-        $response_tab->setCaption('Response');
+        $response_tab->setCaption('Data-Response');
         
         $response_widget = WidgetFactory::create($page, 'Html', $response_tab);
         $response_widget_html = <<<HTML

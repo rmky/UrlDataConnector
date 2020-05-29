@@ -714,7 +714,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         }
         
         if ($exceptionThrown !== null) {
-            return $exceptionThrown->getMessage();
+            return strip_tags($exceptionThrown->getMessage());
         }
         return $response->getReasonPhrase();
     }
