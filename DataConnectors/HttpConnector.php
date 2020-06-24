@@ -130,7 +130,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      * {@inheritDoc}
      * @see \exface\Core\Interfaces\DataSources\DataConnectionInterface::authenticate()
      */
-    public function authenticate(AuthenticationTokenInterface $token, bool $updateUserCredentials = true, UserInterface $credentialsOwner = null) : AuthenticationTokenInterface
+    public function authenticate(AuthenticationTokenInterface $token, bool $updateUserCredentials = true, UserInterface $credentialsOwner = null, bool $credentialsArePrivate = null) : AuthenticationTokenInterface
     {
         if (! $authProvider = $this->getAuthProvider()) {
             $this->setAuthentication(new UxonObject([
@@ -142,9 +142,8 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         $authenticatedToken = $authProvider->authenticate($token);
         
         if ($updateUserCredentials === true && $authenticatedToken) {
-            $user = $credentialsOwner;
-            $credentialSetName = ($authenticatedToken->getUsername() ? $authenticatedToken->getUsername() : 'no username') . ' - ' . $this->getName();
-            $this->saveCredentials($authProvider->getCredentialsUxon($authenticatedToken), $credentialSetName, $user);
+            $credentialSetName = ($authenticatedToken->getUsername() ? $authenticatedToken->getUsername() : 'No username') . ' - ' . $this->getName();
+            $this->saveCredentials($authProvider->getCredentialsUxon($authenticatedToken), $credentialSetName, $credentialsOwner, $credentialsArePrivate);
         }
         
         return $authenticatedToken;
