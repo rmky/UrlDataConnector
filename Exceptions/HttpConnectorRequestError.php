@@ -5,9 +5,6 @@ use exface\Core\Exceptions\DataSources\DataQueryFailedError;
 use exface\Core\Interfaces\DataSources\DataQueryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
-use exface\Core\CommonLogic\Workbench;
-use exface\Core\Factories\DataSheetFactory;
-use exface\Core\Interfaces\WorkbenchInterface;
 
 /**
  * Error which can be thrown when an HTTP client returns a HTTP status code indicating
@@ -22,8 +19,6 @@ class HttpConnectorRequestError extends DataQueryFailedError
     private $httpStatusCode = null;
 
     private $httpReasonPhrase = null;
-    
-    private $useRemoteMessageAsTitle = false;
 
     // Default Reason Phrases fuer verschiedene HTTP Statuscodes
     private $defaultReasonPhrase = [
@@ -180,49 +175,28 @@ class HttpConnectorRequestError extends DataQueryFailedError
     }
     
     /**
-     *
+     * Returns TRUE if the error text received from the remote server is to be used as message title.
+     * 
+     * FALSE by default, thus using the message model found via error code.
+     * 
      * @return bool
      */
     protected function getUseRemoteMessageAsTitle() : bool
     {
-        return $this->useRemoteMessageAsTitle;
+        return $this->getUseExceptionMessageAsTitle();
     }
     
     /**
+     * Makes the exception use the error text received from the remote server as title
+     * instead of attempting to get the title from the message metamodel via error code.
      * 
      * @param bool $value
      * @return HttpConnectorRequestError
      */
     public function setUseRemoteMessageAsTitle(bool $value) : HttpConnectorRequestError
     {
-        $this->useRemoteMessageAsTitle = $value;
+        $this->setUseExceptionMessageAsTitle($value);
         return $this;
-    }
-    
-    public function getMessageModelData(Workbench $exface, $error_code)
-    {
-        try {
-            $modelMessageData = parent::getMessageModelData($exface, $error_code);
-        } catch (\Throwable $e) {
-            $modelMessageData = DataSheetFactory::createFromObjectIdOrAlias($exface, 'exface.Core.MESSAGE');
-        }
-        if ($this->getUseRemoteMessageAsTitle() === true) {
-            
-            $ds = DataSheetFactory::createFromObjectIdOrAlias($exface, 'exface.Core.MESSAGE');
-            if (! $descr = $modelMessageData->getCellValue('DESCRIPTION', 0)) {
-                if (! $descr = $modelMessageData->getCellValue('TITLE', 0)) {
-                    $descr = '';
-                }
-            }
-            $ds->addRow([
-                'TITLE' => parent::getMessage(), 
-                'HINT' => $modelMessageData->getCellValue('HINT', 0) ?? '', 
-                'DESCRIPTION' => $descr, 
-                'TYPE' => $modelMessageData->getCellValue('TYPE', 0) ?? 'ERROR'
-            ]);
-            return $ds;
-        }
-        return $modelMessageData;
     }
     
 }
