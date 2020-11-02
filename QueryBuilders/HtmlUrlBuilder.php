@@ -109,7 +109,7 @@ class HtmlUrlBuilder extends AbstractUrlBuilder
                         } elseif ($get_calculation) {
                             $value = $this->performCalculationOnNode($get_calculation, $node);
                         } else {
-                            $value = $node->textContent;
+                            $value = trim($node->textContent);
                         }
                         
                         // Sanitize value in compilance with the expected data type in the meta model
