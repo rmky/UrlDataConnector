@@ -290,7 +290,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         /* @var $query \exface\UrlDataConnector\Psr7DataQuery */
         
         // Default Headers zur Request hinzufuegen, um sie im Tracer anzuzeigen.
-        $this->addDefaultHeadersToQuery($query);
+        $query = $this->addDefaultHeadersToQuery($query);
         if ($this->willIgnore($query) === true) {
             $query->setResponse(new Response());
         } else {
@@ -390,15 +390,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             // Wrap the error in an authentication-exception if login failed.
             // This will give facades the option to show a login-screen.
             if ($response->getStatusCode() == 401 && ! ($exceptionThrown instanceof AuthenticationFailedError)) {
-                // If no authentication is configured (but obviously it's needed), assume basic auth.
-                // If not done so and the facade chooses to render a login-form, that form will be
-                // empty.
-                if ($this->hasAuthentication() === false) {
-                    $this->setAuthentication(new UxonObject([
-                        'class' => '\\' . HttpBasicAuth::class
-                    ]));
-                }
-                $ex = new AuthenticationFailedError($this, 'Authentication failed for data connection "' . $this->getName() . '": ' . $message, null, $ex);
+                $ex = $this->createAuthenticationException($ex, $message);
             }
         } else {
             $ex = new HttpConnectorRequestError($query, 0, 'No Response from Server', $exceptionThrown->getMessage(), null, $exceptionThrown);
@@ -407,11 +399,36 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         return $ex;
     }
     
+    protected function createAuthenticationException(\Throwable $exceptionThrown = null, string $message = null) : AuthenticationFailedError
+    {
+        // If no authentication is configured (but obviously it's needed), assume basic auth.
+        // If not done so and the facade chooses to render a login-form, that form will be
+        // empty.
+        if ($this->hasAuthentication() === false) {
+            $this->setAuthentication(new UxonObject([
+                'class' => '\\' . HttpBasicAuth::class
+            ]));
+        }
+        
+        if ($message === null) {
+            if ($exceptionThrown !== null) {
+                $message = $exceptionThrown->getMessage();
+            } else {
+                $message = 'Cannot authenticate in connection "' . $this->getAliasWithNamespace() . '"!';
+            }
+        }
+        
+        return new AuthenticationFailedError($this, 'Authentication failed for data connection "' . $this->getName() . '": ' . $message, null, $exceptionThrown);
+    }
+    
     /**
-     * Adds the default headers, which are defined on the client, to the request
-     * to show them in the tracer or errors.
+     * Adds the default headers (defined for the Guzzle client in connect()), to 
+     * the request inside the query. 
+     * 
+     * Mainly used to make the headers appear in logs, etc.
      * 
      * @param Psr7DataQuery $query
+     * @return Psr7DataQuery
      */
     protected function addDefaultHeadersToQuery(Psr7DataQuery $query)
     {
@@ -419,6 +436,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         $clientHeaders = $this->getClient()->getConfig('headers');
         $clientHeaders = _caseless_remove(array_keys($requestHeaders), $clientHeaders);
         $query->setRequest(modify_request($query->getRequest(), ['set_headers'=> $clientHeaders]));
+        return $query;
     }
 
     /**

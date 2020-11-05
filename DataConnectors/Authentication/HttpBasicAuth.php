@@ -156,11 +156,25 @@ class HttpBasicAuth implements HttpAuthenticationProviderInterface
         return $this;
     }
     
+    /**
+     * Returns the HTTP method for a dedicated authentication request (GET by default).
+     * 
+     * @return string|NULL
+     */
     protected function getAuthenticationRequestMethod() : ?string
     {
         return $this->authentication_request_method;
     }
     
+    /**
+     * Returns the Guzzle options array for a dedicated authentication request.
+     * 
+     * E.g. ["auth" => ["username", "password"]] for basic HTTP authentication
+     * 
+     * @param array $defaultOptions
+     * @param PasswordAuthenticationTokenInterface $token
+     * @return array
+     */
     protected function getAuthenticationRequestOptions(array $defaultOptions, PasswordAuthenticationTokenInterface $token) : array
     {
         $options = $defaultOptions;

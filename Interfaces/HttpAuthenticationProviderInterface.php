@@ -15,7 +15,9 @@ use exface\Core\CommonLogic\UxonObject;
 interface HttpAuthenticationProviderInterface extends iCanBeConvertedToUxon, AuthenticationProviderInterface
 {
     /**
-     * Adds Guzzle request options required for authentication to the default options array of the Guzzle client.
+     * Returns the Guzzle request options array with auth data to use with every regular request.
+     * 
+     * These options will normally be set as defaults for the Guzzle client
      * 
      * @link http://docs.guzzlephp.org/en/stable/request-options.html
      * 
