@@ -14,7 +14,6 @@ use exface\Core\Interfaces\DataSources\DataConnectionInterface;
 use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
-use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
 use exface\Core\DataTypes\DateDataType;
 use exface\Core\DataTypes\BooleanDataType;
 use exface\Core\DataTypes\TimeDataType;
@@ -677,7 +676,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         /* @var \exface\UrlDataConnector\DataConnectors\OData2Connector $data_connection */
         
         if ($data_connection->getUseBatchRequests() === false) {
-            return parent::update($data_connection);
+            return parent::delete($data_connection);
         }
         
         $this->batch($data_connection, static::OPERATION_DELETE);
