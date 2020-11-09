@@ -17,6 +17,7 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
 use exface\Core\DataTypes\BooleanDataType;
 use exface\Core\Interfaces\Model\CompoundAttributeInterface;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
+use exface\Core\CommonLogic\Model\Aggregator;
 
 /**
  * This is a query builder for JSON-based REST APIs.
@@ -334,7 +335,15 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         
         // Check if the value is still an array and an aggregator must be applied
         if (is_array($val)) {
-            $val = DataColumn::aggregateValues($val, $qpart->getAggregator());
+            $aggr = $qpart->getAggregator();
+            if ($aggr === null) {
+                if ($attr = $qpart->getAttribute()) {
+                    if ($defFunc = $attr->getDefaultAggregateFunction()) {
+                        $aggr = new Aggregator($this->getWorkbench(), $defFunc);
+                    }
+                }
+            }
+            $val = DataColumn::aggregateValues($val, $aggr);
         }
         return $val;
     }
