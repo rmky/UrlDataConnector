@@ -22,7 +22,6 @@ use exface\Core\DataTypes\NumberDataType;
 use exface\Core\DataTypes\BooleanDataType;
 use exface\Core\DataTypes\DateTimeDataType;
 use exface\Core\DataTypes\DateDataType;
-use exface\UrlDataConnector\DataConnectors\OData2Connector;
 use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
 use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Interfaces\DataTypes\DataTypeInterface;
@@ -565,6 +564,8 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
     
     /**
      * Returns the meta data type, that fit's the given XML node best.
+     * 
+     * NOTE: Don't modify the data type here - use `getDataTypeConfig()` instead!
      *
      * @param MetaObjectInterface $object
      * @param \DOMElement $node
@@ -631,6 +632,9 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                     $options['max'] = pow($type->getBase(), ($precision - $scale)) - pow(1, (-$scale));
                 }
                 
+                break;
+            case $type instanceof BinaryDataType:
+                $options['encoding'] = 'base64';
                 break;
         }
         return new UxonObject($options);
