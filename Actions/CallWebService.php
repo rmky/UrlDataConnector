@@ -24,6 +24,7 @@ use exface\Core\DataTypes\StringDataType;
 use exface\Core\Exceptions\Actions\ActionInputMissingError;
 use exface\Core\CommonLogic\Constants\Icons;
 use exface\UrlDataConnector\Exceptions\HttpConnectorRequestError;
+use exface\Core\Interfaces\Exceptions\AuthenticationExceptionInterface;
 
 /**
  * Calls a generic web service using parameters to fill placeholders in the URL and body.
@@ -430,6 +431,8 @@ class CallWebService extends AbstractAction implements iCallService
             $query = new Psr7DataQuery($request);
             try {
                 $response = $this->getDataConnection()->query($query)->getResponse();
+            } catch (AuthenticationExceptionInterface $e) {
+                throw $e;
             } catch (\Throwable $e) {
                 if ($eResponse = $this->getErrorResponse($e)) {
                     $message = $this->getErrorMessageFromResponse($eResponse);
@@ -829,12 +832,16 @@ class CallWebService extends AbstractAction implements iCallService
      */
     protected function getErrorResponse(\Throwable $e) : ?ResponseInterface
     {
-        if (method_exists($e, 'getResponse') === true) {
-            $response = $e->getResponse();
-            if ($response instanceof ResponseInterface) {
-                return $response;
+        do {
+            if (method_exists($e, 'getResponse') === true) {
+                $response = $e->getResponse();
+                if ($response instanceof ResponseInterface) {
+                    return $response;
+                }
             }
-        }
+            $e = $e->getPrevious();
+        } while ($e !== null);
+        
         return null;
     }
     
