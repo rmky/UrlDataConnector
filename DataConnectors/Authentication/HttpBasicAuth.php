@@ -90,7 +90,7 @@ class HttpBasicAuth implements HttpAuthenticationProviderInterface
      */
     public function getPassword()
     {
-        if ($this->user === null && ($this->connection instanceof HttpConnector)) {
+        if ($this->password === null && ($this->connection instanceof HttpConnector)) {
             return $this->connection->getPassword();
         }
         return $this->password;

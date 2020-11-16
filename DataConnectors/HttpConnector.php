@@ -32,6 +32,7 @@ use exface\Core\Interfaces\Selectors\UserSelectorInterface;
 use exface\UrlDataConnector\Interfaces\HttpAuthenticationProviderInterface;
 use exface\UrlDataConnector\DataConnectors\Authentication\HttpBasicAuth;
 use GuzzleHttp\Cookie\CookieJarInterface;
+use exface\Core\Events\Security\OnAuthenticationFailedEvent;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -49,8 +50,38 @@ use GuzzleHttp\Cookie\CookieJarInterface;
  * 
  * ## Authentication
  * 
- * Supports basic HTTP authentication and digest authentication -uUse `authentication`,
- * `authentication_url` and `authentication_request_method` to configure.
+ * This connector supports extensible authentication provider plugins. They can be configured
+ * in the `authentication` property providing a plugin PHP class and a set of configuration
+ * properties supported by this class: e.g. 
+ * 
+ * ```
+ * {
+ *  "url": "...",
+ *  "authentication": {
+ *    "class": "\\exface\\UrlDataConnector\\DataConnectors\\Authentication\\HttpBasicAuth",
+ *    "user": "",
+ *    "password": ""
+ *  }
+ * }
+ * 
+ * ```
+ * 
+ * The most common "basic authentication" can also be activated simply by setting
+ * `user` and `password` properties for the connection itself - as a simple alternative
+ * to the above example. Be careful not to mix the two approaches!!!
+ * 
+ * ```
+ * {
+ *  "url": "...",
+ *  "user": "",
+ *  "password": ""
+ * }
+ * 
+ * ```
+ * 
+ * If the data source can block users or IPs after X unseccessful login attempts, set
+ * `authentication_retry_after_fail` to `false` to make sure a login prompt is displayed
+ * once a 401-response is received for a certain set of credentials!
  * 
  * ## Caching
  * 
@@ -127,6 +158,12 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     
     /**
      *
+     * @var boolean
+     */
+    private $authenticationRetryAfterFail = true;
+    
+    /**
+     *
      * {@inheritDoc}
      * @see \exface\Core\Interfaces\DataSources\DataConnectionInterface::authenticate()
      */
@@ -138,6 +175,8 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             ]));
             $authProvider = $this->getAuthProvider();
         } 
+        
+        $this->markCredentialsInvalid(false);
         
         $authenticatedToken = $authProvider->authenticate($token);
         
@@ -191,8 +230,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
 
     /**
-     *
-     * {@inheritdoc}
+     * Initializes the Guzzle client with it's default config options like base URI, proxy settings, etc.
      *
      * @see \exface\Core\CommonLogic\AbstractDataConnector::performConnect()
      */
@@ -206,8 +244,15 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             $defaults['proxy'] = $this->getProxy();
         }
         
+        // Authentication
         if ($authProvider = $this->getAuthProvider()) {
             $defaults = $authProvider->getDefaultRequestOptions($defaults);
+            if ($this->getAuthenticationRetryAfterFail() === false) {
+                if ($this->isCredentialsMarkedInvalid()) {
+                    throw new AuthenticationFailedError($this, 'Please refresh authentication!');
+                }
+                $this->getWorkbench()->eventManager()->addListener(OnAuthenticationFailedEvent::getEventName(), [$this, 'handleOnAuthenticationFailedEvent']);
+            }
         }
         
         // Cookies
@@ -274,8 +319,16 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
 
     /**
-     *
-     * {@inheritdoc}
+     * Sends the request contained by the given Psr7DataQuery using the Guzzle Client from performConnect()
+     * 
+     * Overview:
+     * 
+     * - Check if query should not be sent via `$this->willIgnore()`
+     * - Add more headers via `$this->addDefaultHeadersToQuery()`
+     * - `connect()` if not yet connected
+     * - Enrich request by adding base URL, fixed URL parameters, etc. - see `prepareRequest()`
+     * - Send the request
+     * - On error pass the response to the $query if possible and throw `$this->createResponseException()`
      *
      * @see \exface\Core\CommonLogic\AbstractDataConnector::performQuery()
      *
@@ -322,7 +375,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     /**
      * 
      * {@inheritDoc}
-     * @see \exface\UrlDataConnector\Interfaces\HttpConnectionInterface::performRequest()
+     * @see \exface\UrlDataConnector\Interfaces\HttpConnectionInterface::sendRequest()
      */
     public function sendRequest(RequestInterface $request, array $requestOptions = []) : ?ResponseInterface
     {
@@ -451,9 +504,16 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
 
     /**
-     * @deprecated use getAuthProvider()->setUser() instead
-     *
      * The user name for HTTP basic authentification.
+     * 
+     * WARNING: Don't use this together with `authentication` - the latter will always override!
+     * 
+     * If set, the `authentication` will be automatically configured to use HTTP basic authentication.
+     * If you need any special authentication options, use `authentication` instead. This option
+     * here is just a handy shortcut!
+     * 
+     * @uxon-property user
+     * @uxon-type string
      * 
      * @param string $value            
      * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
@@ -481,9 +541,16 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     }
 
     /**
-     * @deprecated use getAuthProvider()->setPassword() instead
-     *
      * Sets the password for basic HTTP authentification.
+     * 
+     * WARNING: Don't use this together with `authentication` - the latter will always override!
+     * 
+     * If set, the `authentication` will be automatically configured to use HTTP basic authentication.
+     * If you need any special authentication options, use `authentication` instead. This option
+     * here is just a handy shortcut!
+     * 
+     * @uxon-property password
+     * @uxon-type password
      *
      * @param string $value            
      * @return \exface\UrlDataConnector\DataConnectors\HttpConnector
@@ -923,6 +990,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     {
         if ($stringOrUxon instanceof UxonObject) {
             $this->authProviderUxon = $stringOrUxon;
+            $this->authProvider = null;
         } elseif (is_string($stringOrUxon)) {
             if (defined('static::AUTH_TYPE_' . mb_strtoupper($stringOrUxon)) === false) {
                 throw new DataConnectionConfigurationError($this, 'Invalid value "' . $stringOrUxon . '" for connection property "authentication".');
@@ -931,6 +999,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             $this->authProviderUxon = new UxonObject([
                 'class' => '\\exface\\UrlDataConnector\\DataConnectors\\Authentication\\Http' . ucfirst($authType) . 'Auth'
             ]);
+            $this->authProvider = null;
         } else {
             throw new DataConnectionConfigurationError($this, 'Invalid value "' . $stringOrUxon . '" for connection property "authentication".');
         }
@@ -1018,5 +1087,118 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             $this->getCookieJar()->clear();
         }
         return $this;
+    }
+    
+    /**
+     *
+     * @return bool
+     */
+    protected function getAuthenticationRetryAfterFail() : bool
+    {
+        return $this->authenticationRetryAfterFail;
+    }
+    
+    /**
+     * Set to FALSE to prevent retrying stored credentials if an attempt failed previously.
+     *
+     * By default, the connector will attempt to query the data source whenever requested -
+     * even if the current credentials were already rejected previously. Only if the current
+     * connection attempt fails, a login prompt will be displayed. This means, that if the
+     * credentials became outdated, the data source will register a failed login attempt every 
+     * time. This may result in the user or the IP bein blacklisted.  
+     * 
+     * If this option is set to `true` the connector will remember, which credentials did not 
+     * work and will not retry them again automatically. This means, that after a 401-response 
+     * is received, the user will get a login prompt _before_ the data source is contacted 
+     * untill a new authentication attempt succeeds (e.g. that login promt is submitted). 
+     * After a successful authentication, the credentials will be used silently agian - regardless
+     * of wether they actually changed or not.
+     *
+     * @uxon-property authentication_retry_after_fail
+     * @uxon-type boolean
+     * @uxon-default true
+     *
+     * @param bool $value
+     * @return HttpBasicAuth
+     */
+    public function setAuthenticationRetryAfterFail(bool $value) : HttpConnectionInterface
+    {
+        $this->authenticationRetryAfterFail = $value;
+        return $this;
+    }
+    
+    /**
+     * 
+     * @return string
+     */
+    protected function getAuthRetryDisabledVar() : string
+    {
+        return 'http_auth_block_' . $this->getId();
+    }
+    
+    /**
+     * 
+     * @return string
+     */
+    protected function getAuthRetryDisabledHash() : string
+    {
+        return md5(json_encode($this->getAuthProvider()->getDefaultRequestOptions([])));
+    }
+    
+    /**
+     * 
+     * @return bool
+     */
+    protected function isCredentialsMarkedInvalid() : bool
+    {
+        if (! $this->hasAuthentication()) {
+            return false;
+        }
+        
+        $hash = $this->getAuthRetryDisabledHash();
+        $ctxtScope = $this->getWorkbench()->getContext()->getScopeUser();
+        return $ctxtScope->getVariable($this->getAuthRetryDisabledVar()) === $hash;
+    }
+    
+    /**
+     * 
+     * @param bool $trueOrFalse
+     * @return HttpConnector
+     */
+    protected function markCredentialsInvalid(bool $trueOrFalse) : HttpConnector
+    {
+        if (! $this->hasAuthentication()) {
+            return $this;
+        }
+        
+        $ctxtScope = $this->getWorkbench()->getContext()->getScopeUser();
+        if ($trueOrFalse === true) {
+            $ctxtScope->setVariable($this->getAuthRetryDisabledVar(), $this->getAuthRetryDisabledHash());
+        } else {
+            $ctxtScope->unsetVariable($this->getAuthRetryDisabledVar());
+        }
+        
+        return $this;
+    }
+    
+    /**
+     * 
+     * @param OnAuthenticationFailedEvent $event
+     */
+    public function handleOnAuthenticationFailedEvent(OnAuthenticationFailedEvent $event)
+    {
+        if ($event->getAuthenticationProvider() !== $this) {
+            return;
+        }
+        
+        if ($this->hasAuthentication() === false) {
+            return;
+        }
+        
+        if ($this->getAuthenticationRetryAfterFail() === false) {
+            $this->markCredentialsInvalid(true);
+        }
+        
+        return;
     }
 }
