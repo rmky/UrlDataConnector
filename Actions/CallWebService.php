@@ -25,6 +25,7 @@ use exface\Core\Exceptions\Actions\ActionInputMissingError;
 use exface\Core\CommonLogic\Constants\Icons;
 use exface\UrlDataConnector\Exceptions\HttpConnectorRequestError;
 use exface\Core\Interfaces\Exceptions\AuthenticationExceptionInterface;
+use exface\Core\Exceptions\Security\AuthenticationFailedError;
 
 /**
  * Calls a generic web service using parameters to fill placeholders in the URL and body.
@@ -426,30 +427,49 @@ class CallWebService extends AbstractAction implements iCallService
         if ($rowCnt === 0 && $this->getInputRowsMin() === 0) {
             $rowCnt = 1;
         }
+        
+        // Call the webservice for every row in the input data.
         for ($i = 0; $i < $rowCnt; $i++) {
             $request = new Request($this->getMethod(), $this->buildUrl($input, $i), $this->buildHeaders(), $this->buildBody($input, $i));
             $query = new Psr7DataQuery($request);
+            // Perform the query regularly via URL connector
             try {
                 $response = $this->getDataConnection()->query($query)->getResponse();
-            } catch (AuthenticationExceptionInterface $e) {
-                throw $e;
             } catch (\Throwable $e) {
+                $respMessage = null;
+                $respErrorCode = null;
+                // If there are errors, try to extract the error message using the action's
+                // response parsing logic. Keep in mind, that the action's message extraction
+                // logic may be different from that of the data source: e.g. the action may have
+                // a `error_message_pattern`!
                 if ($eResponse = $this->getErrorResponse($e)) {
-                    $message = $this->getErrorMessageFromResponse($eResponse);
-                    $code = $this->getErrorCodeFromResponse($eResponse);
-                    if ($code === null && $message) {
-                        $code = '';
+                    $respMessage = $this->getErrorMessageFromResponse($eResponse);
+                    $respErrorCode = $this->getErrorCodeFromResponse($eResponse);
+                    if ($respErrorCode === null && $respMessage) {
+                        $respErrorCode = '';
                     }
-                    $statusCode = $eResponse->getStatusCode();
-                    $reasonPhrase = $eResponse->getReasonPhrase();
-                }
-                if (! $e instanceof HttpConnectorRequestError) {
-                    $ex = new HttpConnectorRequestError($query, $statusCode, $reasonPhrase, $message, $code, $e);
+                    $respStatusCode = $eResponse->getStatusCode();
+                    $respReasonPhrase = $eResponse->getReasonPhrase();
+                } 
+                
+                // If there is a meaningfull response message, create a new exception an make sure, that
+                // message is used as title. Otherwise rethrow the original exception!
+                if ($respMessage && $respErrorCode !== null) {
+                    switch (true) {
+                        case $e instanceof AuthenticationExceptionInterface:
+                            throw new AuthenticationFailedError($e->getAuthenticationProvider(), $respMessage, $e->getAlias(), $e);
+                        case $e instanceof HttpConnectorRequestError:
+                            $eNew = new HttpConnectorRequestError($query, $e->getHttpStatusCode(), $e->getHttpReasonPhrase(), $respMessage, $e->getAlias(), $e->getPrevious());
+                            break;
+                        default:
+                            $eNew = new HttpConnectorRequestError($query, $respStatusCode, $respReasonPhrase, $respMessage, $respErrorCode, $e);
+                    }
+                    
+                    $eNew->setUseRemoteMessageAsTitle(($respMessage !== null ? true : false));
+                    throw $eNew;
                 } else {
-                    $ex = new HttpConnectorRequestError($query, $statusCode, $reasonPhrase, $message, $e->getAlias(), $e->getPrevious());
+                    throw $e;
                 }
-                $ex->setUseRemoteMessageAsTitle(($message !== null ? true : false));
-                throw $ex;
             }
         }
         
@@ -470,16 +490,16 @@ class CallWebService extends AbstractAction implements iCallService
         }
         
         if ($this->getResultMessageText() && $this->getResultMessagePattern()) {
-            $message = $this->getResultMessageText() . $this->getMessageFromResponse($response);
+            $respMessage = $this->getResultMessageText() . $this->getMessageFromResponse($response);
         } else {
-            $message = $this->getResultMessageText() ?? $this->getMessageFromResponse($response);
+            $respMessage = $this->getResultMessageText() ?? $this->getMessageFromResponse($response);
         }
         
-        if ($message === null || $message === '') {
-            $message = $this->getWorkbench()->getApp('exface.UrlDataConnector')->getTranslator()->translate('ACTION.CALLWEBSERVICE.DONE');
+        if ($respMessage === null || $respMessage === '') {
+            $respMessage = $this->getWorkbench()->getApp('exface.UrlDataConnector')->getTranslator()->translate('ACTION.CALLWEBSERVICE.DONE');
         }
         
-        return ResultFactory::createDataResult($task, $resultData, $message);
+        return ResultFactory::createDataResult($task, $resultData, $respMessage);
     }
     
     /**

@@ -84,11 +84,21 @@ class HttpConnectorRequestError extends DataQueryFailedError
      * @param string $alias
      * @param \Throwable $previous
      */
-    public function __construct(DataQueryInterface $query, $httpStatusCode, $httpReasonPhrase = null, $message = null, $alias = null, $previous = null)
+    public function __construct(DataQueryInterface $query, $httpStatusCode = null, $httpReasonPhrase = null, $message = null, $alias = null, $previous = null)
     {
         $this->setHttpStatusCode($httpStatusCode);
         $this->setHttpReasonPhrase($httpReasonPhrase);
-        parent::__construct($query, ($message ? $message : $this->getHttpStatusCode() . ' ' . $this->getHttpReasonPhrase()), ($alias ? $alias : null), $previous);
+        if (! $message) {
+            if ($httpStatusCode && $httpReasonPhrase) {
+                $message = $this->getHttpStatusCode() . ' ' . $this->getHttpReasonPhrase();
+            } elseif ($previous) {
+                $message = $previous->getMessage();
+            } else {
+                $message = 'Unknown HTTP connection error';
+            }
+        }
+        $alias = ($alias ? $alias : null);
+        parent::__construct($query, $message, $alias, $previous);
     }
 
     /**
