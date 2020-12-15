@@ -48,6 +48,10 @@
         {
             "name": "UXON_SCHEMA",
             "attribute_alias": "UXON_SCHEMA"
+        },
+        {
+            "name": "THUMBNAIL",
+            "attribute_alias": "THUMBNAIL"
         }
     ],
     "rows": [
@@ -61,9 +65,17 @@
             "NAME": "OData 2.0 Connection",
             "DESCRIPTION": "",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/OData2Connector.php",
-            "UXON": "{\"url\":\"\",\"authentication\":{\"class\":\"\\\\exface\\\\UrlDataConnector\\\\DataConnectors\\\\Authentication\\\\HttpBasicAuth\",\"user\":\"\",\"password\":\"\"}}",
+            "UXON": {
+                "url": "",
+                "authentication": {
+                    "class": "\\exface\\UrlDataConnector\\DataConnectors\\Authentication\\HttpBasicAuth",
+                    "user": "",
+                    "password": ""
+                }
+            },
             "WRAP_PATH": "",
-            "UXON_SCHEMA": "connection"
+            "UXON_SCHEMA": "connection",
+            "THUMBNAIL": null
         },
         {
             "CREATED_ON": "2019-09-30 08:39:01",
@@ -75,9 +87,17 @@
             "NAME": "OData 4.0 Connection",
             "DESCRIPTION": "",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/OData4Connector.php",
-            "UXON": "{\"url\":\"\",\"authentication\":{\"class\":\"\\\\exface\\\\UrlDataConnector\\\\DataConnectors\\\\Authentication\\\\HttpBasicAuth\",\"user\":\"\",\"password\":\"\"}}",
+            "UXON": {
+                "url": "",
+                "authentication": {
+                    "class": "\\exface\\UrlDataConnector\\DataConnectors\\Authentication\\HttpBasicAuth",
+                    "user": "",
+                    "password": ""
+                }
+            },
             "WRAP_PATH": "",
-            "UXON_SCHEMA": "connection"
+            "UXON_SCHEMA": "connection",
+            "THUMBNAIL": null
         },
         {
             "CREATED_ON": "2019-09-30 09:21:00",
@@ -89,9 +109,14 @@
             "NAME": "Webservice with cookies",
             "DESCRIPTION": "By default only non-session cookies will be stored. Enable `use_cookie_sessions` additionally to store session cookies too. This will only work for logged in users though.",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
-            "UXON": "{\"url\":\"\",\"use_cookies\":true,\"use_cookie_sessions\":false}",
+            "UXON": {
+                "url": "",
+                "use_cookies": true,
+                "use_cookie_sessions": false
+            },
             "WRAP_PATH": "",
-            "UXON_SCHEMA": "connection"
+            "UXON_SCHEMA": "connection",
+            "THUMBNAIL": null
         },
         {
             "CREATED_ON": "2019-09-30 09:22:18",
@@ -103,9 +128,15 @@
             "NAME": "Webservice with cache",
             "DESCRIPTION": "When caching is enabled, the cache-control HTTP headers will by used by default. You can explicitly ignore them via `cache_ignore_headers` to cache even those responses, that are marked as non-cacheable.",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
-            "UXON": "{\"URL\":\"\",\"cache_enabled\":true,\"cache_ignore_headers\":false,\"cache_lifetime_in_seconds\":\"28800\"}",
+            "UXON": {
+                "URL": "",
+                "cache_enabled": true,
+                "cache_ignore_headers": false,
+                "cache_lifetime_in_seconds": "28800"
+            },
             "WRAP_PATH": "",
-            "UXON_SCHEMA": "connection"
+            "UXON_SCHEMA": "connection",
+            "THUMBNAIL": null
         },
         {
             "CREATED_ON": "2019-09-30 09:23:56",
@@ -117,9 +148,17 @@
             "NAME": "Webservice with basic HTTP authentication",
             "DESCRIPTION": "URL + username and password",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
-            "UXON": "{\"url\":\"\",\"authentication\":{\"class\":\"\\\\exface\\\\UrlDataConnector\\\\DataConnectors\\\\Authentication\\\\HttpBasicAuth\",\"user\":\"\",\"password\":\"\"}}",
+            "UXON": {
+                "url": "",
+                "authentication": {
+                    "class": "\\exface\\UrlDataConnector\\DataConnectors\\Authentication\\HttpBasicAuth",
+                    "user": "",
+                    "password": ""
+                }
+            },
             "WRAP_PATH": "",
-            "UXON_SCHEMA": "connection"
+            "UXON_SCHEMA": "connection",
+            "THUMBNAIL": null
         },
         {
             "CREATED_ON": "2019-09-30 09:28:04",
@@ -131,9 +170,13 @@
             "NAME": "Fixed URL parameters for all requests",
             "DESCRIPTION": "Add `fixed_url_params` to append static parameter to every request",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
-            "UXON": "{\"url\":\"\",\"fixed_url_params\":\"&param1=value1&param2=value2\"}",
+            "UXON": {
+                "url": "",
+                "fixed_url_params": "&param1=value1&param2=value2"
+            },
             "WRAP_PATH": "",
-            "UXON_SCHEMA": "connection"
+            "UXON_SCHEMA": "connection",
+            "THUMBNAIL": null
         },
         {
             "CREATED_ON": "2019-09-30 09:52:35",
@@ -145,9 +188,13 @@
             "NAME": "Webservice with Swagger\/OpenAPI",
             "DESCRIPTION": "The Swagger definition will allow to generate the metamodel via model builder",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
-            "UXON": "{\"url\":\"\",\"swagger_url\":\"\"}",
+            "UXON": {
+                "url": "",
+                "swagger_url": ""
+            },
             "WRAP_PATH": "",
-            "UXON_SCHEMA": "connection"
+            "UXON_SCHEMA": "connection",
+            "THUMBNAIL": null
         },
         {
             "CREATED_ON": "2020-01-08 20:26:25",
@@ -159,9 +206,16 @@
             "NAME": "Credentials for basic HTTP authentication",
             "DESCRIPTION": "Preset for a credential set for web services with basic HTTP authentication",
             "PROTOTYPE": "exface\/UrlDataConnector\/DataConnectors\/HttpConnector.php",
-            "UXON": "{\"authentication\":{\"class\":\"\\\\exface\\\\UrlDataConnector\\\\DataConnectors\\\\Authentication\\\\HttpBasicAuth\",\"user\":\"\",\"password\":\"\"}}",
+            "UXON": {
+                "authentication": {
+                    "class": "\\exface\\UrlDataConnector\\DataConnectors\\Authentication\\HttpBasicAuth",
+                    "user": "",
+                    "password": ""
+                }
+            },
             "WRAP_PATH": "",
-            "UXON_SCHEMA": "connection"
+            "UXON_SCHEMA": "connection",
+            "THUMBNAIL": null
         }
     ],
     "totals_rows": [],
