@@ -5,6 +5,7 @@ use exface\Core\Interfaces\iCanBeConvertedToUxon;
 use exface\Core\Interfaces\Security\AuthenticationProviderInterface;
 use exface\Core\Interfaces\Security\AuthenticationTokenInterface;
 use exface\Core\CommonLogic\UxonObject;
+use Psr\Http\Message\RequestInterface;
 
 /**
  * Interface for HTTP-based authentication providers
@@ -33,4 +34,11 @@ interface HttpAuthenticationProviderInterface extends iCanBeConvertedToUxon, Aut
      * @return UxonObject
      */
     public function getCredentialsUxon(AuthenticationTokenInterface $authenticatedToken) : UxonObject;
+    
+    /**
+     * 
+     * @param RequestInterface $request
+     * @return RequestInterface
+     */
+    public function signRequest(RequestInterface $request) : RequestInterface;
 }

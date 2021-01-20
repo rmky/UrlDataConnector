@@ -10,6 +10,7 @@ use exface\Core\CommonLogic\Security\AuthenticationToken\UsernamePasswordAuthTok
 use exface\Core\Exceptions\InvalidArgumentException;
 use exface\Core\Exceptions\DataSources\DataConnectionConfigurationError;
 use GuzzleHttp\Psr7\Request;
+use Psr\Http\Message\RequestInterface;
 use exface\Core\Factories\WidgetFactory;
 use exface\Core\Interfaces\Selectors\UserSelectorInterface;
 use exface\Core\Interfaces\Security\PasswordAuthenticationTokenInterface;
@@ -279,4 +280,15 @@ class HttpBasicAuth implements HttpAuthenticationProviderInterface
     {
         return $this->connection;
     }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Interfaces\HttpAuthenticationProviderInterface::signRequest()
+     */
+    public function signRequest(RequestInterface $request): RequestInterface
+    {
+        return $request;
+    }
+
 }

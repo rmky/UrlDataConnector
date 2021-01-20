@@ -412,6 +412,9 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
                 $request = $request->withUri(new Uri($endpoint));
             }
         }
+        if ($this->hasAuthentication()) {
+            $request = $this->getAuthProvider()->signRequest($request);
+        }
         return $request;
     }
     
