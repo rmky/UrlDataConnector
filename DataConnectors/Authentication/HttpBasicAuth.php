@@ -291,4 +291,13 @@ class HttpBasicAuth implements HttpAuthenticationProviderInterface
         return $request;
     }
 
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\Interfaces\HttpAuthenticationProviderInterface::getConnection()
+     */
+    public function getConnection() : HttpConnectionInterface
+    {
+        return $this->connection;
+    }
 }

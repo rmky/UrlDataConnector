@@ -41,4 +41,10 @@ interface HttpAuthenticationProviderInterface extends iCanBeConvertedToUxon, Aut
      * @return RequestInterface
      */
     public function signRequest(RequestInterface $request) : RequestInterface;
+    
+    /**
+     * 
+     * @return HttpConnectionInterface
+     */
+    public function getConnection() : HttpConnectionInterface;
 }
