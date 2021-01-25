@@ -3,6 +3,8 @@ namespace exface\UrlDataConnector\QueryBuilders;
 
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
 use exface\Core\DataTypes\NumberDataType;
+use exface\Core\Interfaces\Model\MetaObjectInterface;
+use exface\Core\Exceptions\QueryBuilderException;
 
 /**
  * This is a query builder for JSON-based oData 4.0 APIs.
