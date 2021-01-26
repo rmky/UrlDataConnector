@@ -2,10 +2,8 @@
 namespace exface\UrlDataConnector\DataConnectors\Authentication;
 
 use exface\Core\CommonLogic\UxonObject;
-use exface\Core\CommonLogic\Traits\ImportUxonObjectTrait;
 use exface\Core\Interfaces\Security\AuthenticationTokenInterface;
 use exface\Core\Interfaces\Widgets\iContainOtherWidgets;
-use exface\UrlDataConnector\Interfaces\HttpAuthenticationProviderInterface;
 use exface\Core\CommonLogic\Security\AuthenticationToken\UsernamePasswordAuthToken;
 use exface\Core\Exceptions\InvalidArgumentException;
 use exface\Core\Exceptions\DataSources\DataConnectionConfigurationError;
@@ -15,7 +13,7 @@ use exface\Core\Factories\WidgetFactory;
 use exface\Core\Interfaces\Selectors\UserSelectorInterface;
 use exface\Core\Interfaces\Security\PasswordAuthenticationTokenInterface;
 use exface\UrlDataConnector\DataConnectors\HttpConnector;
-use exface\UrlDataConnector\Interfaces\HttpConnectionInterface;
+use exface\UrlDataConnector\CommonLogic\AbstractHttpAuthenticationProvider;
 
 /**
  * HTTP basic authentication for HTTP connectors
@@ -23,14 +21,8 @@ use exface\UrlDataConnector\Interfaces\HttpConnectionInterface;
  * @author Andrej Kabachnik
  *
  */
-class HttpBasicAuth implements HttpAuthenticationProviderInterface
-{
-    use ImportUxonObjectTrait;
-    
-    private $connection = null;
-    
-    private $constructorUxon = null;
-    
+class HttpBasicAuth extends AbstractHttpAuthenticationProvider
+{    
     private $user = null;
     
     private $password = null;
@@ -46,15 +38,6 @@ class HttpBasicAuth implements HttpAuthenticationProviderInterface
      * @var string
      */
     private $authentication_request_method = 'GET';
-    
-    public function __construct(HttpConnectionInterface $dataConnection, UxonObject $uxon = null)
-    {
-        $this->connection = $dataConnection;
-        $this->constructorUxon = $uxon;
-        if ($uxon !== null) {
-            $this->importUxonObject($uxon, ['class']);
-        }
-    }
     
     /**
      *
@@ -110,16 +93,6 @@ class HttpBasicAuth implements HttpAuthenticationProviderInterface
     {
         $this->password = $value;
         return $this;
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\Core\Interfaces\WorkbenchDependantInterface::getWorkbench()
-     */
-    public function getWorkbench()
-    {
-        return $this->connection->getWorkbench();
     }
     
     /**
@@ -218,29 +191,19 @@ class HttpBasicAuth implements HttpAuthenticationProviderInterface
             throw new InvalidArgumentException('Invalid token class "' . get_class($token) . '" for authentication via data connection "' . $this->getAliasWithNamespace() . '" - only "UsernamePasswordAuthToken" and derivatives supported!');
         }
         
-        $url = $this->getAuthenticationUrl() ?? $this->getDataConnection()->getUrl();
+        $url = $this->getAuthenticationUrl() ?? $this->getConnection()->getUrl();
         if (! $url) {
             throw new DataConnectionConfigurationError($this, "Cannot perform authentication in data connection '{$this->getName()}'! Either provide authentication_url or a general url in the connection configuration.");
         }
         
         try {
             $request = new Request($this->getAuthenticationRequestMethod(), $url);
-            $this->getDataConnection()->sendRequest($request, $this->getAuthenticationRequestOptions([], $token));
+            $this->getConnection()->sendRequest($request, $this->getAuthenticationRequestOptions([], $token));
         } catch (\Throwable $e) {
             throw $e;
         }
         
         return $token;
-    }
-    
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\Core\Interfaces\iCanBeConvertedToUxon::exportUxonObject()
-     */
-    public function exportUxonObject()
-    {
-        return $this->constructorUxon;
     }
     
     /**
@@ -276,11 +239,6 @@ class HttpBasicAuth implements HttpAuthenticationProviderInterface
         return $options;
     }
     
-    protected function getDataConnection() : HttpConnectionInterface
-    {
-        return $this->connection;
-    }
-    
     /**
      * 
      * {@inheritDoc}
@@ -289,15 +247,5 @@ class HttpBasicAuth implements HttpAuthenticationProviderInterface
     public function signRequest(RequestInterface $request): RequestInterface
     {
         return $request;
-    }
-
-    /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\UrlDataConnector\Interfaces\HttpAuthenticationProviderInterface::getConnection()
-     */
-    public function getConnection() : HttpConnectionInterface
-    {
-        return $this->connection;
     }
 }

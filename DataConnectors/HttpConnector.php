@@ -983,7 +983,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      * Set the authentication method this connection should use.
      * 
      * @uxon-property authentication
-     * @uxon-type \exface\UrlDataConnector\DataConnectors\Authentication\HttpBasicAuth
+     * @uxon-type \exface\UrlDataConnector\CommonLogic\AbstractHttpAuthenticationProvider
      * @uxon-template {"class": "\\exface\\UrlDataConnector\\DataConnectors\\Authentication\\HttpBasicAuth"}
      * 
      * @param string $value
