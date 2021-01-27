@@ -458,8 +458,8 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                 'DATA_SOURCE' => $ds_uid,
                 'APP' => $app_uid,
                 'DATA_ADDRESS_PROPS' => json_encode([
-                    "EntityType" => $entityName,
-                    "Namespace" => $namespace
+                    "odata_entitytype" => $entityName,
+                    "odata_namespace" => $namespace
                 ])
             ]);
         }
@@ -678,11 +678,33 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
      */
     protected function getEntityType(MetaObjectInterface $object)
     {
-        $entitySet = $this->getMetadata()->filterXPath($this->getXPathToEntitySets() . '[@Name="' . $object->getDataAddress() . '"]');
-        if ($entitySet->count() === 0) {
-            throw new ModelBuilderRuntimeError($this, 'No EntitySet matching data address "' . $object->getDataAddress() . '" ob object "' . $object->getName() . '" (' . $object->getAliasWithNamespace() . ') found in $metdata');
+        $name = $object->getDataAddressProperty('odata_entitytype');
+        $tried = [];
+        if (! $name) {
+            $name = $object->getDataAddressProperty('EntityType');
         }
-        return $this->stripNamespace($entitySet->attr('EntityType'));
+        
+        if ($name) {
+            $tried[] = 'EntityType[@Name="' . $name . '"]';
+        }
+        
+        if (! $name) {
+            $entitySet = $this->getMetadata()->filterXPath($this->getXPathToEntitySets() . '[@Name="' . $object->getDataAddress() . '"]');
+            $tried = 'EntitySet[@Name="' . $object->getDataAddress() . '"]';
+            if ($entitySet->count() > 0) {
+                $name = $this->stripNamespace($entitySet->attr('EntityType'));
+            }
+        }
+        
+        if ($name) {
+            $entityType = $this->getMetadata()->filterXPath($this->getXPathToEntityTypes() . '[@Name="' . $name . '"]');
+        }
+        
+        if (! $name || ! $entityType || $entityType->count() === 0) {
+            throw new ModelBuilderRuntimeError($this, 'No OData EntityType found for object "' . $object->getName() . '" (' . $object->getAliasWithNamespace() . '). Tried ' . implode(', ', $tried));
+        }
+        
+        return $name;
     }
     
     /**
