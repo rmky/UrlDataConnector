@@ -169,10 +169,10 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      */
     public function authenticate(AuthenticationTokenInterface $token, bool $updateUserCredentials = true, UserInterface $credentialsOwner = null, bool $credentialsArePrivate = null) : AuthenticationTokenInterface
     {
+        // In order to authenticate, we need an authentication provider. Thus, if there is none
+        // defined, we create a default one.
         if (! $authProvider = $this->getAuthProvider()) {
-            $this->setAuthentication(new UxonObject([
-                'class' => '\\' . HttpBasicAuth::class
-            ]));
+            $this->setAuthentication($this->createDefaultAuthConfig());
             $authProvider = $this->getAuthProvider();
         } 
         
@@ -249,7 +249,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             $defaults = $authProvider->getDefaultRequestOptions($defaults);
             if ($this->getAuthenticationRetryAfterFail() === false) {
                 if ($this->isCredentialsMarkedInvalid()) {
-                    throw new AuthenticationFailedError($this, 'Please refresh authentication!');
+                    throw new AuthenticationFailedError($this, 'The current login data did not work last time - please log in manually to avoid being blocked by the data source after multiple failed attempts!', '7EO5HDU');
                 }
                 $this->getWorkbench()->eventManager()->addListener(OnAuthenticationFailedEvent::getEventName(), [$this, 'handleOnAuthenticationFailedEvent']);
             }
@@ -461,9 +461,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         // If not done so and the facade chooses to render a login-form, that form will be
         // empty.
         if ($this->hasAuthentication() === false) {
-            $this->setAuthentication(new UxonObject([
-                'class' => '\\' . HttpBasicAuth::class
-            ]));
+            $this->setAuthentication($this->createDefaultAuthConfig());
         }
         
         if ($message === null) {
@@ -475,6 +473,25 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         }
         
         return new AuthenticationFailedError($this, 'Authentication failed for data connection "' . $this->getName() . '": ' . $message, null, $exceptionThrown);
+    }
+    
+    /**
+     * Returns the UXON configuration for the authentication provider to be used if none was 
+     * defined explicitly, but one is required in the current situation.
+     * @return UxonObject
+     */
+    protected function createDefaultAuthConfig() : UxonObject
+    {
+        $uxon = new UxonObject([
+            'class' => '\\' . HttpBasicAuth::class
+        ]);
+        if ($this->user !== null) {
+            $uxon->setProperty('user', $this->user);
+        }
+        if ($this->password !== null) {
+            $uxon->setProperty('password', $this->password);
+        }
+        return $uxon;
     }
     
     /**
@@ -523,11 +540,6 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      */
     protected function setUser($value)
     {
-        if ($this->getAuthProviderConfig() === null) {
-            $this->authProviderUxon = new UxonObject([
-                'class' => '\\' . HttpBasicAuth::class
-            ]);
-        }
         $this->user = $value;
         return $this;
     }
@@ -560,11 +572,6 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      */
     protected function setPassword($value)
     {
-        if ($this->getAuthProviderConfig() === null) {
-            $this->authProviderUxon = new UxonObject([
-                'class' => '\\' . HttpBasicAuth::class
-            ]);
-        }
         $this->password = $value;
         return $this;
     }
@@ -1046,6 +1053,11 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      */
     protected function getAuthProviderConfig() : ?UxonObject
     {
+        // For simplicity, user/password can be set in the connection config directly.
+        // This will result in the use of the default authentication type (HTTB basic auth).
+        if ($this->authProviderUxon === null && $this->user !== null) {
+            $this->authProviderUxon = $this->createDefaultAuthConfig();
+        }
         return $this->authProviderUxon;
     }
     
