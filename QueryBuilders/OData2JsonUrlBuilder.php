@@ -24,6 +24,8 @@ use Psr\Http\Message\RequestInterface;
 use exface\Core\DataTypes\UUIDDataType;
 use exface\UrlDataConnector\DataConnectors\OData2Connector;
 use exface\Core\DataTypes\BinaryDataType;
+use exface\Core\Interfaces\Model\MetaAttributeInterface;
+use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
 
 /**
  * This is a query builder for JSON-based oData 2.0 APIs.
@@ -129,16 +131,23 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      */
     public function count(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
+        // Use the regular GET URL but strip everything not affecting the count
         $uri = $this->buildRequestGet()->getUri();
         $count_uri = $uri->withPath($uri->getPath() . '/$count');
         
         $count_url_params = $uri->getQuery();
+        // Remove pagination
         $count_url_params = preg_replace('/\&?' . preg_quote($this->buildUrlParamLimit($this->getMainObject())) . '=\d*/', "", $count_url_params);
         $count_url_params = preg_replace('/\&?' . preg_quote($this->buildUrlParamOffset($this->getMainObject())) . '=\d*/', "", $count_url_params);
+        // Remove the format (the result is just a number without any formatting)
         $count_url_params = preg_replace('/\&?\$format=.*/', "", $count_url_params);
+        // Remove $select, $expand, etc.
+        if ($attrParams = $this->buildUrlParamsForAttributes()) {
+            $count_url_params = str_replace($attrParams, '', $count_url_params);
+        }
+        
         $count_uri = $count_uri->withQuery($count_url_params);
         $count_query = new Psr7DataQuery(new Request('GET', $count_uri));
-        $count_query->setUriFixed(true);
         
         try {
             $count_query = $this->getMainObject()->getDataConnection()->query($count_query);
