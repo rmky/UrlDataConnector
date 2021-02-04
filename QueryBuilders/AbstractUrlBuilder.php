@@ -326,6 +326,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     {
         $params_string = '';
         
+        // Add URL parameters that may be required to select certain attributes
+        $params_string = $this->addParameterToUrl($params_string, $this->buildUrlParamsForAttributes());
+        
         // Add the remaining filters to the URL
         if (! $urlFilters->isEmpty()) {
             $params_string = $this->addParameterToUrl($params_string, $this->buildUrlFilterGroup($urlFilters));
@@ -342,6 +345,15 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         
         return $params_string;
+    }
+    
+    /**
+     * 
+     * @return string
+     */
+    protected function buildUrlParamsForAttributes() : string
+    {
+        return '';
     }
     
     /**

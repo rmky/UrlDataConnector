@@ -790,4 +790,106 @@ BODY;
     {
         return parent::isRemotePaginationTotalAvailable() ?? true;
     }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder::canReadAttribute()
+     */
+    public function canReadAttribute(MetaAttributeInterface $attribute) : bool
+    {
+        // OData has $expand to handle relations, so we can actually read related attributes
+        // in some cases.
+        foreach ($attribute->getRelationPath()->getRelations() as $rel) {
+            if (! $rel->isForwardRelation()) {
+                return false;
+            }
+            if (! $rel->getLeftKeyAttribute()->getDataAddressProperty('odata_navigationproperty')) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlParamsForAttributes()
+     */
+    protected function buildUrlParamsForAttributes() : string
+    {
+        $params = '';
+        if ($expand = $this->buildUrlParamExpand($this->getAttributes())) {
+            $params = $this->addParameterToUrl($params, $expand);
+        }
+        if ($select = $this->buildUrlParamSelect($this->getAttributes())) {
+            $params = $this->addParameterToUrl($params, $select);
+        }
+        return $params;
+    }
+    
+    /**
+     * Returns $expand=... required for the relations of the attributes in the query parts
+     * 
+     * @param QueryPartAttribute[] $qparts
+     * @return string
+     */
+    protected function buildUrlParamExpand(array $qparts) : string
+    {
+        $expands = [];
+        foreach ($qparts as $qpart) {
+            $attr = $qpart->getAttribute();
+            if (! $attr->getRelationPath()->isEmpty()) {
+                $exp = '';
+                foreach ($qpart->getAttribute()->getRelationPath()->getRelations() as $rel) {
+                    $navProp = $rel->getLeftKeyAttribute()->getDataAddressProperty('odata_navigationproperty');
+                    if ($navProp === null || $navProp === '') {
+                        throw new QueryBuilderException('Cannot use attribute "' . $attr->getName() . ' (alias ' . $attr->getAliasWithRelationPath() . ') in OData $expand: please define a vaild `odata_navigationproperty` in its custom data address properties');
+                    }
+                    $exp .= ($exp ? '/' : '') . $navProp;
+                }
+                $expands[] = $exp;
+            }
+        }
+        if (empty($expands)) {
+            return '';
+        }
+        return '$expand=' . implode(',', array_unique($expands));
+    }
+    
+    /**
+     *
+     * @param QueryPartAttribute[] $qparts
+     * @return string
+     */
+    protected function buildUrlParamSelect(array $qparts) : string
+    {
+        return '';
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\JsonUrlBuilder::getValueFromRow()
+     */
+    protected function getValueFromRow(QueryPartAttribute $qpart, array $row)
+    {
+        $attr = $qpart->getAttribute();
+        // If the query part is an $expanded relation, follow the expanded data to find
+        // the row of the attributes own object. This row can then be handled by the
+        // "normal" JSON logic.
+        if ($attr->getRelationPath()->isEmpty() === false) {
+            foreach ($attr->getRelationPath()->getRelations() as $rel) {
+                $navProp = $rel->getLeftKeyAttribute()->getDataAddressProperty('odata_navigationproperty');
+                if ($navProp === null || $navProp === '') {
+                    throw new QueryBuilderException('Cannot use attribute "' . $attr->getName() . ' (alias ' . $attr->getAliasWithRelationPath() . ') in OData $expand: please define a vaild `odata_navigationproperty` in its custom data address properties');
+                }
+                $row = $row[$navProp];
+                if ($row === null) {
+                    throw new QueryBuilderException('Cannot read attribute "' . $attr->getName() . '" (alias ' . $attr->getAliasWithRelationPath() . ') from $expand: not data found for key "' . $navProp . '"');
+                }
+            }
+        }
+        return parent::getValueFromRow($qpart, $row);
+    }
 }
