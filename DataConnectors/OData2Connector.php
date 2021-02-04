@@ -62,7 +62,7 @@ class OData2Connector extends HttpConnector
     {
         $uxon = parent::getAuthProviderConfig();
         
-        if ($uxon !== null && is_a($uxon->getProperty('class'), '\\' . HttpBasicAuth::class) && $uxon->hasProperty('authentication_url') === false) {
+        if ($uxon !== null && is_a($uxon->getProperty('class'), '\\' . HttpBasicAuth::class, true) && $uxon->hasProperty('authentication_url') === false) {
             $uxon->setProperty('authentication_url', $this->getMetadataUrl());
         }
         
@@ -101,5 +101,16 @@ class OData2Connector extends HttpConnector
     {
         $this->useBatchRequests = $value;
         return $this;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\DataConnectors\AbstractUrlConnector::getUrl()
+     */
+    public function getUrl()
+    {
+        $url = parent::getUrl();
+        return rtrim($url, "/") . '/';
     }
 }
