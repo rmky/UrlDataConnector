@@ -190,6 +190,20 @@
             "HINT": "",
             "TYPE": "ERROR",
             "DOCS": ""
+        },
+        {
+            "CREATED_ON": "2021-02-04 17:42:20",
+            "MODIFIED_ON": "2021-02-04 17:42:20",
+            "CREATED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "UID": "0x11ebb579f36c8c76b579025041000001",
+            "APP": "0x11e6951dda3ba520b48b847beb4a5184",
+            "CODE": "7EO5HDU",
+            "TITLE": "Stored login data not valid anymore",
+            "DESCRIPTION": "Some web services will block users if they fail to login multiple times in a row. To prevent this, HTTP data connectors remember the credentials that failed and ask the user to re-login. \n\nThis behavior can be explicitly turned on or off via `authentication_retry_after_fail` in the configuration of the data connection.",
+            "HINT": "Please log in again manually!",
+            "TYPE": "ERROR",
+            "DOCS": ""
         }
     ],
     "totals_rows": [],
