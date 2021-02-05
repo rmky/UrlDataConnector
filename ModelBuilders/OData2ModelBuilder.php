@@ -79,9 +79,11 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         $created_ds->setAutoCount(false);
         
         $entityName = $this->getEntityType($meta_object);
-        $property_nodes = $this->getMetadata()->filterXPath($this->getXPathToProperties($entityName));
-        $imported_rows = $this->getAttributeData($property_nodes, $meta_object)->getRows();
-        foreach ($imported_rows as $row) {
+        
+        $propertyNodes = $this->getMetadata()->filterXPath($this->getXPathToProperties($entityName));
+        $foundAttrData = $this->getAttributeData($propertyNodes, $meta_object);        
+        
+        foreach ($foundAttrData->getRows() as $row) {
             if (count($meta_object->findAttributesByDataAddress($row['DATA_ADDRESS'])) === 0) {
                 $created_ds->addRow($row);
             }
@@ -94,7 +96,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             $uxon = $created_ds->exportUxonObject();
             $reloaded_ds = DataSheetFactory::createFromObject($refreshed_object);
             $reloaded_ds->importUxonObject($uxon);
-            $reloaded_ds->setCounterForRowsInDataSource(count($imported_rows));
+            $reloaded_ds->setCounterForRowsInDataSource(count($foundAttrData->getRows()));
             return $reloaded_ds;
         }
         
@@ -284,7 +286,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
     {
         $new_relations = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.ATTRIBUTE');
         $new_relations->setAutoCount(false);
-        $new_relations = $this->getRelationsData($app, $new_relations);
+        $new_relations = $this->getRelationsData($app, $object, $new_relations);
         
         
         if (! $new_relations->isEmpty()) {
@@ -303,21 +305,20 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         return $new_relations;
     }
     
-    protected function getRelationsData(AppInterface $app, DataSheetInterface $dataSheet) : DataSheetInterface
+    protected function getRelationsData(AppInterface $app, MetaObjectInterface $object = null, DataSheetInterface $dataSheet) : DataSheetInterface
     {
         $skipped = 0;
         
         $associations = $this->getMetadata()->filterXPath('//default:Association');
         foreach ($associations as $node) {
             // Add relation data to the data sheet - those fields, that will mark the attribute as a relation
-            if ($attributeData = $this->getRelationDataFromAssociation($node, $app)) {
+            if ($attributeData = $this->getRelationDataFromAssociation($node, $app, $object)) {
                 $dataSheet->addRow($attributeData);
             } else {
                 $skipped++;
             }
         }
         
-        // TODO filter away relations, that do not start or end with the $object if that is specified
         $dataSheet->setCounterForRowsInDataSource($dataSheet->countRows() + $skipped);
         
         return $dataSheet;
@@ -339,10 +340,101 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
     }
     
     /**
-     * Here is how an <Association> node looks like (provided, that each Delivery consists
-     * of 0 to many Tasks).
+     *  <EntityType Name="PARTNER">
+     *      ...
+     *      <NavigationProperty Name="to_country" Relationship="B57D30" FromRole="FromRole_B57D30" ToRole="ToRole_B57D30"/>
+     *  </EntityType>
+     *  ...
+     *  <Association Name="B57D30A3CF0BCD3B96FAE2AA00D33800" sap:content-version="1">
+     *      <End Type="PARTNER" Multiplicity="1" Role="FromRole_B57D300"/>
+     *      <End Type="COUNTRY" Multiplicity="0..1" Role="ToRole_B57D30"/>
+     *  </Association>
+     *  
      * 
-     * <Association Name="DeliveryToTasks" sap:content-version="1">
+     * @param \DOMElement $node
+     * @param AppInterface $object
+     * 
+     * @throws ModelBuilderRuntimeError
+     * 
+     * @return array|NULL
+     */
+    private function getRelationDataFromNavigationProperty(\DOMElement $node, MetaObjectInterface $object, bool $keysKnown = false) : ?array
+    {
+        $attributeData = $this->getRelationDataTemplate();
+        $thisObjEntityType = $this->getEntityType($object);
+        
+        try {
+            $propertyName = $node->getAttribute('Name');
+            $relationshipName = $node->getAttribute('Relationship');
+            $associationNode = $this->getMetadata()->filterXPath('//default:Association[@Name="' . $this->stripNamespace($relationshipName) . '"]');
+            
+            if ($associationNode->count() === 0) {
+                throw new ModelBuilderRuntimeError($this, 'OData association "' . $relationshipName . '" not found in $metadata!');   
+            }
+            
+            $fromRoleName = $node->getAttribute('FromRole');
+            $fromRoleNode = $associationNode->filterXPath('//default:End[@Role="' . $fromRoleName . '"]')->getNode(0);
+            $fromEntityType = $this->stripNamespace($fromRoleNode->getAttribute('Type'));
+            if ($fromEntityType === $thisObjEntityType) {
+                $fromObject = $object;
+            } else {
+                $object->getWorkbench()->model()->getObjectByAlias($fromEntityType, $object->getApp()->getAliasWithNamespace());
+            }
+            
+            $toRoleName = $node->getAttribute('ToRole');
+            $toRoleNode = $associationNode->filterXPath('//default:End[@Role="' . $toRoleName . '"]')->getNode(0);
+            $toEntityType = $this->stripNamespace($toRoleNode->getAttribute('Type'));
+            if ($toEntityType === $thisObjEntityType) {
+                $toObject = $object;
+            } else {
+                $toObject = $object->getWorkbench()->model()->getObjectByAlias($toEntityType, $object->getApp()->getAliasWithNamespace());
+            }
+            
+            $attributeData['OBJECT'] = $fromObject->getId();
+            $attributeData['ALIAS'] = $propertyName;
+            $attributeData['NAME'] = $toObject->getName();
+            $attributeData['DATATYPE'] = '0x11eb9e72951ccb489e72025041000001'; // DataSheetDataType
+            $attributeData['RELATED_OBJ'] = $toObject->getId();
+            $attributeData['DATA_ADDRESS'] = $propertyName;
+            $attributeData['DATA_ADDRESS_PROPS'] = (new UxonObject([
+                'odata_navigationproperty' => $propertyName
+            ]))->toJson();
+            
+            if (! $keysKnown) {
+                // If the keys of the relation are not known, we can's sort/aggregate the attribute 
+                // itself as it has no single value. Filtering should work if properly supported
+                // by the query builder.
+                $attributeData['SORTABLEFLAG'] = 0;
+                $attributeData['AGGREGATABLEFLAG'] = 0;
+            }
+            
+        } catch (MetaObjectNotFoundError $eo) {
+            $object->getWorkbench()->getLogger()->logException(new ModelBuilderRuntimeError($this, 'Cannot find object for one of the ends of oData association ' . $node->getAttribute('Name') . ': Skipping association!', '73G87II', $eo), LoggerInterface::WARNING);
+            return null;
+        } catch (MetaAttributeNotFoundError $ea) {
+            throw new ModelBuilderRuntimeError($this, 'Cannot convert oData association "' . $relationshipName . '" to relation for object ' . $fromObject->getAliasWithNamespace() . ' automatically: one of the key attributes was not found - see details below.', '73G87II', $ea);
+        }
+        
+        return $attributeData;
+    }
+    
+    /**
+     * Produces attribute data for relation-attributes in the following cases:
+     * 
+     * - Only <Association> exists: the relation is attached to the attribute referenced by
+     * the <Dependent> node of the <ReferentialConstraint>. If not constraint node exists,
+     * no relation is created.
+     * - Only <NavigationProperty> exists: a new attribute is created with the navigation
+     * properties name as data address. The attribute has DataSheetDataType as data type and
+     * nos single value - thus, it may not be used for sorting and aggregation. The right
+     * key of the relation cannot be set, so the UID of the right object is assumed.
+     * - Both <Association> and <NavigationProperty> exist: a new attribute is created for
+     * the <NavigationProperty>, but the right key of the relation can be set properly.
+     * 
+     * Here is how an <Association> node looks like (provided, that each Delivery consists
+     * of 0 to many Tasks). 
+     * 
+     *  <Association Name="DeliveryToTasks" sap:content-version="1">
      *     <End Type="Namespace.Delivery" Multiplicity="1" Role="FromRole_DeliveryToTasks"/>
      *     <End Type="Namespace.Task" Multiplicity="*" Role="ToRole_DeliveryToTasks"/>
      *     <ReferentialConstraint>
@@ -353,59 +445,131 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
      *             <PropertyRef Name="DeliveryId"/>
      *         </Dependent>
      *     </ReferentialConstraint>
-     * </Association>
+     *  </Association>
+     * 
+     * Another variantion is one without <ReferentialConstraint> but with a linked
+     * <NavigationProperty> (in this example a PARTNER belongs to a COUNTRY).
+     * 
+     *  <EntityType Name="PARTNER">
+     *      ...
+     *      <NavigationProperty Name="to_country" Relationship="B57D30" FromRole="FromRole_B57D30" ToRole="ToRole_B57D30"/>
+     *  </EntityType>
+     *  ...
+     *  <Association Name="B57D30A3CF0BCD3B96FAE2AA00D33800" sap:content-version="1">
+     *      <End Type="PARTNER" Multiplicity="1" Role="FromRole_B57D300"/>
+     *      <End Type="COUNTRY" Multiplicity="0..1" Role="ToRole_B57D30"/>
+     *  </Association>
+     *  
+     * The version with a <ReferentialConstraint> may also be linked to a <NavigationProperty>.
      * 
      * @param \DOMElement $association
      * @return array
      */
-    private function getRelationDataFromAssociation(\DOMElement $node, AppInterface $app) : ?array
+    private function getRelationDataFromAssociation(\DOMElement $node, AppInterface $app, MetaObjectInterface $object = null) : ?array
     {
         $attributeData = $this->getRelationDataTemplate();
+        $relationAddressProps = new UxonObject();
         
         try {
             
+            $namespace = $this->getNamespace();
             $ends = [];
             foreach ($node->getElementsByTagName('End') as $endNode) {
                 $ends[$endNode->getAttribute('Role')] = $endNode;
             }
             
             $constraintNode = $node->getElementsByTagName('ReferentialConstraint')->item(0);
-            if ($constraintNode === null) {
+            
+            $relationshipName = $node->getAttribute('Name');
+            $navPropertyNode = $this->getMetadata()->filterXPath($this->getXPathToNavigationProperties() . '[@Relationship="' . $namespace . '.' . $relationshipName . '"]')->getNode(0);
+            
+            if ($constraintNode === null && $navPropertyNode === null) {
                 // If the association does not have <ReferentialConstraint>, we don't know the keys
-                // for the relation, so we can't use it. This happens if Associations are generated
-                // from CDS annotations for value help. In this case, a special section is generated
-                // in <Annotations>.
+                // for the relation, so we can't use it unless there is a matching NavigationProperty,
+                // which was already converted to an attribute before. This happens if Associations 
+                // are generated from SAP CDS annotations for value help. In this case, a special section 
+                // is generated in <Annotations> of the $metadata.
                 // TODO generate Relations from Annotations
-                $err = new ModelBuilderRuntimeError($this, 'Cannot create meta relation for OData Association "' . $node->getAttribute('Name') . '" - no ReferentialConstraint found!');
+                $err = new ModelBuilderRuntimeError($this, 'Cannot create meta relation for OData Association "' . $node->getAttribute('Name') . '" - neither a ReferentialConstraint nor a matching NavigationProperty found!');
                 $app->getWorkbench()->getLogger()->logException($err);
                 return null;
             }
-            $principalNode = $constraintNode->getElementsByTagName('Principal')->item(0);
-            $dependentNode = $constraintNode->getElementsByTagName('Dependent')->item(0);
             
-            $leftEndNode = $ends[$dependentNode->getAttribute('Role')];
-            $leftEntityType = $this->stripNamespace($leftEndNode->getAttribute('Type'));
-            $leftObject = $app->getWorkbench()->model()->getObjectByAlias($leftEntityType, $app->getAliasWithNamespace());
-            $leftAttributeAlias = $dependentNode->getElementsByTagName('PropertyRef')->item(0)->getAttribute('Name');
-            $leftAttribute = $leftObject->getAttribute($leftAttributeAlias);
+            // Get left-side data
+            if ($navPropertyNode) {
+                // From the NavigationProperty if possible
+                $navPropertyEntity = $navPropertyNode->parentNode->getAttribute('Name');
+                $leftObject = $navPropertyObject = $this->getObjectByEntityType($navPropertyEntity, $app);
+                
+                $rightEndNode = $ends[$navPropertyNode->getAttribute('FromRole')];
+                
+                if ($navRelationData = $this->getRelationDataFromNavigationProperty($navPropertyNode, $leftObject, ($constraintNode !== null))) {
+                    $attributeData = $navRelationData;
+                    $relationAddressProps = UxonObject::fromJson($attributeData['DATA_ADDRESS_PROPS'] ?? '{}');
+                    $leftAttributeAlias = $attributeData['ALIAS'];
+                    if ($leftObject->hasAttribute($leftAttributeAlias)) {
+                        $leftAttribute = $leftObject->getAttribute($leftAttributeAlias);
+                        $attributeData['UID'] = $leftAttribute->getId();
+                    } else {
+                        // If generating a certain object, we can't create attributes for another
+                        // one!
+                        if ($object && ! $leftObject->isExactly($object)) {
+                            return null;
+                        }
+                        $leftAttribute = null;
+                        $ds = DataSheetFactory::createFromObjectIdOrAlias($app->getWorkbench(), 'exface.Core.ATTRIBUTE');
+                        // Add the UID column to make sure the new UID is read into it.
+                        $ds->getColumns()->addFromUidAttribute();
+                        $ds->addRow($attributeData);
+                        $ds->dataCreate();
+                        $attributeData = $ds->getRow(0);
+                    }
+                }
+            } 
+            if ($constraintNode) {
+                // From the ReferentialConstraint/Dependent if possible (eventally overwriting the data from 
+                // the NavigationProperty)
+                $dependentNode = $constraintNode->getElementsByTagName('Dependent')->item(0);
+                $leftEndNode = $ends[$dependentNode->getAttribute('Role')];
+                $leftEntityType = $this->stripNamespace($leftEndNode->getAttribute('Type'));
+                $leftObject = $this->getObjectByEntityType($leftEntityType, $app); 
+                if ($navPropertyObject && $leftObject !== $navPropertyObject) {
+                    $app->getWorkbench()->getLogger()->logException(new ModelBuilderRuntimeError($this, 'Cannot process OData association ' . $node->getAttribute('Name') . ': object mismatch in ReferentialConstraint and NavigationProperty!'));
+                    return null;
+                }
+                if (! $leftAttribute) {
+                    $leftAttributeAlias = $dependentNode->getElementsByTagName('PropertyRef')->item(0)->getAttribute('Name');
+                    $leftAttribute = $leftObject->getAttribute($leftAttributeAlias);
+                }
+                
+                $principalNode = $constraintNode->getElementsByTagName('Principal')->item(0);
+                $rightEndNode = $ends[$principalNode->getAttribute('Role')];$rightEntityType = $this->stripNamespace($rightEndNode->getAttribute('Type'));
+                $rightObject = $this->getObjectByEntityType($rightEntityType, $app);
+                $rightAttributeAlias = $principalNode->getElementsByTagName('PropertyRef')->item(0)->getAttribute('Name');
+                $rightKeyAttribute = $rightObject->getAttribute($rightAttributeAlias);
+                
+                $attributeData['UID'] = $leftAttribute->getId();
+                $attributeData['ALIAS'] = $leftAttributeAlias;
+                $attributeData['NAME'] = $rightObject->getName();
+                $attributeData['DATA_ADDRESS'] = $leftAttribute->getDataAddress();
+                $attributeData['RELATED_OBJ'] = $rightObject->getId();
+                $attributeData['RELATED_OBJ_ATTR'] = $rightKeyAttribute->isUidForObject() === false ? $rightKeyAttribute->getId() : '';
+            }
             
             // Skip existing relations with the same alias
-            if ($leftAttribute->isRelation() === true) {
+            if ($leftAttribute && $leftAttribute->isRelation() === true) {
                 return null;
             }
             
-            $rightEndNode = $ends[$principalNode->getAttribute('Role')];
-            $rightEntityType = $this->stripNamespace($rightEndNode->getAttribute('Type'));
-            $rightObject = $app->getWorkbench()->model()->getObjectByAlias($rightEntityType, $app->getAliasWithNamespace());
-            $rightAttributeAlias = $principalNode->getElementsByTagName('PropertyRef')->item(0)->getAttribute('Name');
-            $rightKeyAttribute = $rightObject->getAttribute($rightAttributeAlias);
+            // filter away relations, that do not start or end with the $object if that is specified
+            if ($object !== null && $attributeData['OBJECT'] !== $object->getId() && $attributeData['RELATED_OBJ'] !== $object->getId()) {
+                return null;
+            }
+                
             
-            $attributeData['UID'] = $leftObject->getAttribute($leftAttributeAlias)->getId();
-            $attributeData['ALIAS'] = $leftAttributeAlias;
-            $attributeData['NAME'] = $rightObject->getName();
-            $attributeData['RELATED_OBJ'] = $rightObject->getId();
-            $attributeData['RELATED_OBJ_ATTR'] = $rightKeyAttribute->isUidForObject() === false ? $rightKeyAttribute->getId() : '';
-            $attributeData['DATA_ADDRESS_PROPS'] = $leftAttribute->getDataAddressProperties()->extend(new UxonObject(['odata_association' => $node->getAttribute('Name')]))->toJson();
+            $dataAddressProps = $leftAttribute ? $leftAttribute->getDataAddressProperties()->extend($relationAddressProps) : $relationAddressProps;
+            
+            $attributeData['DATA_ADDRESS_PROPS'] = $dataAddressProps->toJson();
             
         } catch (MetaObjectNotFoundError $eo) {
             $app->getWorkbench()->getLogger()->logException(new ModelBuilderRuntimeError($this, 'Cannot find object for one of the ends of oData association ' . $node->getAttribute('Name') . ': Skipping association!', '73G87II', $eo), LoggerInterface::WARNING);
@@ -415,6 +579,11 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
         }
         
         return $attributeData;
+    }
+    
+    protected function getObjectByEntityType(string $entityTypeName, AppInterface $app) : MetaObjectInterface
+    {
+        return $app->getWorkbench()->model()->getObjectByAlias($entityTypeName, $app->getAliasWithNamespace());
     }
     
     /**
@@ -428,7 +597,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             $query = new Psr7DataQuery(new Request('GET', $this->getDataConnection()->getMetadataUrl()));
             $query->setUriFixed(true);
             $query = $this->getDataConnection()->query($query);
-            $this->metadata = new Crawler((string) $query->getResponse()->getBody());
+            $this->metadata = new Crawler($query->getResponse()->getBody()->__toString());
         }
         return $this->metadata;
     }
@@ -668,6 +837,20 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
     }
     
     /**
+     * 
+     * @param string|NULL $entityName
+     * @return string
+     */
+    protected function getXPathToNavigationProperties(string $entityName = null) : string
+    {
+        if ($entityName !== null) {
+            return $this->getXPathToEntityTypes() . '[@Name="' . $entityName . '"]/default:NavigationProperty';
+        } else {
+            return '//default:NavigationProperty';
+        }
+    }
+    
+    /**
      * Returns the EntityType holding the definition of the given object or NULL if the object does not match an EntityType.
      * 
      * Technically the data address of the object is the name of the EntitySet, so the result of this method is
@@ -726,7 +909,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
      * @param Crawler $xml
      * @return string
      */
-    protected function getNamespace(string $entityType) : string
+    protected function getNamespace(string $entityType = null) : string
     {
         return $this->getMetadata()->filterXPath('//default:Schema')->attr('Namespace');
     }
