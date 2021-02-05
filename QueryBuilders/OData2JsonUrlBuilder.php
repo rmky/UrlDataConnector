@@ -884,10 +884,10 @@ BODY;
                 if ($navProp === null || $navProp === '') {
                     throw new QueryBuilderException('Cannot use attribute "' . $attr->getName() . ' (alias ' . $attr->getAliasWithRelationPath() . ') in OData $expand: please define a vaild `odata_navigationproperty` in its custom data address properties');
                 }
-                $row = $row[$navProp];
-                if ($row === null) {
+                if (array_key_exists($navProp, $row) === false) {
                     throw new QueryBuilderException('Cannot read attribute "' . $attr->getName() . '" (alias ' . $attr->getAliasWithRelationPath() . ') from $expand: not data found for key "' . $navProp . '"');
                 }
+                $row = $row[$navProp] ?? [];
             }
         }
         return parent::getValueFromRow($qpart, $row);
