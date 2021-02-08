@@ -394,7 +394,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             $attributeData['OBJECT'] = $fromObject->getId();
             $attributeData['ALIAS'] = $propertyName;
             $attributeData['NAME'] = $toObject->getName();
-            $attributeData['DATATYPE'] = '0x11eb9e72951ccb489e72025041000001'; // DataSheetDataType
+            $attributeData['DATATYPE'] = '0x11eb81683be90d2e8168025041000001'; // ODataDeferredDataType
             $attributeData['RELATED_OBJ'] = $toObject->getId();
             $attributeData['DATA_ADDRESS'] = $propertyName;
             $attributeData['DATA_ADDRESS_PROPS'] = (new UxonObject([
@@ -426,9 +426,9 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
      * the <Dependent> node of the <ReferentialConstraint>. If not constraint node exists,
      * no relation is created.
      * - Only <NavigationProperty> exists: a new attribute is created with the navigation
-     * properties name as data address. The attribute has DataSheetDataType as data type and
-     * nos single value - thus, it may not be used for sorting and aggregation. The right
-     * key of the relation cannot be set, so the UID of the right object is assumed.
+     * properties name as data address. The attribute has the special `ODataDeferredDataType` 
+     * and is neither sortable nor aggregatable by default. Since the right key of the relation 
+     * is not known, the UID of the right object is assumed.
      * - Both <Association> and <NavigationProperty> exist: a new attribute is created for
      * the <NavigationProperty>, but the right key of the relation can be set properly.
      * 
