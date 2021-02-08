@@ -42,6 +42,7 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
  * 
  * - `odata_type` - the OData data type (e.g. `Edm.String`) from the $metadata. The
  * model builder will add this property automatically.
+ * - `odata_navigationproperty`
  *
  * @see AbstractUrlBuilder for data source specific parameters
  * 
@@ -50,6 +51,12 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
  */
 class OData2JsonUrlBuilder extends JsonUrlBuilder
 {
+    const DS_ODATA_INLINECOUNT = 'odata_$inlinecount';
+    
+    const DS_ODATA_TYPE = 'odata_type';
+    
+    const DS_ODATA_NAVIGATIONPROPERTY = 'odata_navigationproperty';
+    
     /**
      * 
      * @return string
@@ -199,7 +206,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
     protected function buildUrlPagination() : string
     {
         $params = parent::buildUrlPagination();
-        if ($params !== '' && $inlinecount = $this->getMainObject()->getDataAddressProperty('odata_$inlinecount')) {
+        if ($params !== '' && $inlinecount = $this->getMainObject()->getDataAddressProperty(static::DS_ODATA_INLINECOUNT)) {
             $params .= '&$inlinecount=' . $inlinecount;
         }
         return $params;
@@ -386,7 +393,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
             }
         }
         
-        return $this::buildUrlFilterODataValue($value, $qpart->getDataType(), $qpart->getDataAddressProperty('odata_type'));
+        return $this::buildUrlFilterODataValue($value, $qpart->getDataType(), $qpart->getDataAddressProperty(static::DS_ODATA_TYPE));
     }
     
     /**
@@ -614,7 +621,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      */
     protected function buildRequestBodyValue(QueryPartValue $qpart, $value) : string
     {
-        return $this::buildRequestBodyODataValue($value, $qpart->getDataType(), $qpart->getDataAddressProperty('odata_type'));
+        return $this::buildRequestBodyODataValue($value, $qpart->getDataType(), $qpart->getDataAddressProperty(static::DS_ODATA_TYPE));
     }
     
     /**
@@ -804,7 +811,7 @@ BODY;
             if (! $rel->isForwardRelation()) {
                 return false;
             }
-            if (! $rel->getLeftKeyAttribute()->getDataAddressProperty('odata_navigationproperty')) {
+            if (! $rel->getLeftKeyAttribute()->getDataAddressProperty(static::DS_ODATA_NAVIGATIONPROPERTY)) {
                 return false;
             }
         }
@@ -842,7 +849,7 @@ BODY;
             if (! $attr->getRelationPath()->isEmpty()) {
                 $exp = '';
                 foreach ($qpart->getAttribute()->getRelationPath()->getRelations() as $rel) {
-                    $navProp = $rel->getLeftKeyAttribute()->getDataAddressProperty('odata_navigationproperty');
+                    $navProp = $rel->getLeftKeyAttribute()->getDataAddressProperty(static::DS_ODATA_NAVIGATIONPROPERTY);
                     if ($navProp === null || $navProp === '') {
                         throw new QueryBuilderException('Cannot use attribute "' . $attr->getName() . ' (alias ' . $attr->getAliasWithRelationPath() . ') in OData $expand: please define a vaild `odata_navigationproperty` in its custom data address properties');
                     }
@@ -880,7 +887,7 @@ BODY;
         // "normal" JSON logic.
         if ($attr->getRelationPath()->isEmpty() === false) {
             foreach ($attr->getRelationPath()->getRelations() as $rel) {
-                $navProp = $rel->getLeftKeyAttribute()->getDataAddressProperty('odata_navigationproperty');
+                $navProp = $rel->getLeftKeyAttribute()->getDataAddressProperty(static::DS_ODATA_NAVIGATIONPROPERTY);
                 if ($navProp === null || $navProp === '') {
                     throw new QueryBuilderException('Cannot use attribute "' . $attr->getName() . ' (alias ' . $attr->getAliasWithRelationPath() . ') in OData $expand: please define a vaild `odata_navigationproperty` in its custom data address properties');
                 }

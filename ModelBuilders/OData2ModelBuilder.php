@@ -29,6 +29,7 @@ use exface\UrlDataConnector\Actions\CallOData2Operation;
 use exface\Core\Interfaces\Selectors\AliasSelectorInterface;
 use exface\Core\DataTypes\TimeDataType;
 use exface\Core\DataTypes\BinaryDataType;
+use exface\UrlDataConnector\QueryBuilders\OData2JsonUrlBuilder;
 
 /**
  * 
@@ -207,7 +208,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                         'alias' => $pType->getAliasWithNamespace()
                     ],
                     'custom_properties' => [
-                        "odata_type" => $paramNode->getAttribute('Type')
+                        OData2JsonUrlBuilder::DS_ODATA_TYPE=> $paramNode->getAttribute('Type')
                     ]
                 ];
                 if (strcasecmp($node->getAttribute('Nullable'), 'true') !== 0) {
@@ -397,7 +398,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             $attributeData['RELATED_OBJ'] = $toObject->getId();
             $attributeData['DATA_ADDRESS'] = $propertyName;
             $attributeData['DATA_ADDRESS_PROPS'] = (new UxonObject([
-                'odata_navigationproperty' => $propertyName
+                OData2JsonUrlBuilder::DS_ODATA_NAVIGATIONPROPERTY => $propertyName
             ]))->toJson();
             
             if (! $keysKnown) {
@@ -664,7 +665,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             $dataType = $this->guessDataType($object, $node);
             
             $dataAddressProps = [
-                'odata_type' => $node->getAttribute('Type')
+                OData2JsonUrlBuilder::DS_ODATA_TYPE => $node->getAttribute('Type')
             ];
             
             $row = [

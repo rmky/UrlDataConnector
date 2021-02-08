@@ -195,7 +195,7 @@ class GraphQLModelBuilder extends AbstractModelBuilder implements ModelBuilderIn
                         'alias' => $pType->getAliasWithNamespace()
                     ]/* TODO,
                     'custom_properties' => [
-                        "odata_type" => $typeArg->getAttribute('Type')
+                        
                     ]*/
                 ];
                 if (strcasecmp($typeArg['type']['kind'], 'NON_NULL') !== 0) {

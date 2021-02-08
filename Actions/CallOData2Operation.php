@@ -62,7 +62,7 @@ class CallOData2Operation extends CallWebService
         }
         
         $dataType = $parameter->getDataType();
-        $odataType = $parameter->getCustomProperty('odata_type');
+        $odataType = $parameter->getCustomProperty(OData2JsonUrlBuilder::DS_ODATA_TYPE);
         $val = $dataType->parse($val);
         
         return OData2JsonUrlBuilder::buildUrlFilterODataValue($val, $dataType, $odataType);

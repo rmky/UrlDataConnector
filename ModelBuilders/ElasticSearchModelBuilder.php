@@ -180,7 +180,7 @@ class ElasticSearchModelBuilder extends AbstractModelBuilder implements ModelBui
                         'alias' => $pType->getAliasWithNamespace()
                     ]/* TODO,
                     'custom_properties' => [
-                        "odata_type" => $typeArg->getAttribute('Type')
+                        
                     ]*/
                 ];
                 if (strcasecmp($typeArg['type']['kind'], 'NON_NULL') !== 0) {
