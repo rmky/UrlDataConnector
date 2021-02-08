@@ -20,6 +20,7 @@ use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
 use exface\Core\DataTypes\ComparatorDataType;
 use exface\Core\Interfaces\Model\CompoundAttributeInterface;
+use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
 
 /**
  * This is an abstract query builder for REST APIs.
@@ -202,13 +203,21 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     /**
      * Returns a PSR7 GET-Request for this query.
      * 
+     * @param bool $doSelect
+     * @param bool $doFilter
+     * @param bool $doSort
+     * @param bool $doPaginate
+     * @param bool $doAggregate
+     * 
      * @throws QueryBuilderException
+     * 
      * @return RequestInterface
      */
-    protected function buildRequestGet()
+    public function buildRequestToRead(bool $doSelect = true, bool $doFilter = true, bool $doSort = true, bool $doPaginate = true, bool $doAggregate = true) : RequestInterface
     {
         $thisObj = $this->getMainObject();
         $endpoint = $thisObj->getDataAddress();
+        $params = '';
         
         $queryFilters = $this->getFilters();
         // Copy the query filters since they might get modified by the logic below and we want to
@@ -288,12 +297,34 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             // built instead of an individual URL parameter for every filter.
         }
         
-        // build URL parameters from the filters remaining after the above preprocessing
-        $params_string = $this->buildUrlParams($requestFilters);
-        
         // Add attributes needed for address property logic
         if ($group_alias = $thisObj->getDataAddressProperty('response_group_by_attribute_alias')) {
             $this->addAttribute($group_alias);
+        }
+        
+        // Add URL parameters that may be required to select certain attributes
+        if ($doSelect) {
+            $params = $this->addParameterToUrl($params, $this->buildUrlParamsForAttributes($this->getAttributes()));
+        }
+        
+        // build URL parameters from the filters remaining after the above preprocessing
+        if ($doFilter && ! $requestFilters->isEmpty()) {
+            $params = $this->addParameterToUrl($params, $this->buildUrlFilterGroup($requestFilters));
+        }
+        
+        // Add pagination
+        if ($doPaginate && ($this->getLimit() || $this->getOffset())) {
+            $params = $this->addParameterToUrl($params, $this->buildUrlPagination());
+        }
+        
+        // Add sorters
+        if ($doSort && ($sorters = $this->buildUrlSorters())) {
+            $params = $this->addParameterToUrl($params, $sorters);
+        }
+        
+        // Add URL parameters that may be required to select certain attributes
+        if ($doAggregate && ! empty($this->getAggregations())) {
+            $params = $this->addParameterToUrl($params, $this->buildUrlParamsForAggregations($this->getAggregations()));
         }
         
         // Replace placeholders in endpoint
@@ -310,48 +341,38 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             $query_string = $endpoint;
         }
         
-        if ($params_string) {
-            $query_string .= (strpos($query_string, '?') !== false ? '&' : '?') . $params_string;
+        if ($params) {
+            $query_string .= (strpos($query_string, '?') !== false ? '&' : '?') . $params;
         }
         
         return new Request('GET', $query_string, $this->getHttpHeaders(self::OPERATION_READ));
     }
     
     /**
+     * Returns a string of URL parameters required to ensure the response includes the required attributes.
      * 
-     * @param QueryPartFilterGroup $urlFilters
+     * By default, URL builders assume, that all attributes available are included. If not the
+     * case, override this method to implement the corresponding logic.
+     * 
+     * @param QueryPartAttribute[] $qparts
      * @return string
      */
-    protected function buildUrlParams(QueryPartFilterGroup $urlFilters) : string
+    protected function buildUrlParamsForAttributes(array $qparts) : string
     {
-        $params_string = '';
-        
-        // Add URL parameters that may be required to select certain attributes
-        $params_string = $this->addParameterToUrl($params_string, $this->buildUrlParamsForAttributes());
-        
-        // Add the remaining filters to the URL
-        if (! $urlFilters->isEmpty()) {
-            $params_string = $this->addParameterToUrl($params_string, $this->buildUrlFilterGroup($urlFilters));
-        }
-        
-        // Add pagination
-        if ($this->getLimit() || $this->getOffset()) {
-            $params_string = $this->addParameterToUrl($params_string, $this->buildUrlPagination());
-        }
-        
-        // Add sorters
-        if ($sorters = $this->buildUrlSorters()) {
-            $params_string = $this->addParameterToUrl($params_string, $sorters);
-        }
-        
-        return $params_string;
+        return '';
     }
     
     /**
+     * Returns a s tring of URL parameters required to aggregate the data in the response.
      * 
+     * By defaul this mehtod returns an empty string as aggregation will mostly be done in-memory
+     * after ertrieving the entire data from the server (see . If a specific URL builder should
+     * support aggregation, override this method.
+     * 
+     * @param QueryPartAttribute[] $qparts
      * @return string
      */
-    protected function buildUrlParamsForAttributes() : string
+    protected function buildUrlParamsForAggregations(array $qparts) : string
     {
         return '';
     }
@@ -518,7 +539,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         
         // Enable local filtering if remote filters are not enabled and local filtering is not explicitly off
-        if ($qpart->getDataAddressProperty('filter_remote') === false && ($qpart->getDataAddressProperty('filter_locally') === null || $qpart->getDataAddressProperty('filter_locally') === '')) {
+        if (BooleanDataType::cast($qpart->getDataAddressProperty('filter_remote')) === false && ($qpart->getDataAddressProperty('filter_locally') === null || $qpart->getDataAddressProperty('filter_locally') === '')) {
             $qpart->setDataAddressProperty('filter_locally', true);
         }
         
@@ -837,7 +858,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             }
         }
         
-        $query = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
+        $query = $data_connection->query(new Psr7DataQuery($this->buildRequestToRead()));
         if ($data = $this->parseResponse($query)) {
             // See if the query has an IN-filter, that is set to split requests. This is quite common for URLs like mydomain.com/get_something/id=XXX.
             // If we filter over ids and have multiple values, we will need to make as many identical requests as there are values and merge
@@ -884,7 +905,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                     }
                     $this->setSubrequestNo($nr);
                     $splitFilter->setCompareValue($val);
-                    $subquery = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
+                    $subquery = $data_connection->query(new Psr7DataQuery($this->buildRequestToRead()));
                     if ($data = $this->parseResponse($subquery)) {
                         $totalCnt = $totalCnt + $this->findRowCounter($data, $query);
                         $subquery_rows = $this->buildResultRows($data, $subquery);

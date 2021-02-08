@@ -42,7 +42,9 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
  * 
  * - `odata_type` - the OData data type (e.g. `Edm.String`) from the $metadata. The
  * model builder will add this property automatically.
- * - `odata_navigationproperty`
+ * - `odata_navigationproperty` - the nave of the `<NavigationProperty>` to expand
+ * the relation represented by the attribute. If set, the query builder will use
+ * `$expand` to get related data instead of separate requests.
  *
  * @see AbstractUrlBuilder for data source specific parameters
  * 
@@ -138,20 +140,13 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      */
     public function count(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
-        // Use the regular GET URL but strip everything not affecting the count
-        $uri = $this->buildRequestGet()->getUri();
+        // Use the regular GET URL with filters and aggregations only
+        $uri = $this->buildRequestToRead(false, true, false, false, true)->getUri();
         $count_uri = $uri->withPath($uri->getPath() . '/$count');
         
-        $count_url_params = $uri->getQuery();
-        // Remove pagination
-        $count_url_params = preg_replace('/\&?' . preg_quote($this->buildUrlParamLimit($this->getMainObject())) . '=\d*/', "", $count_url_params);
-        $count_url_params = preg_replace('/\&?' . preg_quote($this->buildUrlParamOffset($this->getMainObject())) . '=\d*/', "", $count_url_params);
         // Remove the format (the result is just a number without any formatting)
+        $count_url_params = $uri->getQuery();
         $count_url_params = preg_replace('/\&?\$format=.*/', "", $count_url_params);
-        // Remove $select, $expand, etc.
-        if ($attrParams = $this->buildUrlParamsForAttributes()) {
-            $count_url_params = str_replace($attrParams, '', $count_url_params);
-        }
         
         $count_uri = $count_uri->withQuery($count_url_params);
         $count_query = new Psr7DataQuery(new Request('GET', $count_uri));
@@ -823,13 +818,13 @@ BODY;
      * {@inheritDoc}
      * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlParamsForAttributes()
      */
-    protected function buildUrlParamsForAttributes() : string
+    protected function buildUrlParamsForAttributes(array $qparts) : string
     {
         $params = '';
-        if ($expand = $this->buildUrlParamExpand($this->getAttributes())) {
+        if ($expand = $this->buildUrlParamExpand($qparts)) {
             $params = $this->addParameterToUrl($params, $expand);
         }
-        if ($select = $this->buildUrlParamSelect($this->getAttributes())) {
+        if ($select = $this->buildUrlParamSelect($qparts)) {
             $params = $this->addParameterToUrl($params, $select);
         }
         return $params;

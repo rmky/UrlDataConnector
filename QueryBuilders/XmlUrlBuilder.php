@@ -29,7 +29,7 @@ class XmlUrlBuilder extends AbstractUrlBuilder
     function read(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
         $result_rows = array();
-        $query = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
+        $query = $data_connection->query(new Psr7DataQuery($this->buildRequestToRead()));
         if ($data = $this->parseResponse($query)) {
             $data_array = (array) $data;
             
@@ -107,7 +107,7 @@ class XmlUrlBuilder extends AbstractUrlBuilder
      */
     public function count(DataConnectionInterface $data_connection) : DataQueryResultDataInterface
     {
-        $query = $data_connection->query(new Psr7DataQuery($this->buildRequestGet()));
+        $query = $data_connection->query(new Psr7DataQuery($this->buildRequestToRead()));
         if ($data = $this->parseResponse($query)) {
             $data_array = (array) $data;
             
