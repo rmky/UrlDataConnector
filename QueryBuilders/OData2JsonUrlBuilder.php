@@ -42,7 +42,7 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
  * 
  * - `odata_type` - the OData data type (e.g. `Edm.String`) from the $metadata. The
  * model builder will add this property automatically.
- * - `odata_navigationproperty` - the nave of the `<NavigationProperty>` to expand
+ * - `odata_navigationproperty` - the name of the `<NavigationProperty>` to expand
  * the relation represented by the attribute. If set, the query builder will use
  * `$expand` to get related data instead of separate requests.
  *
@@ -53,10 +53,47 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
  */
 class OData2JsonUrlBuilder extends JsonUrlBuilder
 {
+    /**
+     * Set to `allpages` to request an inlinecount from the server. 
+     * 
+     * If set, every read request will include the `$inlinecount` parameter with
+     * the value provided here.
+     * 
+     * @uxon-poperty odata_$inlinecount
+     * @uxon-target object
+     * @uxon-type [allpages,false]
+     * 
+     * @var string
+     */
     const DS_ODATA_INLINECOUNT = 'odata_$inlinecount';
     
+    /**
+     * The OData type of the attributes value - e.g. Edm.String.
+     * 
+     * The model builder will add this property automatically. For manually created
+     * attributes it makes sense to specify the correct type because some of the types
+     * require very special syntax in queries.
+     * 
+     * @uxon-property odata_type
+     * @uxon-target attribute
+     * @uxon-type string
+     * 
+     * @var string
+     */
     const DS_ODATA_TYPE = 'odata_type';
     
+    /**
+     * The name of the `<NavigationProperty>` to expand the relation represented by the attribute. 
+     * 
+     * If set, the query builder will use `$expand` to get related data instead 
+     * of separate requests.
+     * 
+     * @uxon-property odata_navigationproperty
+     * @uxon-target attribute
+     * @uxon-type string
+     * 
+     * @var string
+     */
     const DS_ODATA_NAVIGATIONPROPERTY = 'odata_navigationproperty';
     
     /**
@@ -267,7 +304,20 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      */
     protected function buildUrlFilter(QueryPartFilter $qpart)
     {
+        $attr = $qpart->getAttribute();
+        
         $param = $this->buildUrlParamFilter($qpart);
+        if ($attr->isRelation() 
+            && $attr->getDataAddressProperty(static::DS_ODATA_NAVIGATIONPROPERTY) 
+            && BooleanDataType::cast($attr->getDataAddressProperty('filter_remote')) !== false
+            && ($param === '' || $param === $attr->getDataAddress() || StringDataType::endsWith($param, '/' . $attr->getDataAddress()))) {
+            $relatedObj = $attr->getRelation()->getRightObject();
+            if ($relatedObj->hasUidAttribute()) {
+                $param .= ($param ? '/' : '') . $relatedObj->getUidAttribute()->getDataAddress();
+            } else {
+                throw new QueryBuilderException('Cannot filter over attribute "' . $attr->getAliasWithRelationPath() . '": cannot use OData navigation properties as filter directly if they point to entities without a UID property');
+            }
+        }
         
         if (! $param) {
             return '';
@@ -280,6 +330,20 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         }
         
         return $this->buildUrlFilterPredicate($qpart, $param, $value);
+    }
+
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder::buildUrlParamFilter()
+     */
+    protected function buildUrlParamFilter(QueryPartFilter $qpart)
+    {
+        $param = parent::buildUrlParamFilter($qpart);
+        if (! $qpart->getAttribute()->getRelationPath()->isEmpty()) {
+            $param = $this->getODataPropertyPath($qpart, false) . '/' . $param;
+        }
+        return $param;
     }
     
     /**
@@ -842,21 +906,37 @@ BODY;
         foreach ($qparts as $qpart) {
             $attr = $qpart->getAttribute();
             if (! $attr->getRelationPath()->isEmpty()) {
-                $exp = '';
-                foreach ($qpart->getAttribute()->getRelationPath()->getRelations() as $rel) {
-                    $navProp = $rel->getLeftKeyAttribute()->getDataAddressProperty(static::DS_ODATA_NAVIGATIONPROPERTY);
-                    if ($navProp === null || $navProp === '') {
-                        throw new QueryBuilderException('Cannot use attribute "' . $attr->getName() . ' (alias ' . $attr->getAliasWithRelationPath() . ') in OData $expand: please define a vaild `odata_navigationproperty` in its custom data address properties');
-                    }
-                    $exp .= ($exp ? '/' : '') . $navProp;
-                }
-                $expands[] = $exp;
+                $expands[] = $this->getODataPropertyPath($qpart, false);
             }
         }
         if (empty($expands)) {
             return '';
         }
         return '$expand=' . implode(',', array_unique($expands));
+    }
+    
+    /**
+     * 
+     * @param QueryPartAttribute $qpart
+     * @param bool $includePropertyName
+     * @throws QueryBuilderException
+     * @return string
+     */
+    protected function getODataPropertyPath(QueryPartAttribute $qpart, bool $includePropertyName = true) : string
+    {
+        $attr = $qpart->getAttribute();
+        $path = '';
+        foreach ($qpart->getAttribute()->getRelationPath()->getRelations() as $rel) {
+            $navProp = $rel->getLeftKeyAttribute()->getDataAddressProperty(static::DS_ODATA_NAVIGATIONPROPERTY);
+            if ($navProp === null || $navProp === '') {
+                throw new QueryBuilderException('Cannot use attribute "' . $attr->getName() . ' (alias ' . $attr->getAliasWithRelationPath() . ') in OData $expand: please define a vaild `odata_navigationproperty` in its custom data address properties');
+            }
+            $path .= ($path ? '/' : '') . $navProp;
+        }
+        if ($includePropertyName) {
+            $path .= ($path ? '/' : '') . $qpart->getDataAddress();
+        }
+        return $path;
     }
     
     /**

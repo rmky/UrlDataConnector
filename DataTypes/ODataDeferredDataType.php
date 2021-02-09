@@ -1,8 +1,8 @@
 <?php
 namespace exface\UrlDataConnector\DataTypes;
 
-use exface\Core\DataTypes\JsonDataType;
 use exface\Core\Exceptions\DataTypes\DataTypeCastingError;
+use exface\Core\DataTypes\StringDataType;
 
 /**
  * Special data type for OData __deferred data.
@@ -12,7 +12,7 @@ use exface\Core\Exceptions\DataTypes\DataTypeCastingError;
  * @author Andrej Kabachnik
  *
  */
-class ODataDeferredDataType extends JsonDataType
+class ODataDeferredDataType extends StringDataType
 {
     /**
      * 
