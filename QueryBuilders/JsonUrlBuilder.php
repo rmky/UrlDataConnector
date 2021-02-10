@@ -100,7 +100,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         
         $insert_ids = [];
         $uidAlias = $this->getMainObject()->hasUidAttribute() ? $this->getMainObject()->getUidAttributeAlias() : null;
-        $data_path = $this->getMainObject()->getDataAddressProperty('create_request_data_path');
+        $data_path = $this->getMainObject()->getDataAddressProperty(static::DAP_CREATE_REQUEST_DATA_PATH);
         foreach ($json_objects as $obj) {
             $request = $this->buildRequestPutPostDelete(static::OPERATION_CREATE, $obj, $data_path);
             $query = new Psr7DataQuery($request);
@@ -224,7 +224,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
         
         $insert_ids = array();
         $uidAlias = $this->getMainObject()->getUidAttributeAlias();
-        $data_path = $this->getMainObject()->getDataAddressProperty('update_request_data_path');
+        $data_path = $this->getMainObject()->getDataAddressProperty(static::DAP_UPDATE_REQUEST_DATA_PATH);
         foreach ($json_objects as $obj) {
             $request = $this->buildRequestPutPostDelete(static::OPERATION_UPDATE, $obj, $data_path);
             $query = new Psr7DataQuery($request);

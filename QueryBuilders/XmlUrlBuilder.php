@@ -1,7 +1,6 @@
 <?php
 namespace exface\UrlDataConnector\QueryBuilders;
 
-use exface\Core\CommonLogic\QueryBuilder\AbstractQueryBuilder;
 use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\DataSheets\DataColumn;
 use Psr\Http\Message\ResponseInterface;
@@ -34,7 +33,7 @@ class XmlUrlBuilder extends AbstractUrlBuilder
             $data_array = (array) $data;
             
             $total_count = $data_array;
-            foreach (explode('/', $this->getMainObject()->getDataAddressProperty('response_total_count_path')) as $step) {
+            foreach (explode('/', $this->getMainObject()->getDataAddressProperty(static::DAP_RESPONSE_TOTAL_COUNT_PATH)) as $step) {
                 $total_count = $total_count[$step];
             }
             
@@ -43,8 +42,8 @@ class XmlUrlBuilder extends AbstractUrlBuilder
                 $this->setLimit($originalLimit+1, $this->getOffset());
             }
             
-            if ($this->getMainObject()->getDataAddressProperty('response_data_path')) {
-                $rows = (array) $data_array[$this->getMainObject()->getDataAddressProperty('response_data_path')];
+            if ($this->getMainObject()->getDataAddressProperty(static::DAP_RESPONSE_DATA_PATH)) {
+                $rows = (array) $data_array[$this->getMainObject()->getDataAddressProperty(static::DAP_RESPONSE_DATA_PATH)];
                 if (! is_array($rows)) {
                     $rows = array(
                         $rows
@@ -112,7 +111,7 @@ class XmlUrlBuilder extends AbstractUrlBuilder
             $data_array = (array) $data;
             
             $total_count = $data_array;
-            foreach (explode('/', $this->getMainObject()->getDataAddressProperty('response_total_count_path')) as $step) {
+            foreach (explode('/', $this->getMainObject()->getDataAddressProperty(static::DAP_RESPONSE_TOTAL_COUNT_PATH)) as $step) {
                 $total_count = $total_count[$step];
             }
         } else {
@@ -140,5 +139,12 @@ class XmlUrlBuilder extends AbstractUrlBuilder
     {
         return new \SimpleXMLElement($response->getBody()->getContents());
     }
+    
+    protected function findFieldInData($data_address, $data)
+    {
+        // TODO refactor to whole class to use the current AbstractUrlBuilder methods and symfony crawler.
+        return null;
+    }
+
 }
 ?>

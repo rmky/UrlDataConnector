@@ -59,13 +59,13 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      * If set, every read request will include the `$inlinecount` parameter with
      * the value provided here.
      * 
-     * @uxon-poperty odata_$inlinecount
+     * @uxon-property odata_$inlinecount
      * @uxon-target object
      * @uxon-type [allpages,false]
      * 
      * @var string
      */
-    const DS_ODATA_INLINECOUNT = 'odata_$inlinecount';
+    const DAP_ODATA_INLINECOUNT = 'odata_$inlinecount';
     
     /**
      * The OData type of the attributes value - e.g. Edm.String.
@@ -77,13 +77,11 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      * @uxon-property odata_type
      * @uxon-target attribute
      * @uxon-type string
-     * 
-     * @var string
      */
-    const DS_ODATA_TYPE = 'odata_type';
+    const DAP_ODATA_TYPE = 'odata_type';
     
     /**
-     * The name of the `<NavigationProperty>` to expand the relation represented by the attribute. 
+     * The name of the `NavigationProperty` to expand the relation represented by the attribute. 
      * 
      * If set, the query builder will use `$expand` to get related data instead 
      * of separate requests.
@@ -91,10 +89,8 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      * @uxon-property odata_navigationproperty
      * @uxon-target attribute
      * @uxon-type string
-     * 
-     * @var string
      */
-    const DS_ODATA_NAVIGATIONPROPERTY = 'odata_navigationproperty';
+    const DAP_ODATA_NAVIGATIONPROPERTY = 'odata_navigationproperty';
     
     /**
      * 
@@ -238,7 +234,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
     protected function buildUrlPagination() : string
     {
         $params = parent::buildUrlPagination();
-        if ($params !== '' && $inlinecount = $this->getMainObject()->getDataAddressProperty(static::DS_ODATA_INLINECOUNT)) {
+        if ($params !== '' && $inlinecount = $this->getMainObject()->getDataAddressProperty(static::DAP_ODATA_INLINECOUNT)) {
             $params .= '&$inlinecount=' . $inlinecount;
         }
         return $params;
@@ -308,8 +304,8 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         
         $param = $this->buildUrlParamFilter($qpart);
         if ($attr->isRelation() 
-            && $attr->getDataAddressProperty(static::DS_ODATA_NAVIGATIONPROPERTY) 
-            && BooleanDataType::cast($attr->getDataAddressProperty('filter_remote')) !== false
+            && $attr->getDataAddressProperty(static::DAP_ODATA_NAVIGATIONPROPERTY) 
+            && $this->getPropertyFilterRemote($qpart) !== false
             && ($param === '' || $param === $attr->getDataAddress() || StringDataType::endsWith($param, '/' . $attr->getDataAddress()))) {
             $relatedObj = $attr->getRelation()->getRightObject();
             if ($relatedObj->hasUidAttribute()) {
@@ -325,7 +321,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         
         $value = null;
         // Add a prefix to the value if needed
-        if ($prefix = $qpart->getDataAddressProperty('filter_remote_prefix')) {
+        if ($prefix = $qpart->getDataAddressProperty(AbstractUrlBuilder::DAP_FILTER_REMOTE_URL_PREFIX)) {
             $value = $prefix . $this->buildUrlFilterValue($qpart);
         }
         
@@ -452,7 +448,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
             }
         }
         
-        return $this::buildUrlFilterODataValue($value, $qpart->getDataType(), $qpart->getDataAddressProperty(static::DS_ODATA_TYPE));
+        return $this::buildUrlFilterODataValue($value, $qpart->getDataType(), $qpart->getDataAddressProperty(static::DAP_ODATA_TYPE));
     }
     
     /**
@@ -645,14 +641,15 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      */
     protected function buildDataAddressForObject(MetaObjectInterface $object, $method = 'GET')
     {
-        switch (strtoupper($method)) {
+        $method = strtoupper($method);
+        switch ($method) {
             case 'PUT':
             case 'PATCH':
             case 'MERGE':
             case 'DELETE':
-                if (! $object->getDataAddressProperty('update_request_data_address')) {
+                if (($method === 'DELETE' && ! $object->getDataAddressProperty(static::DAP_DELETE_REQUEST_DATA_ADDRESS)) || ($method !== 'DELETE' && ! $object->getDataAddressProperty(static::DAP_UPDATE_REQUEST_DATA_ADDRESS))) {
                     if ($object->hasUidAttribute() === false) {
-                        throw new QueryBuilderException('Cannot update object "' . $object->getName() . '" (' . $object->getAliasWithNamespace() . ') via OData: there is no UID attribute defined for this object!');
+                        throw new QueryBuilderException('Cannot update or delete object "' . $object->getName() . '" (' . $object->getAliasWithNamespace() . ') via OData: there is no UID attribute defined for this object!');
                     }
                     
                     $url = $object->getDataAddress();
@@ -680,7 +677,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
      */
     protected function buildRequestBodyValue(QueryPartValue $qpart, $value) : string
     {
-        return $this::buildRequestBodyODataValue($value, $qpart->getDataType(), $qpart->getDataAddressProperty(static::DS_ODATA_TYPE));
+        return $this::buildRequestBodyODataValue($value, $qpart->getDataType(), $qpart->getDataAddressProperty(static::DAP_ODATA_TYPE));
     }
     
     /**
@@ -692,8 +689,8 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
     {
         $o = $this->getMainObject();
         switch ($operation) {
-            case static::OPERATION_CREATE: return $o->getDataAddressProperty('create_request_method') ? $o->getDataAddressProperty('create_request_method') : 'POST';
-            case static::OPERATION_UPDATE: return $o->getDataAddressProperty('update_request_method') ? $o->getDataAddressProperty('update_request_method') : 'PATCH';
+            case static::OPERATION_CREATE: return $o->getDataAddressProperty(static::DAP_CREATE_REQUEST_METHOD) ? $o->getDataAddressProperty(static::DAP_CREATE_REQUEST_METHOD) : 'POST';
+            case static::OPERATION_UPDATE: return $o->getDataAddressProperty(static::DAP_UPDATE_REQUEST_METHOD) ? $o->getDataAddressProperty(static::DAP_UPDATE_REQUEST_METHOD) : 'PATCH';
         }
         
         return parent::getHttpMethod($operation);
@@ -870,7 +867,7 @@ BODY;
             if (! $rel->isForwardRelation()) {
                 return false;
             }
-            if (! $rel->getLeftKeyAttribute()->getDataAddressProperty(static::DS_ODATA_NAVIGATIONPROPERTY)) {
+            if (! $rel->getLeftKeyAttribute()->getDataAddressProperty(static::DAP_ODATA_NAVIGATIONPROPERTY)) {
                 return false;
             }
         }
@@ -927,7 +924,7 @@ BODY;
         $attr = $qpart->getAttribute();
         $path = '';
         foreach ($qpart->getAttribute()->getRelationPath()->getRelations() as $rel) {
-            $navProp = $rel->getLeftKeyAttribute()->getDataAddressProperty(static::DS_ODATA_NAVIGATIONPROPERTY);
+            $navProp = $rel->getLeftKeyAttribute()->getDataAddressProperty(static::DAP_ODATA_NAVIGATIONPROPERTY);
             if ($navProp === null || $navProp === '') {
                 throw new QueryBuilderException('Cannot use attribute "' . $attr->getName() . ' (alias ' . $attr->getAliasWithRelationPath() . ') in OData $expand: please define a vaild `odata_navigationproperty` in its custom data address properties');
             }
@@ -962,7 +959,7 @@ BODY;
         // "normal" JSON logic.
         if ($attr->getRelationPath()->isEmpty() === false) {
             foreach ($attr->getRelationPath()->getRelations() as $rel) {
-                $navProp = $rel->getLeftKeyAttribute()->getDataAddressProperty(static::DS_ODATA_NAVIGATIONPROPERTY);
+                $navProp = $rel->getLeftKeyAttribute()->getDataAddressProperty(static::DAP_ODATA_NAVIGATIONPROPERTY);
                 if ($navProp === null || $navProp === '') {
                     throw new QueryBuilderException('Cannot use attribute "' . $attr->getName() . ' (alias ' . $attr->getAliasWithRelationPath() . ') in OData $expand: please define a vaild `odata_navigationproperty` in its custom data address properties');
                 }

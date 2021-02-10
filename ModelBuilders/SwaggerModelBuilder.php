@@ -29,6 +29,7 @@ use exface\Core\DataTypes\DateTimeDataType;
 use exface\Core\DataTypes\HexadecimalNumberDataType;
 use exface\Core\DataTypes\NumberDataType;
 use exface\UrlDataConnector\Actions\CallWebService;
+use exface\UrlDataConnector\QueryBuilders\AbstractUrlBuilder;
 
 /**
  * Creates metamodels from Swagger/OpenAPI descriptions.
@@ -574,28 +575,28 @@ class SwaggerModelBuilder extends AbstractModelBuilder implements ModelBuilderIn
             }
             
             if ($path = $this->getSwaggerPathToReadById($key)) {
-                $props->setProperty('uid_request_data_address', $this->getDataAddressFromPath($path['path']));
+                $props->setProperty(AbstractUrlBuilder::DAP_UID_REQUEST_DATA_ADDRESS, $this->getDataAddressFromPath($path['path']));
             }
             if ($path = $this->getSwaggerPathToCreate($key)) {
                 $addr = $this->getDataAddressFromPath($path['path']);
                 if ($addr !== $dataAddress) {
-                    $props->setProperty('create_request_data_address', $addr);
+                    $props->setProperty(AbstractUrlBuilder::DAP_CREATE_DATA_ADDRESS, $addr);
                 }
-                $props->setProperty('create_request_method', $path['method']);
+                $props->setProperty(AbstractUrlBuilder::DAP_CREATE_REQUEST_METHOD, $path['method']);
             }
             if ($path = $this->getSwaggerPathToUpdate($key, $dataAddress, $this->findUidField($def))) {
                 $addr = $this->getDataAddressFromPath($path['path']);
                 if ($addr !== $dataAddress) {
-                    $props->setProperty('update_request_data_address', $addr);
+                    $props->setProperty(AbstractUrlBuilder::DAP_UPDATE_REQUEST_DATA_ADDRESS, $addr);
                 }
-                $props->setProperty('update_request_method', $path['method']);
+                $props->setProperty(AbstractUrlBuilder::DAP_UPDATE_REQUEST_METHOD, $path['method']);
             }
             if ($path = $this->getSwaggerPathToDelete($key, $dataAddress, $this->findUidField($def))) {
                 $addr = $this->getDataAddressFromPath($path['path']);
                 if ($addr !== $dataAddress) {
-                    $props->setProperty('delete_request_data_address', $addr);
+                    $props->setProperty(AbstractUrlBuilder::DAP_DELETE_REQUEST_DATA_ADDRESS, $addr);
                 }
-                $props->setProperty('delete_request_method', $path['method']);
+                $props->setProperty(AbstractUrlBuilder::DAP_DELETE_REQUEST_METHOD, $path['method']);
             }
             
             $sheet->addRow([
@@ -642,13 +643,13 @@ class SwaggerModelBuilder extends AbstractModelBuilder implements ModelBuilderIn
             $dataType = $this->guessDataType($object, $fieldDef);
             
             $props = new UxonObject([
-                'filter_remote' => 'false',
+                AbstractUrlBuilder::DAP_FILTER_REMOTE => 'false',
                 'sort_remote' => 'false',
             ]);
             if ($readPathDef) {
                 foreach ($readPathDef['parameters'] as $paramDef) {
                     if ($paramDef['name'] === $field) {
-                        $props->setProperty('filter_remote', 'true');
+                        $props->setProperty(AbstractUrlBuilder::DAP_FILTER_REMOTE, 'true');
                     }
                 }
             }

@@ -55,136 +55,369 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
  * a query to `https://www.github.com/exface/`. This feature is very usefull in
  * web services, that do not return values of URL parameters in their response.
  * 
- * ## Data source options
+ * ## Data address properties
  * 
- * ### On object level
- * 
- * - `force_filtering` - disables request withot at least a single filter (1). 
- * Some APIs disallow this!
- * 
- * - `response_data_path` - path to the array containing the items
- * 
- * - `response_total_count_path` - path to the total number of items matching 
- * the filter (used for pagination)
- * 
- * - `response_group_by_attribute_alias` - result rows will get resorted and 
- * grouped by values of the given attribute
- * 
- * - `response_group_use_only_first` - set to `true` to return only the first 
- * group ignoring all rows with other values of the group attribute than the 
- * first row.
- * 
- * - `request_remote_pagination` - set to `false` to disable remote pagination.
- * If not set or set to `true`, `request_offset_parameter` and `request_limit_parameter`
- * must be set in the data source configuration to make pagination work. Some
- * query builder like the `OData2UrlBuilder` can generate these parameters automatically,
- * so you don't need to specify them manually. In this case, `request_remote_pagination`
- * simply turns pagination on or off.
- * 
- * - `request_remote_pagination_has_total` - set to `true` if the web service can
- * provide the total number of entries for a paged request. In order for this to work,
- * you must either provide `response_total_count_path` (recommended) or the query 
- * builder must implement the `count()` operation.
- * 
- * - `request_offset_parameter` - name of the URL parameter containing the 
- * page offset for pagination
- * 
- * - `request_limit_parameter` - name of the URL parameter holding the 
- * maximum number of returned items
- * 
- * - `request_url_replace_pattern` - regular expression pattern for PHP 
- * preg_replace() function to be performed on the request URL
- * 
- * - `request_url_replace_with` - replacement string for PHP preg_replace() 
- * function to be performed on the request URL
- * 
- * - `uid_request_data_address` - makes requests with filters over the UID go 
- * to this URL instead of the one in the data address. The URL allows
- * attribute_alias as placeholders (incl. the UID itself - e.g. 
- * "me.com/service/[#UID#]"). Note, that if the URL does not have placeholders
- * it will be always the same - regardles of what the UID actually is.  
- * 
- * - `uid_response_data_path` - used to find the data in the response for a 
- * request with a filter on UID (instead of response_data_path)
- * 
- * - `create_request_method` - HTTP method for create requests (PUT by default). 
- * 
- * - `create_request_data_address` - used in create requests instead of the 
- * data address
- * 
- * - `create_request_data_path` - path to the object/array holding the 
- * attributes of the instance to be created
- * 
- * - `read_request_remove_ambiguous_uids` - set to `true` to ignore rows with
- * UID values, that alread exist in previous rows. This is usefull if you use
- * a single service to read multiple objects: e.g. product groups and categories.
- * Assuming each group has a category id and name, you could create a category-object
- * with this option set to `true` to get a distinct list of categories. **WARNING:** 
- * don't use this option with server-side pagination because client and server will
- * have different oppinion on page length!   
- * 
- * - `update_request_method` - HTTP method for update requests (PATCH by default). 
- * 
- * - `update_request_data_address` - used in update requests instead of the 
- * data address
- * 
- * - `update_request_data_path` - this is where the data is put in the body 
- * of update requests (if not specified the attributes are just put in the root 
- * object)
- * 
- * - `delete_request_method` - HTTP method for delete requests (DELETE by default). 
- * 
- * - `delete_request_data_address` - used in delete requests instead of the 
- * data address 
- * 
- * ### On attribute level
- * 
- * - `filter_remote` - set to 1 to enable remote filtering (0 by default)
- * 
- * - `filter_remote_url` - used to set a custom URL to be used if there is a 
- * filter over this attribute. The URL accepts the placeholder [#~value#] which
- * will be replaced by the. Note, that if the URL does not have the placeholder,
- * it will be always the same - regardles of what the filter is actually set to. 
- * 
- * - `filter_remote_url_param` - used for filtering instead of the attributes 
- * data address: e.g. `&[filter_remote_url_param]=VALUE` instead of 
- * `&[data_address]=VALUE`
- * 
- * - `filter_remote_prefix` - prefix for the value in a filter query: e.g. 
- * `&[data_address]=[filter_remote_prefix]VALUE`. Can be used to pass default 
- * operators etc.
- * 
- * - `filter_remote_split_value_lists` - produces multiple request if the
- * filter value is a list (= an `IN` filter). This options is set to `true`
- * automatically for UID-filters if the object has a `uid_request_data_address`
- * or attributes with `filter_remote_url`. For other remote IN-filters, a list
- * of values will be used as filter value.
- * 
- * - `filter_locally` - set to 1 to filter in ExFace after reading the data
- * (e.g. if the data source does not support filtering over this attribute) or
- * set to 0 to take the data as it is. If not set, the data will be filtered
- * locally automatically if no remote filtering is configured.
- * 
- * - `sort_remote` - set to 1 to enable remote sorting (0 by default)
- * 
- * - `sort_remote_url_param` - used for sorting instead of the attributes 
- * data address: e.g. &[sort_remote_url_param]=VALUE instead of 
- * &[data_address]=VALUE
- * 
- * - `sort_locally` - set to 1 to sort in ExFace after reading the data (if 
- * the data source does not support filtering over this attribute).
- * 
- * - `create_data_address` - used in the body of create queries (typically 
- * PUT-queries) instead of the data address
- * 
- * - `update_data_address` - used in the body of update queries (typically 
- * POST/PATCH-queries) instead of the data address
+ * TODO
  *
  * @author Andrej Kabachnik
  *        
  */
 abstract class AbstractUrlBuilder extends AbstractQueryBuilder
 {
+    // Data Address Properties (DAP)
+    
+    /**
+     * If set to TRUE request without at least a single filter are skipped returning an empty result automatically.
+     * 
+     * @uxon-property force_filtering
+     * @uxon-target object
+     * @uxon-type boolean
+     */
+    const DAP_FORCE_FILTERING = 'force_filtering';
+    
+    /**
+     * Path to the array containing the items
+     * 
+     * @uxon-property response_data_path
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_RESPONSE_DATA_PATH = 'response_data_path';
+    
+    /**
+     * Path to the total number of items matching the filter (used for pagination)
+     * 
+     * @uxon-property response_total_count_path
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_RESPONSE_TOTAL_COUNT_PATH = 'response_total_count_path';
+    
+    /**
+     * Result rows will get resorted and grouped by values of the given attribute
+     * 
+     * @uxon-property response_group_by_attribute_alias
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_RESPONSE_GROUP_BY_ATTRIBUTE_ALIAS = 'response_group_by_attribute_alias';
+    
+    /**
+     * Set to `true` to return only the first group ignoring all rows with other values of the group attribute than the first row.
+     * 
+     * @uxon-property response_group_use_only_first
+     * @uxon-target object
+     * @uxon-type boolean
+     * @uxon-default false
+     */
+    const DAP_RESPONSE_GROUP_USE_ONLY_FIRST = 'response_group_use_only_first';
+    
+    /**
+     * Set to `false` to disable remote pagination.
+     * 
+     * If not set or set to `true`, `request_offset_parameter` and `request_limit_parameter`
+     * must be set in the data source configuration to make pagination work. Some
+     * query builder like the `OData2UrlBuilder` can generate these parameters automatically,
+     * so you don't need to specify them manually. In this case, `request_remote_pagination`
+     * simply turns pagination on or off.
+     * 
+     * @uxon-property request_remote_pagination
+     * @uxon-target object
+     * @uxon-type boolean
+     */
+    const DAP_REQUEST_REMOTE_PAGINATION = 'request_remote_pagination';
+    
+    /**
+     * Set to `true` if the web service can provide the total number of entries for a paged request. 
+     * 
+     * In order for this to work, you must either provide `response_total_count_path` (recommended) 
+     * or the query builder must implement the `count()` operation.
+     * 
+     * @uxon-property request_remote_pagination_has_total
+     * @uxon-target object
+     * @uxon-type boolean
+     */
+    const DAP_REQUEST_REMOTE_PAGINATION_HAS_TOTAL = 'request_remote_pagination_has_total';
+    
+    /**
+     * Name of the URL parameter containing the page offset for pagination
+     * 
+     * @uxon-property request_offset_parameter
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_REQUEST_OFFSET_PARAMETER = 'request_offset_parameter';
+    
+    /**
+     * Name of the URL parameter holding the maximum number of returned items
+     * 
+     * @uxon-property request_limit_parameter
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_REQUEST_LIMIT_PARAMERTER = 'request_limit_parameter'; 
+ 
+    /**
+     * regular expression pattern for PHP preg_replace() function to be performed on the request URL
+     * 
+     * @uxon-property request_url_replace_pattern
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_REQUEST_URL_REPLACE_PATTERN = 'request_url_replace_pattern';
+    
+    /**
+     * Replacement string for PHP preg_replace() function to be performed on the request URL
+     * 
+     * @uxon-property request_url_replace_with
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_REQUEST_URL_REPLACE_WITH = 'request_url_replace_with';
+    
+    /**
+     * Makes requests with filters over the UID go to this URL instead of the one in the data address. 
+     * 
+     * The URL allows attribute_alias as placeholders (incl. the UID itself - e.g.
+     * `me.com/service/[#UID#]`). Note, that if the URL does not have placeholders
+     * it will be always the same - regardles of what the UID actually is.
+     * 
+     * @uxon-property uid_request_data_address
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_UID_REQUEST_DATA_ADDRESS = 'uid_request_data_address';
+ 
+    /**
+     * used to find the data in the response for a request with a filter on UID (instead of response_data_path)
+     * 
+     * @uxon-property uid_response_data_path
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_UID_RESPONSE_DATA_PATH = 'uid_response_data_path';
+    
+    /**
+     * HTTP method for read requests (GET by default)
+     * 
+     * @uxon-property create_request_method
+     * @uxon-target object
+     * @uxon-type string
+     * @uxon-default GET
+     */
+    const DAP_READ_REQUEST_METHOD = 'read_request_method';
+ 
+    /**
+     * Set to `true` to ignore rows with UID values, that alread exist in previous rows. 
+     * 
+     * This is usefull if you use a single service to read multiple objects: e.g. product 
+     * groups and categories. Assuming each group has a category id and name, you could 
+     * create a category-object with this option set to `true` to get a distinct list of 
+     * categories. 
+     * 
+     * **WARNING:** don't use this option with server-side pagination because client and 
+     * server will have different oppinion on page length!
+     * 
+     * @uxon-property read_request_remove_ambiguous_uids
+     * @uxon-target object
+     * @uxon-type boolean
+     * @uxon-default false
+     */
+    const DAP_READ_REQUEST_REMOVE_AMBIGUOUS_UIDS = 'read_request_remove_ambiguous_uids';
+    
+    /**
+     * HTTP method for create requests (PUT by default)
+     * 
+     * @uxon-property create_request_method
+     * @uxon-target object
+     * @uxon-type string
+     * @uxon-default PUT
+     */
+    const DAP_CREATE_REQUEST_METHOD = 'create_request_method';
+ 
+    /**
+     * Used in create requests instead of the data address
+     * 
+     * @uxon-property create_request_data_address
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_CREATE_REQUEST_DATA_ADDRESS = 'create_request_data_address';
+ 
+    /**
+     * Path to the object/array holding the attributes of the instance to be created
+     * 
+     * @uxon-property create_request_data_path
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_CREATE_REQUEST_DATA_PATH = 'create_request_data_path';
+ 
+    /**
+     * HTTP method for update requests (PATCH by default).
+     * 
+     * @uxon-property update_request_method
+     * @uxon-target object
+     * @uxon-type string
+     * @uxon-default PATCH
+     */
+    const DAP_UPDATE_REQUEST_METHOD = 'update_request_method';
+ 
+    /**
+     * Used in update requests instead of the data address
+     * 
+     * @uxon-property update_request_data_address
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_UPDATE_REQUEST_DATA_ADDRESS = 'update_request_data_address';
+    
+    /**
+     * This is where the data is put in the body of update requests (if not specified the attributes are just put in the root)
+     * 
+     * @uxon-property update_request_data_path
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_UPDATE_REQUEST_DATA_PATH = 'update_request_data_path';
+     
+    /**
+     * HTTP method for delete requests (DELETE by default).
+     * 
+     * @uxon-property delete_request_method
+     * @uxon-target object
+     * @uxon-type string
+     * @uxon-default DELETE
+     */
+    const DAP_DELETE_REQUEST_METHOD = 'delete_request_method';
+     
+    /**
+     * Used in delete requests instead of the data address
+     * 
+     * @uxon-property delete_request_data_address
+     * @uxon-target object
+     * @uxon-type string
+     */
+    const DAP_DELETE_REQUEST_DATA_ADDRESS = 'delete_request_data_address';
+     
+    /**
+     * Set to 1 to enable remote filtering (0 by default).
+     * 
+     * @uxon-property filter_remote
+     * @uxon-target attribute
+     * @uxon-type boolean
+     * @uxon-default false
+     */
+    const DAP_FILTER_REMOTE = 'filter_remote';
+    
+    /**
+     * Used to set a custom URL to be used if there is a filter over this attribute. 
+     * 
+     * The URL accepts the placeholder `[#~value#]` which will be replaced by the. 
+     * Note, that if the URL does not have the placeholder, it will be always the same - 
+     * regardles of what the filter is actually set to. 
+     *
+     * @uxon-property filter_remote_url
+     * @uxon-target attribute
+     * @uxon-type string
+     */
+    const DAP_FILTER_REMOTE_URL = 'filter_remote_url';
+    
+    /**
+     * Used for filtering instead of the attributes data address.
+     * 
+     * E.g. `&[filter_remote_url_param]=VALUE` instead of `&[data_address]=VALUE`.
+     *
+     * @uxon-property filter_remote_url_param
+     * @uxon-target attribute
+     * @uxon-type string
+     */
+    const DAP_FILTER_REMOTE_URL_PARAM = 'filter_remote_url_param';
+    
+    /**
+     * Prefix for the value in a filter query.
+     * 
+     * E.g. `&[data_address]=[filter_remote_prefix]VALUE`. Can be used to pass default operators etc.
+     *
+     * @uxon-property filter_remote_prefix
+     * @uxon-target attribute
+     * @uxon-type string
+     */
+    const DAP_FILTER_REMOTE_URL_PREFIX = 'filter_remote_prefix';
+    
+    /**
+     * Produces multiple request if the filter value is a list (= an `IN` filter). 
+     * 
+     * This options is set to `true` automatically for UID-filters if the object has a 
+     * `uid_request_data_address` or attributes with `filter_remote_url`. For other remote 
+     * IN-filters, a list of values will be used as filter value.
+     * 
+     * @uxon-property filter_remote_split_value_lists
+     * @uxon-target attribute
+     * @uxon-type boolean
+     */
+    const DAP_FILTER_REMOTE_SPLIT_VALUE_LISTS = 'filter_remote_split_value_lists';
+    
+    /**
+     * Set to 1 to filter in ExFace after reading the data or  set to 0 to take the data as it is.
+     * 
+     * Use this if the data source does not support filtering over this attribute).
+     * 
+     * If not set, the data will be filtered locally automatically if no remote filtering 
+     * is configured.
+     * 
+     * @uxon-property filter_locally
+     * @uxon-target attribute
+     * @uxon-type boolean
+     */
+    const DAP_FILTER_LOCALLY = 'filter_locally';
+    
+    /**
+     * set to 1 to enable remote sorting (0 by default)
+     * 
+     * @uxon-property sort_remote
+     * @uxon-target attribute
+     * @uxon-type boolean
+     */
+    const DAP_SORT_REMOTE = 'sort_remote';
+    
+    /**
+     * used for sorting instead of the attributes data address.
+     * 
+     * E.g. `&[sort_remote_url_param]=VALUE` instead of `&[data_address]=VALUE`.
+     * 
+     * @uxon-property sort_remote_url_param
+     * @uxon-target attribute
+     * @uxon-type string
+     */
+    const DAP_SORT_REMOTE_URL_PARAM = 'sort_remote_url_param';
+    /**
+     * Set to 1 to sort in ExFace after reading the data (if the data source does not support filtering over this attribute)
+     * 
+     * @uxon-property sort_locally
+     * @uxon-target attribute
+     * @uxon-type boolean
+     */
+    const DAP_SORT_LOCALLY = 'sort_locally';
+    
+    /**
+     * Used in the body of create queries (typically PUT-queries) instead of the data address
+     * 
+     * @uxon-property create_data_address
+     * @uxon-target attribute
+     * @uxon-type string
+     */
+    const DAP_CREATE_DATA_ADDRESS = 'create_data_address';
+    
+    /**
+     * Used in the body of update queries (typically POST/PATCH-queries) instead of the data address
+     * 
+     * @uxon-property update_data_address
+     * @uxon-target attribute
+     * @uxon-type string
+     */
+    const DAP_UPDATE_DATA_ADDRESS = 'update_data_address';
+    
     const OPERATION_CREATE = 'create';
     const OPERATION_READ = 'read';
     const OPERATION_UPDATE = 'update';
@@ -226,7 +459,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         
         // Check if there are filters, that require to split the request into multiple requests.
         foreach ($requestFilters->getFilters() as $nr => $qpart) {
-            $splitOption = $qpart->getDataAddressProperty('filter_remote_split_value_lists');
+            $splitOption = $qpart->getDataAddressProperty(static::DAP_FILTER_REMOTE_SPLIT_VALUE_LISTS);
             if ($splitOption === null || $splitOption === '') {
                 $splitOption = null;
             } else {
@@ -235,14 +468,14 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             switch (true) {
                 // Need to split the request, if the object has a separate `uid_request_data_address`
                 // and there is a filter over the UID attribute
-                case $thisObj->getUidAttributeAlias() == $qpart->getAlias() && $thisObj->getDataAddressProperty('uid_request_data_address'):
+                case $thisObj->getUidAttributeAlias() == $qpart->getAlias() && $thisObj->getDataAddressProperty(static::DAP_UID_REQUEST_DATA_ADDRESS):
                     // In REST APIs it is common to have a special URL to fetch data by UID of the object:
                     // e.g. /users/1.xml would be the URL to fetch data for the user with UID = 1. Since in ExFace
                     // the UID filter can also be used in regular searches, we can tell ExFace to use a special
                     // data address for UID-based queries. Other filters will get applied to, but most APIs will
                     // probably ignore them. If the API can actually handle a regular UID-filter, the special
                     // data address should be simply left empty - this gives much more flexibility!
-                    $endpoint = $thisObj->getDataAddressProperty('uid_request_data_address');
+                    $endpoint = $thisObj->getDataAddressProperty(static::DAP_UID_REQUEST_DATA_ADDRESS);
                     // Remember the original filter (not it's copy from $requestFilters) for further processing!
                     if ($splitOption !== false) {
                         $this->setRequestSplitFilter($queryFilters->getFilters()[$nr]);
@@ -254,13 +487,13 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 // Another way to set custom URLs is to give an attribute an explicit URL via filter_remote_url address property.
                 // This ultimately does the same thing, as uid_request_data_address on object level, but it's more general
                 // because it can be set for every attribute.
-                case $filter_endpoint = $qpart->getDataAddressProperty('filter_remote_url'):
+                case $filter_endpoint = $qpart->getDataAddressProperty(static::DAP_FILTER_REMOTE_URL):
                     if ($qpart->getComparator() == ComparatorDataType::IN && $splitOption !== false) {
                         // FIXME this check prevents split filter collisions, but it can be greatly improved in two ways
                         // - we should generally look for other custom URLs
                         // - the final URL with all placeholders replaced should be compared
                         if ($this->getRequestSplitFilter() !== null) {
-                            if (strcasecmp($this->getRequestSplitFilter()->getDataAddressProperty('filter_remote_url'), $filter_endpoint) !== 0) {
+                            if (strcasecmp($this->getRequestSplitFilter()->getDataAddressProperty(static::DAP_FILTER_REMOTE_URL), $filter_endpoint) !== 0) {
                                 throw new QueryBuilderException('Cannot use multiple filters requiring different custom URLs in one query: "' . $this->getRequestSplitFilter()->getCondition()->toString() . '" AND "' . $qpart->getCondition()->toString() . '"!');
                             }
                         } else {
@@ -282,7 +515,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 default:
                     if ($splitOption === true && $qpart->getComparator() == ComparatorDataType::IN) {
                         if ($this->getRequestSplitFilter() !== null) {
-                            if (strcasecmp($this->getRequestSplitFilter()->getDataAddressProperty('filter_remote_url'), $filter_endpoint) !== 0) {
+                            if (strcasecmp($this->getRequeststatic::DAP_FILTER_REMOTE_URLataAddressProperty(static::DAP_FILTER_REMOTE_URL), $filter_endpoint) !== 0) {
                                 throw new QueryBuilderException('Cannot use multiple filters requiring different custom URLs in one query: "' . $this->getRequestSplitFilter()->getCondition()->toString() . '" AND "' . $qpart->getCondition()->toString() . '"!');
                             }
                         } else {
@@ -298,7 +531,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         
         // Add attributes needed for address property logic
-        if ($group_alias = $thisObj->getDataAddressProperty('response_group_by_attribute_alias')) {
+        if ($group_alias = $thisObj->getDataAddressProperty(static::DAP_RESPONSE_GROUP_BY_ATTRIBUTE_ALIAS)) {
             $this->addAttribute($group_alias);
         }
         
@@ -332,8 +565,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         
         if ($endpoint !== false) {
             // Run custom regexp transformations
-            if ($replace_pattern = $thisObj->getDataAddressProperty('request_url_replace_pattern')) {
-                $replace_with = $thisObj->getDataAddressProperty('request_url_replace_with');
+            if ($replace_pattern = $thisObj->getDataAddressProperty(static::DAP_REQUEST_URL_REPLACE_PATTERN)) {
+                $replace_with = $thisObj->getDataAddressProperty(static::DAP_REQUEST_URL_REPLACE_WITH);
                 $endpoint = preg_replace($replace_pattern, $replace_with, $endpoint);
             }
             
@@ -524,34 +757,42 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function prepareFilter(QueryPartFilter $qpart)
     {
-        if ($qpart->getDataAddressProperty('filter_remote') !== null) {
-            $qpart->setDataAddressProperty('filter_remote', BooleanDataType::cast($qpart->getDataAddressProperty('filter_remote')));
-        }
-        if ($qpart->getDataAddressProperty('filter_locally') !== null) {
-            $qpart->setDataAddressProperty('filter_locally', BooleanDataType::cast($qpart->getDataAddressProperty('filter_locally')));
-        }
-        
-        // If there are options for remote filtering set and the filter_remote address property is not explicitly off, enable it
-        if ($qpart->getDataAddressProperty('filter_remote_url') || $qpart->getDataAddressProperty('filter_remote_url_param') || $qpart->getDataAddressProperty('filter_remote_prefix')) {
-            if ($qpart->getDataAddressProperty('filter_remote') === '' || is_null($qpart->getDataAddressProperty('filter_remote'))) {
-                $qpart->setDataAddressProperty('filter_remote', true);
-            }
-        }
-        
-        // Enable local filtering if remote filters are not enabled and local filtering is not explicitly off
-        if (BooleanDataType::cast($qpart->getDataAddressProperty('filter_remote')) === false && ($qpart->getDataAddressProperty('filter_locally') === null || $qpart->getDataAddressProperty('filter_locally') === '')) {
-            $qpart->setDataAddressProperty('filter_locally', true);
-        }
-        
         // If a local filter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always
         // in the result - otherwise there will be nothing to filter over ;)
-        if ($qpart->getDataAddressProperty('filter_locally')) {
+        if ($this->getPropertyFilterLocally($qpart) === true) {
             $qpart->setApplyAfterReading(true);
             if ($qpart->getAttribute()) {
                 $this->addAttribute($qpart->getAlias());
             }
         }
         return $qpart;
+    }
+    
+    protected function getPropertyFilterRemote(QueryPartFilter $qpart) : ?bool
+    {
+        $val = BooleanDataType::cast($qpart->getDataAddressProperty(static::DAP_FILTER_REMOTE));
+        // If there are options for remote filtering set and the filter_remote address property is not explicitly off, enable it
+        if ($val === null) {
+            if ($qpart->getDataAddressProperty(static::DAP_FILTER_REMOTE_URL) || $qpart->getDataAddressProperty(static::DAP_FILTER_REMOTE_URL_PARAM) || $qpart->getDataAddressProperty(static::DAP_FILTER_REMOTE_PREFIX)) {
+                $val = true;
+            }
+        }
+        return $val;
+    }
+    
+    protected function getPropertyFilterRemoteUrl(QueryPartFilter $part) : ?string
+    {
+        
+    }
+    
+    protected function getPropertyFilterLocally(QueryPartFilter $qpart) : ?bool
+    {
+        $val = BooleanDataType::cast($qpart->getDataAddressProperty(static::DAP_FILTER_LOCALLY));
+        // Enable local filtering if remote filters are not enabled and local filtering is not explicitly off
+        if ($val === null && $this->getPropertyFilterRemote($qpart) !== true) {
+            $val = true;
+        }
+        return $val;
     }
     
     /**
@@ -573,28 +814,28 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function prepareSorter(QueryPartSorter $qpart)
     {
-        if ($qpart->getDataAddressProperty('sort_remote') !== null) {
-            $qpart->setDataAddressProperty('sort_remote', BooleanDataType::cast($qpart->getDataAddressProperty('sort_remote')));
+        if ($qpart->getDataAddressProperty(static::DAP_SORT_REMOTE) !== null) {
+            $qpart->setDataAddressProperty(static::DAP_SORT_REMOTE, BooleanDataType::cast($qpart->getDataAddressProperty(static::DAP_SORT_REMOTE)));
         }
-        if ($qpart->getDataAddressProperty('sort_locally') !== null) {
-            $qpart->setDataAddressProperty('sort_locally', BooleanDataType::cast($qpart->getDataAddressProperty('sort_locally')));
+        if ($qpart->getDataAddressProperty(static::DAP_SORT_LOCALLY) !== null) {
+            $qpart->setDataAddressProperty(static::DAP_SORT_LOCALLY, BooleanDataType::cast($qpart->getDataAddressProperty(static::DAP_SORT_LOCALLY)));
         }
         
         // If there are options for remote sorting set and the sort_remote address property is not explicitly off, enable it
-        if ($qpart->getDataAddressProperty('sort_remote_url_param')) {
-            if ($qpart->getDataAddressProperty('sort_remote') === '' || $qpart->getDataAddressProperty('sort_remote') === null) {
-                $qpart->setDataAddressProperty('sort_remote', true);
+        if ($qpart->getDataAddressProperty(static::DAP_SORT_REMOTE_URL_PARAM)) {
+            if ($qpart->getDataAddressProperty(static::DAP_SORT_REMOTE) === '' || $qpart->getDataAddressProperty(static::DAP_SORT_REMOTE) === null) {
+                $qpart->setDataAddressProperty(static::DAP_SORT_REMOTE, true);
             }
         }
         
         // Enable local sorting if remote sort is not enabled and local sorting is not explicitly off
-        if (! $qpart->getDataAddressProperty('sort_remote') && ($qpart->getDataAddressProperty('sort_locally') === null || $qpart->getDataAddressProperty('sort_locally') === '')) {
-            $qpart->setDataAddressProperty('sort_locally', true);
+        if (! $qpart->getDataAddressProperty(static::DAP_SORT_REMOTE) && ($qpart->getDataAddressProperty(static::DAP_SORT_LOCALLY) === null || $qpart->getDataAddressProperty(static::DAP_SORT_LOCALLY) === '')) {
+            $qpart->setDataAddressProperty(static::DAP_SORT_LOCALLY, true);
         }
         
         // If a local sorter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always
         // in the result - otherwise there will be nothing to sort over ;)
-        if ($qpart->getDataAddressProperty('sort_locally')) {
+        if ($qpart->getDataAddressProperty(static::DAP_SORT_LOCALLY)) {
             $qpart->setApplyAfterReading(true);
             if ($qpart->getAttribute()) {
                 $this->addAttribute($qpart->getAlias());
@@ -667,7 +908,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
             $filter = $param . '=';
             
             // Add a prefix to the value if needed
-            if ($prefix = $qpart->getDataAddressProperty('filter_remote_prefix')) {
+            if ($prefix = $qpart->getDataAddressProperty(static::DAP_FILTER_REMOTE_PREFIX)) {
                 $filter .= $prefix;
             }
             
@@ -718,7 +959,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         
         $filter = '';
         // Determine filter name (URL parameter name)
-        if ($param = $qpart->getDataAddressProperty('filter_remote_url_param')) {
+        if ($param = $qpart->getDataAddressProperty(static::DAP_FILTER_REMOTE_URL_PARAM)) {
             // Use the filter_remote_url_param if explicitly defined
             $filter = $param;
         } elseif (stripos($qpart->getDataAddress(), '->') !== 0) {
@@ -736,7 +977,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function isRemoteFilter(QueryPartFilter $qpart)
     {
-        return BooleanDataType::cast($qpart->getDataAddressProperty('filter_remote')) || $qpart->getDataAddressProperty('filter_remote_url_param');
+        return BooleanDataType::cast($qpart->getDataAddressProperty(static::DAP_FILTER_REMOTE)) || $qpart->getDataAddressProperty(static::DAP_FILTER_REMOTE_URL_PARAM);
     }
 
     /**
@@ -750,7 +991,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         if (! $this->isRemoteSorter($qpart)) {
             return '';
         }
-        return ($qpart->getDataAddressProperty('sort_remote_url_param') ? $qpart->getDataAddressProperty('sort_remote_url_param') : $qpart->getDataAddress());
+        return ($qpart->getDataAddressProperty(static::DAP_SORT_REMOTE_URL_PARAM) ? $qpart->getDataAddressProperty(static::DAP_SORT_REMOTE_URL_PARAM) : $qpart->getDataAddress());
     }
     
     /**
@@ -761,7 +1002,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function isRemoteSorter(QueryPartSorter $qpart)
     {
-        return BooleanDataType::cast($qpart->getDataAddressProperty('sort_remote')) || $qpart->getDataAddressProperty('sort_remote_url_param');
+        return BooleanDataType::cast($qpart->getDataAddressProperty(static::DAP_SORT_REMOTE)) || $qpart->getDataAddressProperty(static::DAP_SORT_REMOTE_URL_PARAM);
     }
 
     /**
@@ -813,10 +1054,10 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         switch ($query->getRequest()->getMethod()) {
             default:
                 // TODO make work with any request_split_filter, not just the UID
-                if ($this->getRequestSplitFilter() && $this->getRequestSplitFilter()->getAttribute()->isUidForObject() && ! is_null($this->getMainObject()->getDataAddressProperty('uid_response_data_path'))) {
-                    $path = $this->getMainObject()->getDataAddressProperty('uid_response_data_path');
+                if ($this->getRequestSplitFilter() && $this->getRequestSplitFilter()->getAttribute()->isUidForObject() && ! is_null($this->getMainObject()->getDataAddressProperty(static::DAP_UID_RESPONSE_DATA_PATH))) {
+                    $path = $this->getMainObject()->getDataAddressProperty(static::DAP_UID_RESPONSE_DATA_PATH);
                 } else {
-                    $path = $this->getMainObject()->getDataAddressProperty('response_data_path');
+                    $path = $this->getMainObject()->getDataAddressProperty(static::DAP_RESPONSE_DATA_PATH);
                 }
         }
         return $path;
@@ -844,7 +1085,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         $result_rows = array();
         $totalCnt = null;
         // Check if force filtering is enabled
-        if ($this->getMainObject()->getDataAddressProperty('force_filtering') && count($this->getFilters()->getFiltersAndNestedGroups()) < 1) {
+        if ($this->getMainObject()->getDataAddressProperty(static::DAP_FORCE_FILTERING) && count($this->getFilters()->getFiltersAndNestedGroups()) < 1) {
             return new DataQueryResultData([], 0, false);
         }
         
@@ -986,8 +1227,8 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function applyPostprocessing(array $result_rows) : array
     {
-        if ($group_attribute_alias = $this->getMainObject()->getDataAddressProperty('response_group_by_attribute_alias')) {
-            if ($this->getMainObject()->getDataAddressProperty('response_group_use_only_first')) {
+        if ($group_attribute_alias = $this->getMainObject()->getDataAddressProperty(static::DAP_RESPONSE_GROUP_BY_ATTRIBUTE_ALIAS)) {
+            if ($this->getMainObject()->getDataAddressProperty(static::DAP_RESPONSE_GROUP_USE_ONLY_FIRST)) {
                 $qpart = $this->getAttribute($group_attribute_alias);
                 $group_value = null;
                 foreach ($result_rows as $row_nr => $row) {
@@ -1013,7 +1254,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function isRemotePaginationConfigured() : bool
     {
-        $dsOption = BooleanDataType::cast($this->getMainObject()->getDataAddressProperty('request_remote_pagination'));
+        $dsOption = BooleanDataType::cast($this->getMainObject()->getDataAddressProperty(static::DAP_REQUEST_REMOTE_PAGINATION));
         if ($dsOption === null) {
             return $this->buildUrlParamLimit($this->getMainObject()) ? true : false;
         } else {
@@ -1028,7 +1269,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function isRemotePaginationTotalAvailable() : ?bool
     {
-        $value = $this->getMainObject()->getDataAddressProperty('request_remote_pagination_has_total');
+        $value = $this->getMainObject()->getDataAddressProperty(static::DAP_REQUEST_REMOTE_PAGINATION_HAS_TOTAL);
         if ($value === null || $value === '') {
             return null;
         }
@@ -1051,9 +1292,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         $data_address = $attribute->getDataAddress();
         switch ($operation) {
             case static::OPERATION_CREATE:
-                return ($attribute->getDataAddressProperty('create_data_address') ? $attribute->getDataAddressProperty('create_data_address') : $data_address);
+                return ($attribute->getDataAddressProperty(static::DAP_CREATE_DATA_ADDRESS) ? $attribute->getDataAddressProperty(static::DAP_CREATE_DATA_ADDRESS) : $data_address);
             case static::OPERATION_UPDATE:
-                return ($attribute->getDataAddressProperty('update_data_address') ? $attribute->getDataAddressProperty('update_data_address') : $data_address);
+                return ($attribute->getDataAddressProperty(static::DAP_UPDATE_DATA_ADDRESS) ? $attribute->getDataAddressProperty(static::DAP_UPDATE_DATA_ADDRESS) : $data_address);
         }
         return $data_address;
     }
@@ -1073,13 +1314,13 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     {
         switch ($operation) {
             case static::OPERATION_CREATE:
-                $custom = $object->getDataAddressProperty('create_request_data_address'); 
+                $custom = $object->getDataAddressProperty(static::DAP_CREATE_REQUEST_DATA_ADDRESS); 
                 break;
             case static::OPERATION_UPDATE:
-                $custom = $object->getDataAddressProperty('update_request_data_address');#
+                $custom = $object->getDataAddressProperty(static::DAP_UPDATE_REQUEST_DATA_ADDRESS);
                 break;
             case static::OPERATION_DELETE:
-                $custom = $object->getDataAddressProperty('delete_request_data_address');#
+                $custom = $object->getDataAddressProperty(static::DAP_DELETE_REQUEST_DATA_ADDRESS);
                 break;
         }
         return $custom ? $custom : $object->getDataAddress();
@@ -1104,7 +1345,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function buildPathToTotalRowCounter(MetaObjectInterface $object)
     {
-        return $object->getDataAddressProperty('response_total_count_path');
+        return $object->getDataAddressProperty(static::DAP_RESPONSE_TOTAL_COUNT_PATH);
     }
     
     /**
@@ -1132,12 +1373,12 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     
     protected function buildUrlParamOffset(MetaObjectInterface $object)
     {
-        return $object->getDataAddressProperty('request_offset_parameter');
+        return $object->getDataAddressProperty(static::DAP_REQUEST_OFFSET_PARAMETER);
     }
     
     protected function buildUrlParamLimit(MetaObjectInterface $object)
     {
-        return $object->getDataAddressProperty('request_limit_parameter');
+        return $object->getDataAddressProperty(static::DAP_REQUEST_LIMIT_PARAMERTER);
     }
     
     /**
@@ -1163,10 +1404,10 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
     {
         $o = $this->getMainObject();
         switch ($operation) {
-            case static::OPERATION_CREATE: return $o->getDataAddressProperty('create_request_method') ? $o->getDataAddressProperty('create_request_method') : 'PUT';
-            case static::OPERATION_READ: return $o->getDataAddressProperty('read_request_method') ? $o->getDataAddressProperty('read_request_method') : 'GET';
-            case static::OPERATION_UPDATE: return $o->getDataAddressProperty('update_request_method') ? $o->getDataAddressProperty('update_request_method') : 'PATCH';
-            case static::OPERATION_DELETE: return $o->getDataAddressProperty('delete_request_method') ? $o->getDataAddressProperty('delete_request_method') : 'DELETE';
+            case static::OPERATION_CREATE: return $o->getDataAddressProperty(static::DAP_CREATE_REQUEST_METHOD) ? $o->getDataAddressProperty(static::DAP_CREATE_REQUEST_METHOD) : 'PUT';
+            case static::OPERATION_READ: return $o->getDataAddressProperty(static::DAP_READ_REQUEST_METHOD) ? $o->getDataAddressProperty(static::DAP_READ_REQUEST_METHOD) : 'GET';
+            case static::OPERATION_UPDATE: return $o->getDataAddressProperty(static::DAP_UPDATE_REQUEST_METHOD) ? $o->getDataAddressProperty(static::DAP_UPDATE_REQUEST_METHOD) : 'PATCH';
+            case static::OPERATION_DELETE: return $o->getDataAddressProperty(static::DAP_DELETE_REQUEST_METHOD) ? $o->getDataAddressProperty(static::DAP_DELETE_REQUEST_METHOD) : 'DELETE';
         }
         
         return 'POST';
@@ -1207,7 +1448,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         
         $obj = $this->getMainObject();
-        return (BooleanDataType::cast($obj->getDataAddressProperty('read_request_remove_ambiguous_uids')) === true && $obj->hasUidAttribute() === true);
+        return (BooleanDataType::cast($obj->getDataAddressProperty(static::DAP_READ_REQUEST_REMOVE_AMBIGUOUS_UIDS)) === true && $obj->hasUidAttribute() === true);
     }
     
     /**

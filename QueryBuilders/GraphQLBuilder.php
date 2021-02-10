@@ -18,6 +18,7 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
 use exface\Core\Exceptions\QueryBuilderException;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartValue;
 use Psr\Http\Message\RequestInterface;
+use exface\Core\CommonLogic\ModelBuilders\AbstractModelBuilder;
 
 /**
  * This is a query builder for GraphQL.
@@ -94,8 +95,7 @@ use Psr\Http\Message\RequestInterface;
  * If not set, the data address will be used.
  * 
  * - `update_data_address` - GraphQL field to use in the `graphql_update_mutation`.
- * If not set, the data address will be used.
- * 
+ * If not set, the data address will be used
  * 
  * @author Andrej Kabachnik
  *        
@@ -154,9 +154,9 @@ GraphQL;
     protected function buildGqlField(QueryPartAttribute $qpart, string $crudAction = self::CRUD_ACTION_READ) : string
     {
         switch ($crudAction) {
-            case self::CRUD_ACTION_CREATE: $addr = $qpart->getDataAddressProperty('create_data_address'); break;
+            case self::CRUD_ACTION_CREATE: $addr = $qpart->getDataAddressProperty(AbstractUrlBuilder::DAP_CREATE_DATA_ADDRESS); break;
             case self::CRUD_ACTION_READ: $addr = $qpart->getDataAddressProperty('read_data_address'); break;
-            case self::CRUD_ACTION_UPDATE: $addr = $qpart->getDataAddressProperty('update_data_address'); break;
+            case self::CRUD_ACTION_UPDATE: $addr = $qpart->getDataAddressProperty(AbstractUrlBuilder::DAP_UPDATE_DATA_ADDRESS); break;
         }
         return $addr ?? $qpart->getAttribute()->getDataAddress();
     }
@@ -374,21 +374,14 @@ GraphQL;
      */
     protected function prepareFilter(QueryPartFilter $qpart)
     {
-        // TODO If there are options for remote filtering set and the filter_remote address property is not explicitly off, enable it
-        /*if ($qpart->getDataAddressProperty('filter_remote_url') || $qpart->getDataAddressProperty('filter_remote_argument') || $qpart->getDataAddressProperty('filter_remote_prefix')) {
-            if ($qpart->getDataAddressProperty('filter_remote') === '' || is_null($qpart->getDataAddressProperty('filter_remote'))) {
-                $qpart->setDataAddressProperty('filter_remote', 1);
-            }
-        }*/
-        
         // Enable local filtering if remote filters are not enabled and local filtering is not explicitly off
-        if (! $qpart->getDataAddressProperty('filter_remote') && (is_null($qpart->getDataAddressProperty('filter_locally')) || $qpart->getDataAddressProperty('filter_locally') === '')) {
-            $qpart->setDataAddressProperty('filter_locally', 1);
+        if (! $qpart->getDataAddressProperty(AbstractUrlBuilder::DAP_FILTER_REMOTE) && (is_null($qpart->getDataAddressProperty(AbstractUrlBuilder::DAP_FILTER_LOCALLY)) || $qpart->getDataAddressProperty(AbstractUrlBuilder::DAP_FILTER_LOCALLY) === '')) {
+            $qpart->setDataAddressProperty(AbstractUrlBuilder::DAP_FILTER_REMOTE, 1);
         }
         
         // If a local filter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always
         // in the result - otherwise there will be nothing to filter over ;)
-        if ($qpart->getDataAddressProperty('filter_locally')) {
+        if ($qpart->getDataAddressProperty(AbstractUrlBuilder::DAP_FILTER_LOCALLY)) {
             $qpart->setApplyAfterReading(true);
             if ($qpart->getAttribute()) {
                 $this->addAttribute($qpart->getAlias());
@@ -418,19 +411,19 @@ GraphQL;
     {
         // If there are options for remote sorting set and the sort_remote address property is not explicitly off, enable it
         if ($qpart->getDataAddressProperty('sort_remote_graphql_field')) {
-            if ($qpart->getDataAddressProperty('sort_remote') === '' || is_null($qpart->getDataAddressProperty('sort_remote'))) {
-                $qpart->setDataAddressProperty('sort_remote', 1);
+            if ($qpart->getDataAddressProperty(static::DAP_SORT_REMOTE) === '' || is_null($qpart->getDataAddressProperty(static::DAP_SORT_REMOTE))) {
+                $qpart->setDataAddressProperty(static::DAP_SORT_REMOTE, 1);
             }
         }
         
         // Enable local sorting if remote sort is not enabled and local sorting is not explicitly off
-        if (! $qpart->getDataAddressProperty('sort_remote') && (is_null($qpart->getDataAddressProperty('sort_locally')) || $qpart->getDataAddressProperty('sort_locally') === '')) {
-            $qpart->setDataAddressProperty('sort_locally', 1);
+        if (! $qpart->getDataAddressProperty(static::DAP_SORT_REMOTE) && (is_null($qpart->getDataAddressProperty(static::DAP_SORT_LOCALLY)) || $qpart->getDataAddressProperty(static::DAP_SORT_LOCALLY) === '')) {
+            $qpart->setDataAddressProperty(static::DAP_SORT_LOCALLY, 1);
         }
         
         // If a local sorter is to be applied in postprocessing, mark the respective query part and make sure, the attribute is always
         // in the result - otherwise there will be nothing to sort over ;)
-        if ($qpart->getDataAddressProperty('sort_locally')) {
+        if ($qpart->getDataAddressProperty(static::DAP_SORT_LOCALLY)) {
             $qpart->setApplyAfterReading(true);
             if ($qpart->getAttribute()) {
                 $this->addAttribute($qpart->getAlias());
@@ -450,7 +443,7 @@ GraphQL;
     {
         return false;
         
-        $dsOption = $this->getMainObject()->getDataAddressProperty('request_remote_pagination');
+        $dsOption = $this->getMainObject()->getDataAddressProperty(AbstractUrlBuilder::DAP_REQUEST_REMOTE_PAGINATION);
         if ($dsOption === null) {
             // TODO
             // return $this->buildUrlParamLimit($this->getMainObject()) ? true : false;

@@ -208,7 +208,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
                         'alias' => $pType->getAliasWithNamespace()
                     ],
                     'custom_properties' => [
-                        OData2JsonUrlBuilder::DS_ODATA_TYPE=> $paramNode->getAttribute('Type')
+                        OData2JsonUrlBuilder::DAP_ODATA_TYPE=> $paramNode->getAttribute('Type')
                     ]
                 ];
                 if (strcasecmp($node->getAttribute('Nullable'), 'true') !== 0) {
@@ -398,7 +398,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             $attributeData['RELATED_OBJ'] = $toObject->getId();
             $attributeData['DATA_ADDRESS'] = $propertyName;
             $attributeData['DATA_ADDRESS_PROPS'] = (new UxonObject([
-                OData2JsonUrlBuilder::DS_ODATA_NAVIGATIONPROPERTY => $propertyName
+                OData2JsonUrlBuilder::DAP_ODATA_NAVIGATIONPROPERTY => $propertyName
             ]))->toJson();
             
             if (! $keysKnown) {
@@ -665,7 +665,7 @@ class OData2ModelBuilder extends AbstractModelBuilder implements ModelBuilderInt
             $dataType = $this->guessDataType($object, $node);
             
             $dataAddressProps = [
-                OData2JsonUrlBuilder::DS_ODATA_TYPE => $node->getAttribute('Type')
+                OData2JsonUrlBuilder::DAP_ODATA_TYPE => $node->getAttribute('Type')
             ];
             
             $row = [
