@@ -48,7 +48,7 @@ class SwaggerModelBuilder extends AbstractModelBuilder implements ModelBuilderIn
      * {@inheritDoc}
      * @see \exface\Core\CommonLogic\ModelBuilders\AbstractModelBuilder::generateAttributesForObject()
      */
-    public function generateAttributesForObject(MetaObjectInterface $meta_object) : DataSheetInterface
+    public function generateAttributesForObject(MetaObjectInterface $meta_object, string $addressPattern = '') : DataSheetInterface
     {
         $transaction = $meta_object->getWorkbench()->data()->startTransaction();
         
