@@ -343,7 +343,7 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      * @uxon-target attribute
      * @uxon-type string
      */
-    const DAP_FILTER_REMOTE_URL_PREFIX = 'filter_remote_prefix';
+    const DAP_FILTER_REMOTE_PREFIX = 'filter_remote_prefix';
     
     /**
      * Produces multiple request if the filter value is a list (= an `IN` filter). 
