@@ -392,7 +392,11 @@ class JsonUrlBuilder extends AbstractUrlBuilder
      */
     protected function findFieldInData($data_address, $data)
     {
-        return ArrayDataType::filterXPath((array) $data, $data_address);
+        $data = (array) $data;
+        if ($data_address === '' || $data_address === null) {
+            return $data;
+        }
+        return ArrayDataType::filterXPath($data, $data_address);
     }
     
     /**
