@@ -18,6 +18,7 @@ use exface\Core\DataTypes\BooleanDataType;
 use exface\Core\Interfaces\Model\CompoundAttributeInterface;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartAttribute;
 use exface\Core\CommonLogic\Model\Aggregator;
+use exface\Core\DataTypes\ArrayDataType;
 
 /**
  * This is a query builder for JSON-based REST APIs.
@@ -314,24 +315,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
     
     protected function getValueFromRowViaXPath(QueryPartAttribute $qpart, array $row, string $path)
     {
-        $val = $row;
-        foreach ($this->dataPathSplit($path) as $step) {
-            if ($cond_start = strpos($step, '[')) {
-                if (substr($step, - 1) != ']')
-                    throw new QueryBuilderException('Invalid conditional selector in attribute "' . $qpart->getAlias() . '": "' . $step . '"!');
-                    $cond = explode('=', substr($step, $cond_start + 1, - 1));
-                    if ($val = $val[substr($step, 0, $cond_start)]) {
-                        foreach ($val as $v) {
-                            if ($v[$cond[0]] == $cond[1]) {
-                                $val = $v;
-                                break;
-                            }
-                        }
-                    }
-            } else {
-                $val = $val[$step];
-            }
-        }
+        $val = ArrayDataType::filterXPath($row, $path);
         
         // Check if the value is still an array and an aggregator must be applied
         if (is_array($val)) {
@@ -408,28 +392,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
      */
     protected function findFieldInData($data_address, $data)
     {
-        $val = (array) $data;
-        if ($data_address === '/') {
-            return $data;
-        }
-        foreach ($this->dataPathSplit($data_address) as $step) {
-            if ($cond_start = strpos($step, '[')) {
-                if (substr($step, - 1) != ']')
-                    throw new QueryBuilderException('Invalid conditional selector in attribute "' . $qpart->getAlias() . '": "' . $step . '"!');
-                $cond = explode('=', substr($step, $cond_start + 1, - 1));
-                if ($val = $val[substr($step, 0, $cond_start)]) {
-                    foreach ($val as $v) {
-                        if ($v[$cond[0]] == $cond[1]) {
-                            $val = $v;
-                            break;
-                        }
-                    }
-                }
-            } else {
-                $val = $val[$step];
-            }
-        }
-        return $val;
+        return ArrayDataType::filterXPath((array) $data, $data_address);
     }
     
     /**
