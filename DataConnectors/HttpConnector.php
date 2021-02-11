@@ -33,6 +33,7 @@ use exface\UrlDataConnector\Interfaces\HttpAuthenticationProviderInterface;
 use exface\UrlDataConnector\DataConnectors\Authentication\HttpBasicAuth;
 use GuzzleHttp\Cookie\CookieJarInterface;
 use exface\Core\Events\Security\OnAuthenticationFailedEvent;
+use exface\UrlDataConnector\ModelBuilders\GenericUrlModelBuilder;
 
 /**
  * Connector for Websites, Webservices and other data sources accessible via HTTP, HTTPS, FTP, etc.
@@ -883,7 +884,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         if ($this->hasSwagger()) {
             return new SwaggerModelBuilder($this);
         }
-        return parent::getModelBuilder();
+        return new GenericUrlModelBuilder($this);
     }
     
     /**
