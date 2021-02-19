@@ -408,7 +408,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     protected function prepareRequest(RequestInterface $request) : RequestInterface
     {
         if ($request->getUri()->__toString() === '') {
-            $baseUrl = $this->getUrl();
+            $baseUrl = $this->getUrl() ?? '';
             if ($endpoint = StringDataType::substringAfter($baseUrl, '/', '', false, true)) {
                 $request = $request->withUri(new Uri($endpoint));
             }
