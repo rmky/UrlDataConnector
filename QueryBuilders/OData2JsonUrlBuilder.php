@@ -321,7 +321,7 @@ class OData2JsonUrlBuilder extends JsonUrlBuilder
         
         $value = null;
         // Add a prefix to the value if needed
-        if ($prefix = $qpart->getDataAddressProperty(AbstractUrlBuilder::DAP_FILTER_REMOTE_URL_PREFIX)) {
+        if ($prefix = $qpart->getDataAddressProperty(AbstractUrlBuilder::DAP_FILTER_REMOTE_PREFIX)) {
             $value = $prefix . $this->buildUrlFilterValue($qpart);
         }
         
