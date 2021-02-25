@@ -1334,7 +1334,11 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
      */
     protected function findRowCounter($data, Psr7DataQuery $query)
     {
-        return $this->findFieldInData($this->buildPathToTotalRowCounter($this->getMainObject()), $data);
+        $counterPath = $this->buildPathToTotalRowCounter($this->getMainObject());
+        if ($counterPath === null || $counterPath === '') {
+            return null;
+        }
+        return $this->findFieldInData($counterPath, $data);
     }
     
     /**
