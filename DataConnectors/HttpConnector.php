@@ -407,12 +407,38 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      */
     protected function prepareRequest(RequestInterface $request) : RequestInterface
     {
+        // Handle relative URIs
+        // First, add the base URI of the connection
         if ($request->getUri()->__toString() === '') {
             $baseUrl = $this->getUrl() ?? '';
             if ($endpoint = StringDataType::substringAfter($baseUrl, '/', '', false, true)) {
                 $request = $request->withUri(new Uri($endpoint));
             }
         }
+        
+        // If the resulting URL (incl. connection base) is relative, assume it is relative
+        // to the workbench. So we need to prepend the workbench URL to make it absolute and
+        // thus suitable for Guzzle.
+        $uri = $request->getUri();
+        if ($uri->getHost() === '') {
+            if (substr($uri->__toString(), 0, 1) !== '/') {
+                // If the URI is relative to the current folder, simply prepend the URL
+                // of the workench.
+                $request = $request->withUri(new Uri($this->getWorkbench()->getUrl() . $uri->__toString()));
+            } else {
+                // If it is relative to the server root, add scheme, host and port from
+                // the workbench URL
+                $wbUri = new Uri($this->getWorkbench()->getUrl());
+                $fullUri = $uri
+                    ->withHost($wbUri->getHost())
+                    ->withScheme($wbUri->getScheme())
+                    ->withPort($wbUri->getPort());
+                $request = $request->withUri($fullUri);
+            }
+        }
+        
+        // Now add everything related to authentication by pssing the request to the auth
+        // provider.
         if ($this->hasAuthentication()) {
             $request = $this->getAuthProvider()->signRequest($request);
         }
