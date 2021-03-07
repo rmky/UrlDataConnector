@@ -88,7 +88,7 @@ class GeoJsonModelBuilder extends GenericJsonModelBuilder
         ]);
         
         if ($properties = $responseRow['properties'] ?? null) {
-            $sheet = $this->addAttributeRows($properties, $sheet, 'properties');
+            $sheet = $this->addAttributeRows($properties, $sheet, 'properties/');
         }
         
         $sheet->getColumns()->addFromAttribute($sheet->getMetaObject()->getAttribute('OBJECT'))->setValueOnAllRows($object->getId());
