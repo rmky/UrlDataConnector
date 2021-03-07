@@ -8,7 +8,6 @@ use exface\Core\Interfaces\DataSources\DataTransactionInterface;
 use exface\Core\Interfaces\DataSheets\DataSheetInterface;
 use exface\Core\DataTypes\IntegerDataType;
 use exface\Core\DataTypes\StringDataType;
-use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Interfaces\DataTypes\DataTypeInterface;
 use Psr\Http\Message\ResponseInterface;
 use exface\Core\Interfaces\WorkbenchInterface;

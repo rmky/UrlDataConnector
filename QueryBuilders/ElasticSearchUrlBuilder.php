@@ -22,19 +22,11 @@ use exface\Core\CommonLogic\QueryBuilder\QueryPartFilterGroup;
 use exface\Core\CommonLogic\QueryBuilder\QueryPartFilter;
 
 /**
- * This is a query builder for GraphQL.
+ * This is a query builder for Elastic Search APIs.
+ * 
+ * Internally the query builder uses the Elastica PHP library (https://elastica.io/).
  * 
  * NOTE: this query builder is an early beta and has many limitations:
- * 
- * - TODO
- * 
- * # Data source options
- * 
- * ## On object level
- * 
- * - TODO
- * 
- * ## On attribute level
  * 
  * - TODO
  * 
