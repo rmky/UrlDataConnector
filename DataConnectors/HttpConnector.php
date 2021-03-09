@@ -420,7 +420,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         // to the workbench. So we need to prepend the workbench URL to make it absolute and
         // thus suitable for Guzzle.
         $uri = $request->getUri();
-        if ($uri->getHost() === '') {
+        if ($uri->getHost() === '' && ! $this->getUrl()) {
             if (substr($uri->__toString(), 0, 1) !== '/') {
                 // If the URI is relative to the current folder, simply prepend the URL
                 // of the workench.
