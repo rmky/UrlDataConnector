@@ -100,15 +100,23 @@ class Psr7DataQuery extends AbstractDataQuery
         // Request
         $request_tab = $debug_widget->createTab();
         $request_tab->setCaption('Data-Request');
-        
+        try {
+            $url = $this->getRequest()->getUri()->__toString();
+        } catch (\Throwable $e) {
+            $url = 'Unavailable: ' . $e->getMessage();
+        }
         $request_widget = WidgetFactory::create($page, 'Html', $request_tab);
         $request_widget_html = <<<HTML
             <div style="padding:10px;">
-                <h3>HTTP-Headers</h3>
+                <h3>Request URL</h3>
+                <a href="{$url}">{$url}</a>
+            </div>
+            <div style="padding:10px;">
+                <h3>HTTP request headers</h3>
                 {$this->generateRequestHeaders($debug_widget->getWorkbench())}
             </div>
             <div style="padding:10px;">
-                <h3>HTTP-Body</h3>
+                <h3>Request body</h3>
                 {$this->generateMessageBody($debug_widget->getWorkbench(), $this->getRequest())}
             </div>
 HTML;
@@ -124,11 +132,11 @@ HTML;
         $response_widget = WidgetFactory::create($page, 'Html', $response_tab);
         $response_widget_html = <<<HTML
             <div style="padding:10px;">
-                <h3>HTTP-Headers</h3>
+                <h3>HTTP response headers</h3>
                 {$this->generateResponseHeaders($debug_widget->getWorkbench())}
             </div>
             <div style="padding:10px;">
-                <h3>HTTP-Body</h3>
+                <h3>Response body</h3>
                 {$this->generateMessageBody($debug_widget->getWorkbench(), $this->getResponse())}
             </div>
 HTML;
