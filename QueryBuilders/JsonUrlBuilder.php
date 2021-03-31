@@ -4,7 +4,6 @@ namespace exface\UrlDataConnector\QueryBuilders;
 use exface\Core\DataTypes\ComparatorDataType;
 use exface\Core\DataTypes\StringDataType;
 use exface\Core\Exceptions\QueryBuilderException;
-use exface\Core\CommonLogic\DataSheets\DataColumn;
 use exface\UrlDataConnector\Psr7DataQuery;
 use GuzzleHttp\Psr7\Request;
 use exface\Core\Exceptions\Model\MetaAttributeNotFoundError;
@@ -327,7 +326,7 @@ class JsonUrlBuilder extends AbstractUrlBuilder
                     }
                 }
             }
-            $val = DataColumn::aggregateValues($val, $aggr);
+            $val = ArrayDataType::aggregateValues($val, $aggr);
         }
         return $val;
     }

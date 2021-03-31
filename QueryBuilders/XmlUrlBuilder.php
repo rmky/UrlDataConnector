@@ -2,12 +2,12 @@
 namespace exface\UrlDataConnector\QueryBuilders;
 
 use exface\Core\Exceptions\QueryBuilderException;
-use exface\Core\CommonLogic\DataSheets\DataColumn;
 use Psr\Http\Message\ResponseInterface;
 use exface\UrlDataConnector\Psr7DataQuery;
 use exface\Core\Interfaces\DataSources\DataConnectionInterface;
 use exface\Core\Interfaces\DataSources\DataQueryResultDataInterface;
 use exface\Core\CommonLogic\DataQueries\DataQueryResultData;
+use exface\Core\DataTypes\ArrayDataType;
 
 /**
  * TODO: This is a very early beta.
@@ -79,7 +79,7 @@ class XmlUrlBuilder extends AbstractUrlBuilder
                             
                             // Check if the value is still an array and an aggregator must be applied
                             if (is_array($val)) {
-                                $val = DataColumn::aggregateValues($val, $qpart->getAggregator());
+                                $val = ArrayDataType::aggregateValues($val, $qpart->getAggregator());
                             }
                             $result_rows[$nr][$qpart->getColumnKey()] = $val;
                         }
