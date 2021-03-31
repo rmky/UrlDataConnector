@@ -1167,6 +1167,9 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
                 $totalCnt = $cnt_after_local_filters;
             }
             
+            // Apply local aggregations
+            $result_rows = $this->applyAggregations($result_rows, $this->getAggregationsToApplyAfterReading());
+            
             // Apply local sorting
             $result_rows = $this->applySorting($result_rows);
             
@@ -1190,6 +1193,15 @@ abstract class AbstractUrlBuilder extends AbstractQueryBuilder
         }
         
         return new DataQueryResultData($result_rows, count($result_rows), $hasMoreRows, $totalCnt);
+    }
+    
+    /**
+     * 
+     * @return QueryPartAttribute[]
+     */
+    protected function getAggregationsToApplyAfterReading() : array
+    {
+        return $this->getAggregations();
     }
 
     protected function parseResponse(Psr7DataQuery $query)
