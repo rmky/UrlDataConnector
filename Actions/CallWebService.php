@@ -902,4 +902,14 @@ class CallWebService extends AbstractAction implements iCallService
         
         return null;
     }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see \exface\Core\CommonLogic\AbstractAction::getEffects()
+     */
+    public function getEffects() : array
+    {
+        return array_merge(parent::getEffects(), $this->getEffectsFromModel());
+    }
 }
