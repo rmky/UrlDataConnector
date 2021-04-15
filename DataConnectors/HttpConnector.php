@@ -110,10 +110,6 @@ use exface\UrlDataConnector\ModelBuilders\GenericUrlModelBuilder;
  */
 class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterface
 {
-    const AUTH_TYPE_BASIC = 'basic';
-    const AUTH_TYPE_DIGEST = 'digest';
-    const AUTH_TYPE_NONE = 'none';
-
     private $user = null;
 
     private $password = null;
@@ -1082,7 +1078,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
     {
         // For simplicity, user/password can be set in the connection config directly.
         // This will result in the use of the default authentication type (HTTB basic auth).
-        if ($this->authProviderUxon === null && $this->user !== null) {
+        if ($this->authProviderUxon === null && ($this->user !== null || $this->hasAuthentication())) {
             $this->authProviderUxon = $this->createDefaultAuthConfig();
         }
         return $this->authProviderUxon;
