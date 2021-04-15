@@ -81,8 +81,10 @@ use exface\UrlDataConnector\ModelBuilders\GenericUrlModelBuilder;
  * ```
  * 
  * If the data source can block users or IPs after X unseccessful login attempts, set
- * `authentication_retry_after_fail` to `false` to make sure a login prompt is displayed
- * once a 401-response is received for a certain set of credentials!
+ * `authentication_retry_after_fail` to `false` to avoid silently trying the same set of
+ * invalid credentials within within a single user session. In this case, a login prompt 
+ * is displayed automatically after the first 401-response - **before** making a request
+ * (as long as the credentials did not change, of course).
  * 
  * ## Caching
  * 
@@ -1143,12 +1145,14 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
      * even if the current credentials were already rejected previously. Only if the current
      * connection attempt fails, a login prompt will be displayed. This means, that if the
      * credentials became outdated, the data source will register a failed login attempt every 
-     * time. This may result in the user or the IP bein blacklisted.  
+     * time. This may result in the user or the IP being blacklisted in some APIs.  
      * 
-     * If this option is set to `true` the connector will remember, which credentials did not 
-     * work and will not retry them again automatically. This means, that after a 401-response 
-     * is received, the user will get a login prompt _before_ the data source is contacted 
-     * untill a new authentication attempt succeeds (e.g. that login promt is submitted). 
+     * If this option is set to `false` the connector will remember, which credentials did not 
+     * work and will not retry them again automatically - for the duration of the current session. 
+     * This means, that after a 401-response is received, the user will get a login prompt **before** 
+     * the data source is contacted untill a new authentication attempt succeeds (e.g. that login 
+     * promt is submitted). 
+     * 
      * After a successful authentication, the credentials will be used silently agian - regardless
      * of wether they actually changed or not.
      *
@@ -1194,7 +1198,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
         }
         
         $hash = $this->getAuthRetryDisabledHash();
-        $ctxtScope = $this->getWorkbench()->getContext()->getScopeUser();
+        $ctxtScope = $this->getWorkbench()->getContext()->getScopeSession();
         return $ctxtScope->getVariable($this->getAuthRetryDisabledVar()) === $hash;
     }
     
@@ -1209,7 +1213,7 @@ class HttpConnector extends AbstractUrlConnector implements HttpConnectionInterf
             return $this;
         }
         
-        $ctxtScope = $this->getWorkbench()->getContext()->getScopeUser();
+        $ctxtScope = $this->getWorkbench()->getContext()->getScopeSession();
         if ($trueOrFalse === true) {
             $ctxtScope->setVariable($this->getAuthRetryDisabledVar(), $this->getAuthRetryDisabledHash());
         } else {
