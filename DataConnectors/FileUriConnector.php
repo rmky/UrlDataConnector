@@ -11,6 +11,8 @@ use exface\Core\Exceptions\DataSources\DataQueryFailedError;
 class FileUriConnector extends AbstractUrlConnector
 {
 
+    private $hideFileMissingError = null;
+    
     /**
      *
      * {@inheritdoc}
@@ -50,11 +52,36 @@ class FileUriConnector extends AbstractUrlConnector
         }
         
         if (! file_exists($file_path)) {
+            if ($this->getHideFileMissingError()) {
+                $query->setResponse(new Response(200, array()));
+                return $query;
+            }
             throw new DataQueryFailedError($query, 'File not found: "' . $file_path . '"!');
         }
         
         $query->setResponse(new Response(200, array(), Psr7\stream_for(fopen($file_path, 'r'))));
         return $query;
+    }
+    
+    /**
+     * Set if the error that the requested file doesn't exist should be hidden or not. If no error should be shown the response body is empty.
+     * By default the error will be shown.
+     * 
+     * @uxon-property hide_file_missing_error
+     * @uxon-type boolean
+     * 
+     * @param bool $trueOrFalse
+     * @return FileUriConnector
+     */
+    public function setHideFileMissingError(bool $trueOrFalse) : FileUriConnector
+    {
+        $this->hideFileMissingError = $trueOrFalse;
+        return $this;
+    }
+    
+    protected function getHideFileMissingError() : bool
+    {
+        return $this->hideFileMissingError ?: false;
     }
 }
 ?>
