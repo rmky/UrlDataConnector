@@ -53,14 +53,16 @@
     "rows": [
         {
             "CREATED_ON": "2016-07-18 21:45:47",
-            "MODIFIED_ON": "2017-04-27 15:26:46",
+            "MODIFIED_ON": "2021-06-01 09:19:09",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
-            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x11e8fe1c902c8ebea23ee4b318306b9a",
             "UID": "0x11e64d20396ae3349409c0f8dae36b4f",
             "APP": "0x11e6951dda3ba520b48b847beb4a5184",
             "LABEL": "Local file URI",
             "CONNECTOR": "exface\/UrlDataConnector\/DataConnectors\/FileUriConnector.php",
-            "CONFIG": null,
+            "CONFIG": {
+                "hide_file_missing_error": true
+            },
             "READONLY": "0",
             "ALIAS": "LOCAL_FILE_URI",
             "FILTER_CONTEXT": null
